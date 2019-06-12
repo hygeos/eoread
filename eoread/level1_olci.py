@@ -7,6 +7,7 @@ import dask.array as da
 import os
 import numpy as np
 from eoread.common import Interpolator, AtIndex
+from xml.dom.minidom import parse, parseString
 
 
 olci_band_names = [
@@ -24,6 +25,23 @@ olci_band_names = [
     ]
 
 
+def read_manifest(dirname):
+    filename = '{}/xfdumanifest.xml'.format(dirname)
+    bandfilenames = {}
+    with open(filename) as pf:
+        manif = pf.read()
+        dom = parseString(manif)
+        for n in dom.getElementsByTagName('dataObject'):
+            inode = n.attributes['ID'].value[:-4]
+            href = n.getElementsByTagName('fileLocation')[0].attributes['href'].value
+            if '_radiance' in inode:
+                bandfilenames[inode[:-9]] = href
+
+        n = dom.getElementsByTagName('sentinel-safe:footPrint')[0]
+        footprint = n.getElementsByTagName('gml:posList')[0].lastChild.data
+        footprint = [float(v) for v in footprint.split()]
+
+    return bandfilenames, footprint
 
 def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}):
     '''
@@ -31,13 +49,14 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}):
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
     '''
     ds = xr.Dataset()
-    # TODO:
+
     # read manifest file for file names and footprint
+    bandfilenames, footprint = read_manifest(dirname)
 
     # Read TOA radiance
     Ltoa_list = []
     for _, bname in olci_band_names:
-        fname = os.path.join(dirname, bname+'_radiance.nc')
+        fname = os.path.join(dirname, bandfilenames[bname])
         Ltoa_list.append(xr.open_dataset(fname, chunks=chunks)[bname+'_radiance'])
 
     index_bands = xr.IndexVariable('bands', [k for k, _ in olci_band_names])
