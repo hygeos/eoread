@@ -8,6 +8,7 @@ from eoread.level1_olci import Level1_OLCI
 from eoread.level1_msi import Level1_MSI
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
+from eoread.common import GeoDatasetAccessor
 
 
 @pytest.mark.parametrize('prod_id,prod_name', [p.prod_S3_20190430])
@@ -15,6 +16,10 @@ def test_olci(sentinel_product, capsys):
     ds = Level1_OLCI(sentinel_product)
 #     with capsys.disabled():
     print(ds)
+    acc = GeoDatasetAccessor(ds)
+    # test methode contains
+    assert(acc.contains(47,13)==True)
+    assert(acc.contains(47,-13)==False)
 
 
 @pytest.mark.parametrize('prod_id,prod_name,resolution',

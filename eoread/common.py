@@ -6,6 +6,7 @@ import xarray as xr
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 from scipy.interpolate import RectBivariateSpline
+from shapely.geometry import Polygon, Point
 
 @xr.register_dataset_accessor('eo')
 class GeoDatasetAccessor(object):
@@ -53,7 +54,10 @@ class GeoDatasetAccessor(object):
 
 
     def contains(self, lat, lon):
-        raise NotImplementedError
+        pt = Point(lat,lon)
+        area = Polygon(self._obj.attrs['Footprint'])
+        return area.contains(pt)
+        
 
 
     def check(self):

@@ -39,7 +39,8 @@ def read_manifest(dirname):
 
         n = dom.getElementsByTagName('sentinel-safe:footPrint')[0]
         footprint = n.getElementsByTagName('gml:posList')[0].lastChild.data
-        footprint = [float(v) for v in footprint.split()]
+        idata = iter(footprint.split())
+        footprint = [(float(v), float(idata.__next__())) for v in idata]
 
     return bandfilenames, footprint
 
@@ -51,7 +52,8 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}):
     ds = xr.Dataset()
 
     # read manifest file for file names and footprint
-    bandfilenames, footprint = read_manifest(dirname)
+    bandfilenames, footprints = read_manifest(dirname)
+    ds.attrs['Footprint'] = footprints
 
     # Read TOA radiance
     Ltoa_list = []
