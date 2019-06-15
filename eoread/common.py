@@ -34,37 +34,64 @@ def haversine(lat1, lon1, lat2, lon2, radius=6371):
 class GeoDatasetAccessor(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
-        
-    def init(self):
+
+    def init(self, optional=[]):
         '''
-        Product initialization: lazily add useful variables
+        Common initializations + optional ones
+        optional: list of variables to initialize:
+            'Rtoa': TOA reflectance (level1 products)
+                    -> implies 'geometry'
+            'geometry': geometrical variables
         '''
         ds = self._obj
-        print(f'Initialize product {ds.product_name}...')
 
         # set rows and column indices
-        # this is necessary to keey the position of a subproduct
+        # this is necessary to keep the position of a subproduct
         # within a product
         for x in ['rows', 'columns']:
             if len(ds[x].coords) == 0:
                 ds[x] = xr.IndexVariable(x, range(len(ds[x])))
 
-        # mus and muv
-        assert not 'mus' in ds
-        assert not 'muv' in ds
-        ds['mus'] = np.cos(np.radians(ds.sza))
-        ds['mus'].attrs['description'] = 'cosine of the sun zenith angle'
-        ds['muv'] = np.cos(np.radians(ds.vza))
-        ds['muv'].attrs['description'] = 'cosine of the view zenith angle'
+        if 'Rtoa' in optional:
+            self.init_Rtoa()
+        if 'geometry' in optional:
+            self.init_geometry()
 
-        # TODO: scattering angle
+        return ds
+
+    def init_Rtoa(self):
+        '''
+        Initialize TOA reflectances
+        '''
+        ds = self._obj
+
+        self.init_geometry()
 
         # TOA reflectance
         if 'Rtoa' not in ds:
             ds['Rtoa'] = np.pi*ds.Ltoa/(ds.mus*ds.F0)
 
         return ds
-    
+
+    def init_geometry(self):
+        '''
+        Initialize geometry variables
+        '''
+        ds = self._obj
+
+        # mus and muv
+        if 'mus' not in ds:
+            ds['mus'] = np.cos(np.radians(ds.sza))
+            ds['mus'].attrs['description'] = 'cosine of the sun zenith angle'
+        if 'muv' not in ds:
+            ds['muv'] = np.cos(np.radians(ds.vza))
+            ds['muv'].attrs['description'] = 'cosine of the view zenith angle'
+
+        # TODO: scattering angle
+
+        return ds
+
+
     def locate(self, lat, lon):
         print(f'Locating lat={lat}, lon={lon}')
         ds = self._obj

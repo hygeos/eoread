@@ -13,6 +13,7 @@ from eoread.common import GeoDatasetAccessor
 def test_olci_level1(sentinel_product, capsys):
     ds = Level1_OLCI(sentinel_product)
 #     with capsys.disabled():
+    ds.eo.init(['Rtoa', 'geometry'])
     print(ds)
 
     # test method contains

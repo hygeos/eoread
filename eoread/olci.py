@@ -80,13 +80,17 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     manifest = read_manifest(dirname)
     ds.attrs['Footprint'] = manifest['footprint']
 
-    level_from_manifest = {
-            'SENTINEL-3 OLCI Level 1 Earth Observation Full Resolution Product': 'level1',
-            'SENTINEL-3 OLCI Level 2 Water Product': 'level2',
-            }[manifest['textinfo']]
+    try:
+        level_from_manifest = {
+                'SENTINEL-3 OLCI Level 1 Earth Observation Full Resolution Product': 'level1',
+                'SENTINEL-3 OLCI Level 1 Earth Observation Reduced Resolution Product': 'level1',
+                'SENTINEL-3 OLCI Level 2 Water Product': 'level2',
+                }[manifest['textinfo']]
+    except KeyError:
+        raise Exception('Invalid textinfo in manifest: "{}"'.format(manifest['textinfo']))
     assert (level is None) or (level == level_from_manifest), ('expected', level, 'encountered', level_from_manifest)
 
-    # Read TOA radiance
+    # Read main product
     prod_list = []
     bands = []
     for idx, filename in manifest['bandfilenames']:
@@ -111,7 +115,10 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     # dimensions
     dims2 = ('rows', 'columns')
     dims3 = ('bands', 'rows', 'columns')
-
+    if level == 'level1':
+        dims3_full = ('bands', 'rows', 'columns')
+    else:
+        dims3_full = ('bands_full', 'rows', 'columns')
     assert dims2 == ds.latitude.dims
     shape2 = ds.latitude.shape
     chunksize2 = ds.latitude.data.chunksize
@@ -119,22 +126,22 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
 
     # tie geometry interpolation
     tie_geom_file = os.path.join(dirname, 'tie_geometries.nc')
-    tie = xr.open_dataset(tie_geom_file, chunks={})
-    tie = tie.assign_coords(
-                tie_columns = np.arange(tie.dims['tie_columns'])*ds.ac_subsampling_factor,
-                tie_rows = np.arange(tie.dims['tie_rows'])*ds.al_subsampling_factor,
+    tie_ds = xr.open_dataset(tie_geom_file, chunks={})
+    tie_ds = tie_ds.assign_coords(
+                tie_columns = np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
+                tie_rows = np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
-    assert tie.tie_columns[0] == ds.columns[0]
-    assert tie.tie_columns[-1] == ds.columns[-1]
-    assert tie.tie_rows[0] == ds.rows[0]
-    assert tie.tie_rows[-1] == ds.rows[-1]
+    assert tie_ds.tie_columns[0] == ds.columns[0]
+    assert tie_ds.tie_columns[-1] == ds.columns[-1]
+    assert tie_ds.tie_rows[0] == ds.rows[0]
+    assert tie_ds.tie_rows[-1] == ds.rows[-1]
     for (ds_full, ds_tie, method) in [
                 ('sza', 'SZA', 'linear'),
                 ('saa', 'SAA', 'nearest'),
                 ('vza', 'OZA', 'linear'),
                 ('vaa', 'OAA', 'nearest'),
             ]:
-        ds[ds_full] = (dims2, da.from_array(Interpolator(shape2, tie[ds_tie]),
+        ds[ds_full] = (dims2, da.from_array(Interpolator(shape2, tie_ds[ds_tie]),
                                             chunks=chunksize2))
         ds[ds_full].attrs = tie[ds_tie].attrs
         if tie_param:
@@ -163,8 +170,8 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
             ds[var+'_tie'] = tie[var]
 
     # check subsampling factors
-    assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie.dims['tie_columns']-1)
-    assert (ds.dims['rows']-1) == ds.al_subsampling_factor*(tie.dims['tie_rows']-1)
+    assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie_ds.dims['tie_columns']-1)
+    assert (ds.dims['rows']-1) == ds.al_subsampling_factor*(tie_ds.dims['tie_rows']-1)
 
     # check lat/lon from tie
     if False:
@@ -191,20 +198,30 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     if init_spectral:
         olci_init_spectral(ds)
 
-    # quality flags
     if level == 'level1':
+        # quality flags
         qf_file = os.path.join(dirname, 'qualityFlags.nc')
         qf = xr.open_dataset(qf_file, chunks=chunks)
         ds['quality_flags'] = qf.quality_flags
     else:
+        # chl_nn
+        fname = os.path.join(dirname, 'chl_nn.nc')
+        qf = xr.open_dataset(fname, chunks=chunks)
+        ds['chl_nn'] = qf.CHL_NN
+
+        # chl_oc4me
+        fname = os.path.join(dirname, 'chl_oc4me.nc')
+        qf = xr.open_dataset(fname, chunks=chunks)
+        ds['chl_oc4me'] = qf.CHL_OC4ME
+
         # quality flags
-        qf_file = os.path.join(dirname, 'wqsf.nc')
-        qf = xr.open_dataset(qf_file, chunks=chunks)
+        fname = os.path.join(dirname, 'wqsf.nc')
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['wqsf'] = qf.WQSF
 
         # aerosol properties
-        qf_file = os.path.join(dirname, 'w_aer.nc')
-        qf = xr.open_dataset(qf_file, chunks=chunks)
+        fname = os.path.join(dirname, 'w_aer.nc')
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['A865'] = qf.A865
         ds['T865'] = qf.T865
 
