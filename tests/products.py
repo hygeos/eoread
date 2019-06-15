@@ -11,15 +11,6 @@ from glob import glob
 Get necessary products for testing
 '''
 
-# products definition
-prod_S2_20190419 = (
-    '3ac99e56-8bff-4af3-b9bd-2e41a1ddaf61',
-    'S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656.SAFE')
-
-prod_S3_20190430 = (
-    '6271ae12-0e00-47d1-9a08-b0658d2262ad',
-    'S3A_OL_1_EFR____20190430T094655_20190430T094955_20190501T131540_0179_044_136_2160_LN1_O_NT_002.SEN3')
-
 try:
     import credentials
 except:
@@ -28,7 +19,29 @@ except:
                     "scihub = {'user': 'username',\n"
                     "          'password': 'password',\n"
                     "          'api_url': 'https://scihub.copernicus.eu/dhus/'}\n"
+                    "coda = {'user': 'username',\n"
+                    "        'password': 'password',\n"
+                    "        'api_url': 'https://coda.eumetsat.int'}\n"
                     )
+
+# products definition
+prod_S2_L1_20190419 = {
+    'id': '3ac99e56-8bff-4af3-b9bd-2e41a1ddaf61',
+    'name': 'S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656.SAFE',
+    'credentials': credentials.scihub
+    }
+
+prod_S3_L1_20190430 = {
+    'id': '6271ae12-0e00-47d1-9a08-b0658d2262ad',
+    'name': 'S3A_OL_1_EFR____20190430T094655_20190430T094955_20190501T131540_0179_044_136_2160_LN1_O_NT_002.SEN3',
+    'credentials': credentials.scihub
+    }
+
+prod_S3_L2_20190612 = {
+    'id': 'a8c346c8-7752-4720-82b8-e5dea5fccf22',
+    'name': 'S3B_OL_2_WFR____20190612T085520_20190612T085820_20190613T175523_0179_026_221_2340_MAR_O_NT_002.SEN3',
+    'credentials': credentials.coda,
+    }
 
 
 @pytest.fixture
@@ -40,22 +53,22 @@ def sample_data_path():
 
 
 @pytest.fixture
-def sentinel_product(prod_id, prod_name, sample_data_path, capsys):
+def sentinel_product(product, sample_data_path, capsys):
     '''
     Returns uncompressed Sentinel product
     '''
-    prod_path = os.path.join(sample_data_path, prod_name)
+    prod_path = os.path.join(sample_data_path, product['name'])
     if os.path.exists(prod_path):
         return prod_path
     
-    download_dir = os.path.join(sample_data_path, prod_id)
+    download_dir = os.path.join(sample_data_path, product['id'])
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
 
-    api = SentinelAPI(**credentials.scihub)
+    api = SentinelAPI(**product['credentials'])
     with capsys.disabled():
-        print('Downloading', prod_id, 'under', prod_name)
-        api.download(prod_id, directory_path=download_dir)
+        print('Downloading', product['id'], 'under', product['name'])
+        api.download(product['id'], directory_path=download_dir)
     
     zipf = glob(os.path.join(download_dir, '*'))[0]
     

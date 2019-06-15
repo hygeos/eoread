@@ -47,6 +47,7 @@ class GeoDatasetAccessor(object):
     def locate(self, lat, lon):
         print(f'Locating lat={lat}, lon={lon}')
         ds = self._obj
+        # TODO: haversine
         dist = (ds.latitude - lat)**2 + (ds.longitude - lon) **2
         dist_min = np.amin(dist)
         # TODO: check if it is within
@@ -56,8 +57,9 @@ class GeoDatasetAccessor(object):
     def contains(self, lat, lon):
         pt = Point(lat,lon)
         area = Polygon(self._obj.attrs['Footprint'])
+        # TODO: proper inclusion test
+        # TODO: make it work with arrays
         return area.contains(pt)
-        
 
 
     def check(self):
