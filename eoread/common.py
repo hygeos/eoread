@@ -80,6 +80,12 @@ class GeoDatasetAccessor(object):
         
         return map
 
+    def sub_rect(self, lat_min, lat_max, long_min, long_max):
+        return self._obj.where(((self._obj.latitude < lat_max) & (self._obj.latitude > lat_min) & (self._obj.longitude < long_max) & (self._obj.longitude > long_min)), drop = True)
+
+    def sub_pt(self, lat, lon, rad):
+        rad_2 = rad*rad
+        return self._obj.where((pow(self._obj.latitude-lat,2)+pow(self._obj.longitude-lon,2) < rad_2), drop = True)
 
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):

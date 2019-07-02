@@ -112,9 +112,9 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}):
     dims2 = ('rows', 'columns')
     dims3 = ('bands', 'rows', 'columns')
     if level == 'level1':
-        dims3_full = ('bands', 'rows', 'cols')
+        dims3_full = ('bands', 'rows', 'columns')
     else:
-        dims3_full = ('bands_full', 'rows', 'cols')
+        dims3_full = ('bands_full', 'rows', 'columns')
     assert dims2 == ds.latitude.dims
     shape2 = ds.latitude.shape
     chunksize2 = ds.latitude.data.chunksize
