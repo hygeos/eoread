@@ -68,6 +68,19 @@ class GeoDatasetAccessor(object):
             assert 'units' in self._obj[x].attrs, f'{x} has no units'
 
 
+    def show_footprint(self):
+        import ipyleaflet as ipy
+
+        poly_pts = self._obj.attrs['Footprint']
+        center = [sum(x)/len(poly_pts) for x in zip(*poly_pts)]
+
+        map = ipy.Map(zoom=4, center = center)
+        polygon = ipy.Polygon(locations = poly_pts, color = "green", fillcolor = "blue")
+        map.add_layer(polygon)
+        
+        return map
+
+
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):
     def __init__(self, xarray_obj):
