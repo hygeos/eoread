@@ -25,18 +25,18 @@ olci_band_names = {
     }
 
 
-def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}):
+def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level1', chunks=chunks)
+    return read_OLCI(dirname, level='level1', chunks=chunks, tie_param=tie_param)
 
 
-def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300}):
+def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level2', chunks=chunks)
+    return read_OLCI(dirname, level='level2', chunks=chunks, tie_param=tie_param)
 
 
 def read_manifest(dirname):
@@ -46,10 +46,10 @@ def read_manifest(dirname):
     with open(filename) as pf:
         manif = pf.read()
     dom = parseString(manif)
-
+    
     # read product type
     textinfo = dom.getElementsByTagName('xfdu:contentUnit')[0].attributes['textInfo'].value
-
+    
     # read bands and related files
     for n in dom.getElementsByTagName('dataObject'):
         inode = n.attributes['ID'].value[:-4]
@@ -68,7 +68,7 @@ def read_manifest(dirname):
             'textinfo': textinfo,
             }
 
-def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}):
+def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_param=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
@@ -141,7 +141,8 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}):
         ds[ds_full] = (dims2, da.from_array(Interpolator(shape2, tie[ds_tie]),
                                             chunks=chunksize2))
         ds[ds_full].attrs = tie[ds_tie].attrs
-        ds[ds_full+'_tie'] = tie[ds_tie]
+        if tie_param:
+            ds[ds_full+'_tie'] = tie[ds_tie]
 
     # check subsampling factors
     assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie.dims['tie_columns']-1)
