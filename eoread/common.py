@@ -1,18 +1,39 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
+import os
 import xarray as xr
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 from scipy.interpolate import RectBivariateSpline
 from shapely.geometry import Polygon, Point
 
+from numpy import radians, cos, sin, arcsin as asin, sqrt
+
+def haversine(lat1, lon1, lat2, lon2, radius=6371):
+    '''
+    Calculate the great circle distance between two points (specified in
+    decimal degrees) on a sphere of a given radius
+
+    Returns the distance in the same unit as radius (defaults to earth radius in km)
+    '''
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = [radians(x) for x in [lon1, lat1, lon2, lat2]]
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    dist = radius * c
+
+    return dist
+
 @xr.register_dataset_accessor('eo')
 class GeoDatasetAccessor(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
-
+        
     def init(self):
         '''
         Product initialization: lazily add useful variables
@@ -42,8 +63,7 @@ class GeoDatasetAccessor(object):
             ds['Rtoa'] = np.pi*ds.Ltoa/(ds.mus*ds.F0)
 
         return ds
-
-
+    
     def locate(self, lat, lon):
         print(f'Locating lat={lat}, lon={lon}')
         ds = self._obj
@@ -53,14 +73,12 @@ class GeoDatasetAccessor(object):
         # TODO: check if it is within
         return np.where(dist == dist_min)
 
-
     def contains(self, lat, lon):
         pt = Point(lat,lon)
         area = Polygon(self._obj.attrs['Footprint'])
         # TODO: proper inclusion test
         # TODO: make it work with arrays
         return area.contains(pt)
-
 
     def check(self):
         datasets = ['Ltoa', 'sza', 'vza', 'vaa', 'saa']
@@ -79,13 +97,67 @@ class GeoDatasetAccessor(object):
         map.add_layer(polygon)
         
         return map
+    
+    def sub(self, cond):
+        '''
+        Creates a Dataset based on the conditions passed in parameters
 
-    def sub_rect(self, lat_min, lat_max, long_min, long_max):
-        return self._obj.where(((self._obj.latitude < lat_max) & (self._obj.latitude > lat_min) & (self._obj.longitude < long_max) & (self._obj.longitude > long_min)), drop = True)
+        cond : must be a DataArray of booleans
+        '''
+        res = xr.Dataset()
+        ds = self._obj
 
-    def sub_pt(self, lat, lon, rad):
-        rad_2 = rad*rad
-        return self._obj.where((pow(self._obj.latitude-lat,2)+pow(self._obj.longitude-lon,2) < rad_2), drop = True)
+        for var in ds.variables:
+            if set(cond.dims) == set(ds[var].dims).intersection(set(cond.dims)):
+                res[var] = ds[var].where(cond, drop = True)
+            else:
+                res[var] = ds[var]
+
+        res.attrs.update(ds.attrs)
+
+        return res
+
+
+    def sub_rect(self, lat_min, lat_max, lon_min, lon_max):
+        '''
+        Creates a Dataset based on the coordonates of the rectangle passed in parameters
+
+        lat_min, lat_max, lon_min, lon_max : delimitations of the zone desired
+        '''
+        lat = self._obj.latitude.compute()
+        lon = self._obj.longitude.compute()
+        cond = (lat < lat_max) & (lat > lat_min) & (lon < lon_max) & (lon > lon_min)
+        cond = cond.compute()
+
+        #fname = '_Rect_' + str(lat_min) + '_' + str(lat_max) + '|' + str(lon_min) + '_' + str(lon_max)
+
+        return self.sub(cond)
+
+    def sub_pt(self, pt_lat, pt_lon, rad):
+        '''
+        Creates a Dataset based on the circle specified in parameters
+
+        pt_lat, pt_lon : Coordonates of the center of the point
+
+        rad : radius of the circle in km
+        '''
+        lat = self._obj.latitude.compute()
+        lon = self._obj.longitude.compute()
+        cond = haversine(lat, lon, pt_lat, pt_lon) < rad
+        cond = cond.compute()
+
+        return self.sub(cond)
+    
+    def to_netcdf(self, dirname='.', suffix='', attr_name='product_name'):
+        '''
+        Write a xr.Dataset using product_name attribute and a suffix
+        '''
+        suffix = suffix+'.nc'
+        fname = os.path.join(dirname, self._obj.attrs[attr_name]+suffix)
+        fname_tmp = fname+'.tmp'
+        
+        self._obj.to_netcdf(path=fname_tmp)
+        os.system('mv {} {}'.format(fname_tmp, fname))
 
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):
