@@ -25,18 +25,18 @@ olci_band_names = {
     }
 
 
-def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False):
+def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level1', chunks=chunks, tie_param=tie_param)
+    return read_OLCI(dirname, level='level1', chunks=chunks, tie_param=tie_param, init_spectral=init_spectral)
 
 
-def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False):
+def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level2', chunks=chunks, tie_param=tie_param)
+    return read_OLCI(dirname, level='level2', chunks=chunks, tie_param=tie_param, init_spectral=init_spectral)
 
 
 def read_manifest(dirname):
@@ -68,7 +68,7 @@ def read_manifest(dirname):
             'textinfo': textinfo,
             }
 
-def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_param=False):
+def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
@@ -111,15 +111,11 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     # dimensions
     dims2 = ('rows', 'columns')
     dims3 = ('bands', 'rows', 'columns')
-    if level == 'level1':
-        dims3_full = ('bands', 'rows', 'columns')
-    else:
-        dims3_full = ('bands_full', 'rows', 'columns')
+
     assert dims2 == ds.latitude.dims
     shape2 = ds.latitude.shape
     chunksize2 = ds.latitude.data.chunksize
     assert dims3 == ds[param_name].dims
-    chunksize3 = ds[param_name].data.chunksize
 
     # tiepoint interpolation
     tie_geom_file = os.path.join(dirname, 'tie_geometries.nc')
@@ -170,20 +166,8 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     for x in instrument_data.variables:
         ds[x] = instrument_data[x]
 
-
-    # wavelength
-    ds['wav'] = (dims3_full, da.from_array(AtIndex(ds.lambda0,
-                                              ds.detector_index,
-                                              'detectors'),
-                                      chunks=chunksize3))
-    ds['wav'].attrs.update(ds.lambda0.attrs)
-
-    # solar flux
-    ds['F0'] = (dims3_full, da.from_array(AtIndex(ds.solar_flux,
-                                              ds.detector_index,
-                                              'detectors'),
-                                      chunks=chunksize3))
-    ds['F0'].attrs.update(ds.solar_flux.attrs)
+    if init_spectral:
+        olci_init_spectral(ds)
 
     # quality flags
     if level == 'level1':
@@ -206,3 +190,23 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
 
     return ds
 
+def olci_init_spectral(ds):
+    
+    # dimensions to be indexed by this object
+    dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
+    # ... and their chunksize
+    chunksize = sum([[ds.lambda0.data.chunksize[i]] if not x == 'detectors' else list(ds.detector_index.data.chunksize) for i, x in enumerate(ds.lambda0.dims)], [])
+    
+    # wavelength
+    ds['wav'] = (dims, da.from_array(AtIndex(ds.lambda0,
+                                              ds.detector_index,
+                                              'detectors'),
+                                      chunks=chunksize))
+    ds['wav'].attrs.update(ds.lambda0.attrs)
+
+    # solar flux
+    ds['F0'] = (dims, da.from_array(AtIndex(ds.solar_flux,
+                                              ds.detector_index,
+                                              'detectors'),
+                                      chunks=chunksize))
+    ds['F0'].attrs.update(ds.solar_flux.attrs)
