@@ -148,16 +148,30 @@ class GeoDatasetAccessor(object):
 
         return self.sub(cond)
     
-    def to_netcdf(self, dirname='.', suffix='', attr_name='product_name'):
+    def to_netcdf(self, dirname='.', suffix='', attr_name='product_name', compress=True, **kwargs):
         '''
         Write a xr.Dataset using product_name attribute and a suffix
         '''
         suffix = suffix+'.nc'
         fname = os.path.join(dirname, self._obj.attrs[attr_name]+suffix)
         fname_tmp = fname+'.tmp'
+
+        encoding = {}
+        if compress:
+            comp = dict(zlib=True, complevel=1)
+            encoding = {var: comp for var in self._obj.data_vars}
         
-        self._obj.to_netcdf(path=fname_tmp)
-        os.system('mv {} {}'.format(fname_tmp, fname))
+        self._obj.to_netcdf(path=fname_tmp, encoding = encoding, **kwargs)
+        os.rename(fname_tmp, fname)
+
+    def split(self, var_name, out_var=None, split_axis='bands'):
+        if not out_var:
+            out_var = var_name+'_'
+        for x in self._obj[var_name][split_axis]:
+            self._obj[out_var+str(x.data)] = self._obj[var_name].sel({split_axis : x})
+
+    def merge(self, var_names, out_var, new_dim):
+        pass
 
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):
