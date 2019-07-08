@@ -4,6 +4,7 @@
 import os
 import xarray as xr
 import numpy as np
+import pandas as pd
 from scipy.ndimage import distance_transform_edt
 from scipy.interpolate import RectBivariateSpline
 from shapely.geometry import Polygon, Point
@@ -164,20 +165,57 @@ class GeoDatasetAccessor(object):
         self._obj.to_netcdf(path=fname_tmp, encoding = encoding, **kwargs)
         os.rename(fname_tmp, fname)
 
-    def split(self, var_name, out_var=None, split_axis='bands'):
-        copy = self._obj.copy(deep=True)
-        if not out_var:
-            out_var = var_name+'_'
+    def split(self, var_name, out_vars=None, split_axis=None, drop=True):
+        """
+        Returns a DataSet where the variable 'var_name' is split into many variables along the 'split_axis' dimension.
+
+        var_name, str : name of the variable to split
+        out_vars, str : prefix of the output variables concatenated with their value in the 'split_axis' axis
+                       by default, it uses the var_name as prefix
+        split_axis, str : name of the axis along which the variable is split
+
+        drop : bool, if True, variable var_name is deleted in the returned DataSet
+        """
+        copy = self._obj.compute().copy()
+        if not split_axis:
+            split_axis = copy[var_name].dims[0]
         if not (split_axis in copy[var_name]):
             raise Exception("variable '{}' doesn't have '{}' dimension".format(var_name, split_axis))
+
+        if isinstance(out_vars, list): #TO DO
+            pass
+        elif not out_vars:
+            out_var = var_name+'_'
         for x in copy[var_name][split_axis]:
             copy[out_var+str(x.data)] = copy[var_name].sel({split_axis : x})
-        # delete split dimension
         
+        if drop:
+            copy = copy.drop(var_name)
         return copy
 
-    def merge(self, var_names, out_var, new_dim):
-        pass
+    def merge(self, var_names, out_var, new_dim_name, new_dim_values=None, drop=True):
+        """
+        Returns a DataSet where all the variables included in the 'var_names' list are merged into a
+        new variable named 'out_var'.
+        If the 'new_dim' dimension already exists, the variables are concatenated along the dimension,
+        otherwise it creates this dimension in the new variable
+
+        var_names, list of str : names of variables to concatenate
+        out_var, str : the output variable name created
+        new_dim_name, str : name of the dimension along the variables are concatenated
+
+        drop : bool, if True, variables in var_names are deleted in the returned DataSet
+        """
+        copy = self._obj.copy()
+        if out_var in list(copy.variables):
+            raise Exception("variable '{}' already exists in the dataset".format(out_var))
+        
+        print(new_dim_values!=None) #TO DO
+        data = xr.concat([copy[var] for var in var_names], pd.Index(new_dim_values, name=new_dim_name) if new_dim_values!=None else new_dim_name)
+        if drop:
+            copy = copy.drop([var for var in var_names])
+
+        return copy.assign({out_var: data})
 
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):
