@@ -165,10 +165,16 @@ class GeoDatasetAccessor(object):
         os.rename(fname_tmp, fname)
 
     def split(self, var_name, out_var=None, split_axis='bands'):
+        copy = self._obj.copy(deep=True)
         if not out_var:
             out_var = var_name+'_'
-        for x in self._obj[var_name][split_axis]:
-            self._obj[out_var+str(x.data)] = self._obj[var_name].sel({split_axis : x})
+        if not (split_axis in copy[var_name]):
+            raise Exception("variable '{}' doesn't have '{}' dimension".format(var_name, split_axis))
+        for x in copy[var_name][split_axis]:
+            copy[out_var+str(x.data)] = copy[var_name].sel({split_axis : x})
+        # delete split dimension
+        
+        return copy
 
     def merge(self, var_names, out_var, new_dim):
         pass
