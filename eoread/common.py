@@ -170,30 +170,34 @@ class GeoDatasetAccessor(object):
         Returns a DataSet where the variable 'var_name' is split into many variables along the 'split_axis' dimension.
 
         var_name, str : name of the variable to split
-        out_vars, str : prefix of the output variables concatenated with their value in the 'split_axis' axis
+        out_vars, str or list of str : names or prefix of the output variables concatenated with their value in the 'split_axis' axis
                        by default, it uses the var_name as prefix
         split_axis, str : name of the axis along which the variable is split
 
         drop : bool, if True, variable var_name is deleted in the returned DataSet
         """
-        copy = self._obj.compute().copy()
+        copy = self._obj.copy()
         if not split_axis:
             split_axis = copy[var_name].dims[0]
-        if not (split_axis in copy[var_name]):
+        if not (split_axis in copy[var_name].dims):
             raise Exception("variable '{}' doesn't have '{}' dimension".format(var_name, split_axis))
 
-        if isinstance(out_vars, list): #TO DO
-            pass
-        elif not out_vars:
-            out_var = var_name+'_'
-        for x in copy[var_name][split_axis]:
-            copy[out_var+str(x.data)] = copy[var_name].sel({split_axis : x})
+        if isinstance(out_vars, list):
+            cpt=0
+            for x in copy[var_name][split_axis]:
+                copy[out_vars[cpt]] = copy[var_name].sel({split_axis : x})
+                cpt+=1
+        else:
+            if not out_vars:
+                out_vars = var_name+'_'
+            for x in copy[var_name][split_axis]:
+                copy[out_vars+str(x.data)] = copy[var_name].sel({split_axis : x})
         
         if drop:
             copy = copy.drop(var_name)
         return copy
 
-    def merge(self, var_names, out_var, new_dim_name, new_dim_values=None, drop=True):
+    def merge(self, var_names, out_var, new_dim_name, drop=True):
         """
         Returns a DataSet where all the variables included in the 'var_names' list are merged into a
         new variable named 'out_var'.
@@ -210,8 +214,7 @@ class GeoDatasetAccessor(object):
         if out_var in list(copy.variables):
             raise Exception("variable '{}' already exists in the dataset".format(out_var))
         
-        print(new_dim_values!=None) #TO DO
-        data = xr.concat([copy[var] for var in var_names], pd.Index(new_dim_values, name=new_dim_name) if new_dim_values!=None else new_dim_name)
+        data = xr.concat([copy[var] for var in var_names], new_dim_name)
         if drop:
             copy = copy.drop([var for var in var_names])
 
