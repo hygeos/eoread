@@ -195,8 +195,12 @@ def olci_init_spectral(ds):
     # dimensions to be indexed by this object
     dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
     # ... and their chunksize
-    chunksize = sum([[ds.lambda0.data.chunksize[i]] if not x == 'detectors' else list(ds.detector_index.data.chunksize) for i, x in enumerate(ds.lambda0.dims)], [])
-    
+    if len(list(ds.lambda0.chunks))==0:
+        # if DataSet not chunked
+        chunksize = {}
+    else:
+        chunksize = sum([[ds.lambda0.data.chunksize[i]] if not x == 'detectors' else list(ds.detector_index.data.chunksize) for i, x in enumerate(ds.lambda0.dims)], [])
+
     # wavelength
     ds['wav'] = (dims, da.from_array(AtIndex(ds.lambda0,
                                               ds.detector_index,
