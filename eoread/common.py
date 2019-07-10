@@ -119,7 +119,7 @@ class GeoDatasetAccessor(object):
         return res
 
 
-    def sub_rect(self, lat_min, lat_max, lon_min, lon_max):
+    def sub_rect(self, lon_min, lat_min, lon_max, lat_max):
         '''
         Creates a Dataset based on the coordonates of the rectangle passed in parameters
 
@@ -129,8 +129,6 @@ class GeoDatasetAccessor(object):
         lon = self._obj.longitude.compute()
         cond = (lat < lat_max) & (lat > lat_min) & (lon < lon_max) & (lon > lon_min)
         cond = cond.compute()
-
-        #fname = '_Rect_' + str(lat_min) + '_' + str(lat_max) + '|' + str(lon_min) + '_' + str(lon_max)
 
         return self.sub(cond)
 
@@ -148,7 +146,7 @@ class GeoDatasetAccessor(object):
         cond = cond.compute()
 
         return self.sub(cond)
-    
+
     def to_netcdf(self, dirname='.', suffix='', attr_name='product_name', compress=True, **kwargs):
         '''
         Write a xr.Dataset using product_name attribute and a suffix
