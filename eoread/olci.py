@@ -117,7 +117,7 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     chunksize2 = ds.latitude.data.chunksize
     assert dims3 == ds[param_name].dims
 
-    # tiepoint interpolation
+    # tie geometry interpolation
     tie_geom_file = os.path.join(dirname, 'tie_geometries.nc')
     tie = xr.open_dataset(tie_geom_file, chunks={})
     tie = tie.assign_coords(
@@ -139,6 +139,28 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
         ds[ds_full].attrs = tie[ds_tie].attrs
         if tie_param:
             ds[ds_full+'_tie'] = tie[ds_tie]
+
+    # tie meteo interpolation
+    tie_meteo_file = os.path.join(dirname, 'tie_meteo.nc')
+    tie = xr.open_dataset(tie_meteo_file, chunks={})
+    tie = tie.assign_coords(
+                tie_columns = np.arange(tie.dims['tie_columns'])*ds.ac_subsampling_factor,
+                tie_rows = np.arange(tie.dims['tie_rows'])*ds.al_subsampling_factor,
+                )
+    assert tie.tie_columns[0] == ds.columns[0]
+    assert tie.tie_columns[-1] == ds.columns[-1]
+    assert tie.tie_rows[0] == ds.rows[0]
+    assert tie.tie_rows[-1] == ds.rows[-1]
+    
+    ds['horizontal_wind'] = (dims2, da.from_array(Interpolator(shape2, np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0),2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))) ,chunks=chunksize2))
+    ds['horizontal_wind'].attrs = tie['horizontal_wind'].attrs
+    variables = ['humidity', 'sea_level_pressure', 'total_columnar_water_vapour', 'total_ozone']
+    for var in variables:
+        ds[var] = (dims2, da.from_array(Interpolator(shape2, tie[var]),
+                                            chunks=chunksize2))
+        ds[var].attrs = tie[var].attrs
+        if tie_param:
+            ds[var+'_tie'] = tie[var]
 
     # check subsampling factors
     assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie.dims['tie_columns']-1)
