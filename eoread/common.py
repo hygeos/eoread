@@ -9,7 +9,7 @@ from scipy.ndimage import distance_transform_edt
 from scipy.interpolate import RectBivariateSpline
 from shapely.geometry import Polygon, Point
 
-from numpy import radians, cos, sin, arcsin as asin, sqrt
+from numpy import radians, cos, sin, arcsin as asin, sqrt, where
 
 def haversine(lat1, lon1, lat2, lon2, radius=6371):
     '''
@@ -99,53 +99,83 @@ class GeoDatasetAccessor(object):
         
         return map
     
-    def sub(self, cond):
+    def sub(self, cond, drop_invalid=True, int_default_value=0):
         '''
         Creates a Dataset based on the conditions passed in parameters
 
-        cond : must be a DataArray of booleans
+        cond : a DataArray of booleans that defines which pixels are kept
+
+        drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+
+        int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
         '''
         res = xr.Dataset()
         ds = self._obj
 
+        if drop_invalid:
+            assert 'mask_valid' not in res
+            res['mask_valid'] = cond.where(cond, drop=True)
+            res['mask_valid'] = res['mask_valid'].where(~np.isnan(res['mask_valid']), 0).astype(bool)
+
+        slice_dict = dict()
+        for dim in cond.dims:
+            s = cond.any(dim=[d for d in cond.dims if d != dim])
+            wh = where(s)[0]
+            if len(wh)==0:
+                slice_dict[dim]=slice(2,1)
+            else:
+                slice_dict[dim]=slice(wh[0], wh[-1]+1)
+
         for var in ds.variables:
             if set(cond.dims) == set(ds[var].dims).intersection(set(cond.dims)):
-                res[var] = ds[var].where(cond, drop = True)
-            else:
-                res[var] = ds[var]
+                if drop_invalid:
+                    if ds[var].dtype in ['float16', 'float32', 'float64']:
+                        res[var] = ds[var].where(cond, drop=True)
+                    else:
+                        res[var] = ds[var].isel(slice_dict).where(res['mask_valid'], int_default_value)
+
+                else:
+                    res[var] = ds[var].isel(slice_dict)
 
         res.attrs.update(ds.attrs)
 
         return res
 
-
-    def sub_rect(self, lon_min, lat_min, lon_max, lat_max):
+    def sub_rect(self, lon_min, lat_min, lon_max, lat_max, drop_invalid=True, int_default_value=0):
         '''
         Creates a Dataset based on the coordonates of the rectangle passed in parameters
 
         lat_min, lat_max, lon_min, lon_max : delimitations of the zone desired
+
+        drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+
+        int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
         '''
         lat = self._obj.latitude.compute()
         lon = self._obj.longitude.compute()
         cond = (lat < lat_max) & (lat > lat_min) & (lon < lon_max) & (lon > lon_min)
         cond = cond.compute()
 
-        return self.sub(cond)
+        return self.sub(cond, drop_invalid, int_default_value)
 
-    def sub_pt(self, pt_lat, pt_lon, rad):
+    def sub_pt(self, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
         '''
         Creates a Dataset based on the circle specified in parameters
 
         pt_lat, pt_lon : Coordonates of the center of the point
 
         rad : radius of the circle in km
+
+        drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+
+        int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
         '''
         lat = self._obj.latitude.compute()
         lon = self._obj.longitude.compute()
         cond = haversine(lat, lon, pt_lat, pt_lon) < rad
         cond = cond.compute()
 
-        return self.sub(cond)
+        return self.sub(cond, drop_invalid, int_default_value)
 
     def to_netcdf(self, dirname='.', suffix='', attr_name='product_name', compress=True, **kwargs):
         '''
