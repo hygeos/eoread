@@ -45,9 +45,3 @@ def test_olci_level2(sentinel_product, capsys):
     ds = Level2_OLCI(sentinel_product)
     print(ds)
 
-
-@pytest.mark.parametrize('product,resolution',
-                         [(p.prod_S2_L1_20190419,res) for res in ['20', '60']])   # FIXME: 10m leads to memory error
-def test_msi(sentinel_product, capsys, resolution):
-    ds = Level1_MSI(sentinel_product, resolution)
-    print(ds)
