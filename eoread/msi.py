@@ -76,7 +76,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
 
     # read date
     ds.attrs['datetime'] = datetime.strptime(str(xmlgranule.General_Info.find('SENSING_TIME')),
-                                            '%Y-%m-%dT%H:%M:%S.%fZ')
+                                             '%Y-%m-%dT%H:%M:%S.%fZ')
     geocoding = xmlgranule.Geometric_Info.find('Tile_Geocoding')
     tileangles = xmlgranule.Geometric_Info.find('Tile_Angles')
 
@@ -164,20 +164,22 @@ def msi_read_toa(ds, granule_dir, quantif, split):
                     arr_resampled += arr.isel(x=slice(i, None, int(xrat)),
                                               y=slice(j, None, int(yrat)))
             arr_resampled /= int(xrat)*int(yrat)
+            arr_resampled = arr_resampled.drop('band')
         else:
             # over-sample
-            arr_resampled = (('columns', 'rows'),
-                             da.from_array(Repeat(arr, (int(1/xrat), int(1/yrat)))))
+            arr_resampled = xr.DataArray(
+                             da.from_array(Repeat(arr, (int(1/xrat), int(1/yrat))),
+                                           chunks=chunks),
+                            dims=('y', 'x'))
 
         # da = da.rename({'x': f'x_{v}',
         #                 'y': f'y_{v}'})
         # ds[f'Rtoa_{k}'] = da
         # TODO: rows and columns may be mixed up
         arr_resampled = arr_resampled.rename({
-                            'x': 'rows',
-                            'y': 'columns'})
+            'x': 'rows',
+            'y': 'columns'})
 
-        arr_resampled = arr_resampled.drop('band')
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
         ds[f'Rtoa_{k}'] = arr_resampled
@@ -221,7 +223,7 @@ def msi_read_geometry(ds, tileangles):
         # read azimuth angles
         data = read_xml_block(e.find('Azimuth').find('Values_List'))
         bandid = int(e.attrib['bandId'])
-        if not bandid in vaa:
+        if bandid not in vaa:
             vaa[bandid] = data
         else:
             ok = ~np.isnan(data)
@@ -233,8 +235,8 @@ def msi_read_geometry(ds, tileangles):
     # use the first band as vza and vaa
     k = sorted(vza.keys())[0]
     assert k in vaa
-    ds.vza[:,:] = rectBivariateSpline(vza[k], shp)
-    ds.vaa[:,:] = rectBivariateSpline(vaa[k], shp)
+    ds.vza[:, :] = rectBivariateSpline(vza[k], shp)
+    ds.vaa[:, :] = rectBivariateSpline(vaa[k], shp)
 
 
 def read_xml_block(item):
