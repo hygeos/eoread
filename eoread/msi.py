@@ -44,12 +44,15 @@ msi_band_names = {
         }
 
 
-def Level1_MSI(dirname, resolution='60', geometry=True):
+def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
 
-    resolution: '60', '20' or '10' (in m)
+    Arguments:
+        resolution: '60', '20' or '10' (in m)
+        geometry: whether to read the geometry
+        split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds = xr.Dataset()
 
@@ -101,7 +104,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True):
         msi_read_geometry(ds, tileangles)
 
     # msi_read_toa
-    msi_read_toa(ds, granule_dir, quantif)
+    ds = msi_read_toa(ds, granule_dir, quantif, split)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -137,7 +140,7 @@ def msi_read_latlon(ds, geocoding):
     ds['longitude'] = (shp, lon)
 
 
-def msi_read_toa(ds, granule_dir, quantif):
+def msi_read_toa(ds, granule_dir, quantif, split):
     chunks = {'x': 400,
               'y': 300}
 
@@ -173,7 +176,18 @@ def msi_read_toa(ds, granule_dir, quantif):
         arr_resampled = arr_resampled.rename({
                             'x': 'rows',
                             'y': 'columns'})
+
+        arr_resampled = arr_resampled.drop('band')
+        arr_resampled.attrs['bands'] = k
+        arr_resampled.attrs['band_name'] = v
         ds[f'Rtoa_{k}'] = arr_resampled
+
+    if not split:
+        ds = ds.eo.merge([a for a in ds if a.startswith('Rtoa_')],
+                         'Rtoa', 'bands', coords=list(msi_band_names.keys()))
+    
+    return ds
+
 
 def msi_read_spectral(ds):
     pass
