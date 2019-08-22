@@ -225,7 +225,8 @@ class GeoDatasetAccessor(object):
             copy = copy.drop(var_name)
         return copy
 
-    def merge(self, var_names, out_var, new_dim_name, dim_index=0, drop=True):
+    def merge(self, var_names, out_var, new_dim_name, coords=None,
+              dim_index=0, drop=True):
         """
         Returns a DataSet where all the variables included in the 'var_names' list are merged into a
         new variable named 'out_var'.
@@ -235,8 +236,8 @@ class GeoDatasetAccessor(object):
         var_names, list of str : names of variables to concatenate
         out_var, str : the output variable name created
         new_dim_name, str : name of the dimension along the variables are concatenated
+        coords: coordinates along  the new dimension
         dim_index, int: index where to put the new dimension
-
         drop : bool, if True, variables in var_names are deleted in the returned DataSet
         """
         copy = self._obj.copy()
@@ -250,6 +251,8 @@ class GeoDatasetAccessor(object):
             dim_index = len(dims)+1+dim_index
         dims.insert(dim_index, new_dim_name)
         data = data.transpose(*dims)
+        if coords is not None:
+            data = data.assign_coords(**{new_dim_name: coords})
 
         if drop:
             copy = copy.drop([var for var in var_names])
