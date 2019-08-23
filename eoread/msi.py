@@ -262,7 +262,7 @@ class LATLON:
         self.dtype = 'float32'
 
     def __getitem__(self, key):
-        X, Y = np.meshgrid(x, y)
+        X, Y = np.meshgrid(self.x[key[0]], self.y[key[1]])
 
         lon, lat = self.proj(X, Y, inverse=True)
 
