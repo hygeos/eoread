@@ -188,9 +188,6 @@ def msi_read_geometry(ds, tileangles):
     shp = (int(ds.totalheight), int(ds.totalwidth))
     shpn = ('columns', 'rows')
 
-    ds['sza'] = (shpn, rectBivariateSpline(sza, shp))
-    ds['saa'] = (shpn, rectBivariateSpline(saa, shp))
-
     # read view angles (for each band)
     vza = {}
     vaa = {}
@@ -214,14 +211,26 @@ def msi_read_geometry(ds, tileangles):
             ok = ~np.isnan(data)
             vaa[bandid][ok] = data[ok]
 
-    ds['vza'] = (shpn, np.zeros(shp, dtype='float32'))
-    ds['vaa'] = (shpn, np.zeros(shp, dtype='float32'))
-
     # use the first band as vza and vaa
     k = sorted(vza.keys())[0]
     assert k in vaa
-    ds.vza[:, :] = rectBivariateSpline(vza[k], shp)
-    ds.vaa[:, :] = rectBivariateSpline(vaa[k], shp)
+
+    # initialize the dask arrays
+    for name, tie in [('sza', sza),
+                      ('saa', saa),
+                      ('vza', vza[k]),
+                      ('vaa', vaa[k]),
+                      ]:
+        da_tie = xr.DataArray(
+            tie,
+            dims=('tie_rows', 'tie_columns'),
+            coords={'tie_rows': np.linspace(0, shp[0]-1, sza.shape[0]),
+                    'tie_columns': np.linspace(0, shp[1]-1, sza.shape[1])})
+        ds[name+'_tie'] = da_tie
+        ds[name] = (shpn, da.from_array(
+            Interpolator(shp, ds[name+'_tie']),
+            chunks=(300, 200)))
+
 
 
 def read_xml_block(item):
