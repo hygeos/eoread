@@ -116,7 +116,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
 
 def msi_read_latlon(ds, geocoding):
 
-    shp = ('columns', 'rows')
+    shp = ('rows', 'columns')
     chunks = (400, 300)
 
     ds['latitude'] = (shp,
@@ -159,13 +159,9 @@ def msi_read_toa(ds, granule_dir, quantif, split):
                               chunks=chunks),
                 dims=('y', 'x'))
 
-        # da = da.rename({'x': f'x_{v}',
-        #                 'y': f'y_{v}'})
-        # ds[f'Rtoa_{k}'] = da
-        # TODO: rows and columns may be mixed up
         arr_resampled = arr_resampled.rename({
-            'x': 'rows',
-            'y': 'columns'})
+            'x': 'columns',
+            'y': 'rows'})
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
@@ -188,7 +184,7 @@ def msi_read_geometry(ds, tileangles):
     saa = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Azimuth').find('Values_List'))
 
     shp = (int(ds.totalheight), int(ds.totalwidth))
-    shpn = ('columns', 'rows')
+    shpn = ('rows', 'columns')
 
     # read view angles (for each band)
     vza = {}
