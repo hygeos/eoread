@@ -1,17 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
-import numpy as np
-import pyproj
-import xarray as xr
-import dask.array as da
-from glob import glob
-from lxml import objectify
-from datetime import datetime
-import os
-from eoread.common import rectBivariateSpline, Repeat
-
 '''
 List of MSI bands:
 -----------------
@@ -33,6 +22,18 @@ B12  SWIR 2      2190nm     20m
 '''
 
 
+import numpy as np
+import pyproj
+import xarray as xr
+import dask.array as da
+from glob import glob
+from lxml import objectify
+from eoread.common import Interpolator
+from datetime import datetime
+import os
+from eoread.common import rectBivariateSpline, Repeat
+
+
 msi_band_names = {
         443 : 'B01', 490 : 'B02',
         560 : 'B03', 665 : 'B04',
@@ -47,7 +48,8 @@ msi_band_names = {
 def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
-    Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
+    Formats the Dataset so that it contains the TOA radiances, reflectances,
+    the angles on the full grid, etc.
 
     Arguments:
         resolution: '60', '20' or '10' (in m)
@@ -153,9 +155,9 @@ def msi_read_toa(ds, granule_dir, quantif, split):
         else:
             # over-sample
             arr_resampled = xr.DataArray(
-                             da.from_array(Repeat(arr, (int(1/xrat), int(1/yrat))),
-                                           chunks=chunks),
-                            dims=('y', 'x'))
+                da.from_array(Repeat(arr, (int(1/xrat), int(1/yrat))),
+                              chunks=chunks),
+                dims=('y', 'x'))
 
         # da = da.rename({'x': f'x_{v}',
         #                 'y': f'y_{v}'})
@@ -172,7 +174,7 @@ def msi_read_toa(ds, granule_dir, quantif, split):
     if not split:
         ds = ds.eo.merge([a for a in ds if a.startswith('Rtoa_')],
                          'Rtoa', 'bands', coords=list(msi_band_names.keys()))
-    
+
     return ds
 
 
@@ -196,7 +198,7 @@ def msi_read_geometry(ds, tileangles):
         # read zenith angles
         data = read_xml_block(e.find('Zenith').find('Values_List'))
         bandid = int(e.attrib['bandId'])
-        if not bandid in vza:
+        if bandid not in vza:
             vza[bandid] = data
         else:
             ok = ~np.isnan(data)
@@ -279,4 +281,3 @@ class LATLON:
             return lat
         else:
             return lon
-    
