@@ -267,11 +267,11 @@ class LATLON:
         self.dtype = 'float32'
 
     def __getitem__(self, key):
-        X, Y = np.meshgrid(self.x[key[0]], self.y[key[1]])
+        X, Y = np.meshgrid(self.x[key[1]], self.y[key[0]])
 
         lon, lat = self.proj(X, Y, inverse=True)
 
         if self.kind == 'lat':
-            return lat
+            return lat.astype(self.dtype)
         else:
-            return lon
+            return lon.astype(self.dtype)
