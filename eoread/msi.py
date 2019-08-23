@@ -250,8 +250,6 @@ class LATLON:
 
         code = geocoding.find('HORIZONTAL_CS_CODE').text
 
-        print('Initialize MSI projection {}'.format(code))
-
         self.proj = pyproj.Proj('+init={}'.format(code))
 
         # lookup position in the UTM grid
