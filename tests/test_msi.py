@@ -10,6 +10,14 @@ from tests.products import sentinel_product, sample_data_path
 
 
 
+@pytest.mark.parametrize('product,resolution,split',
+                         [(p.prod_S2_L1_20190419, res, split)
+                          for res in ['10', '20', '60']
+                          for split in [True, False]])
+def test_instantiation(sentinel_product, resolution, split):
+    Level1_MSI(sentinel_product, resolution, split=split)
+
+
 @pytest.mark.parametrize('product,resolution,param',
                          [(p.prod_S2_L1_20190419, res, param)
                           for res in ['10', '20', '60']
@@ -19,10 +27,6 @@ def test_msi_merged(sentinel_product, resolution, param):
     print(l1)
     assert 'Rtoa_443' not in l1
     assert 'Rtoa' in l1
-
-    # Try to access latitude
-    sub = l1.sel(rows=slice(50, 100), columns=slice(100, 150))
-    sub.latitude.compute()
 
     # check parameter consistency through windowing
     xr.testing.assert_allclose(
@@ -42,11 +46,14 @@ def test_msi_merged(sentinel_product, resolution, param):
                     columns=slice(500, None))[param][:10, :10])
 
 
-@pytest.mark.parametrize('product,resolution',
-                         [(p.prod_S2_L1_20190419, res) for res in ['10', '20', '60']])
-def test_msi_split(sentinel_product, resolution):
+@pytest.mark.parametrize('product,band,resolution',
+                         [(p.prod_S2_L1_20190419, band, res)
+                          for band in ['Rtoa_443', 'Rtoa_490', 'Rtoa_865']
+                          for res in ['10', '20', '60']])
+def test_msi_split(sentinel_product, band, resolution):
     l1 = Level1_MSI(sentinel_product, resolution, split=True)
     print(l1)
     assert 'Rtoa_443' in l1
     assert 'Rtoa' not in l1
-    print(l1.Rtoa_490)
+
+    assert l1[band][:12, :12].values.shape == (12, 12)
