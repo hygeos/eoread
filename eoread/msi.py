@@ -114,30 +114,15 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
 
 def msi_read_latlon(ds, geocoding):
 
-    code = geocoding.find('HORIZONTAL_CS_CODE').text
-
-    print('Initialize MSI projection {}'.format(code))
-
-    proj = pyproj.Proj('+init={}'.format(code))
-
-    # lookup position in the UTM grid
-    for e in geocoding.findall('Geoposition'):
-        if e.attrib['resolution'] == ds.attrs['resolution']:
-            ULX = int(e.find('ULX').text)
-            ULY = int(e.find('ULY').text)
-            XDIM = int(e.find('XDIM').text)
-            YDIM = int(e.find('YDIM').text)
-
-    X, Y = np.meshgrid(ULX + XDIM*np.arange(ds['totalheight']), 
-                       ULY + YDIM*np.arange(ds['totalwidth']))
-
-    lon, lat = (proj(X, Y, inverse=True))
-
-    # shp = (ds['totalheight'], ds['totalwidth'])
     shp = ('columns', 'rows')
+    chunks = (400, 300)
 
-    ds['latitude'] = (shp, lat)
-    ds['longitude'] = (shp, lon)
+    ds['latitude'] = (shp,
+                      da.from_array(LATLON(geocoding, 'lat', ds),
+                                    chunks=chunks))
+    ds['longitude'] = (shp,
+                       da.from_array(LATLON(geocoding, 'lon', ds),
+                                     chunks=chunks))
 
 
 def msi_read_toa(ds, granule_dir, quantif, split):
@@ -248,3 +233,41 @@ def read_xml_block(item):
         d.append(i.text.split())
     return np.array(d, dtype='float32')
 
+
+class LATLON:
+    '''
+    An array-like to calculate the MSI lat-lon
+    '''
+    def __init__(self, geocoding, kind, ds):
+        self.kind = kind
+
+        code = geocoding.find('HORIZONTAL_CS_CODE').text
+
+        print('Initialize MSI projection {}'.format(code))
+
+        self.proj = pyproj.Proj('+init={}'.format(code))
+
+        # lookup position in the UTM grid
+        for e in geocoding.findall('Geoposition'):
+            if e.attrib['resolution'] == ds.attrs['resolution']:
+                ULX = int(e.find('ULX').text)
+                ULY = int(e.find('ULY').text)
+                XDIM = int(e.find('XDIM').text)
+                YDIM = int(e.find('YDIM').text)
+
+        self.x = ULX + XDIM*np.arange(ds['totalheight'])
+        self.y = ULY + YDIM*np.arange(ds['totalwidth'])
+
+        self.shape = (int(ds['totalheight']), int(ds['totalwidth']))
+        self.dtype = 'float32'
+
+    def __getitem__(self, key):
+        X, Y = np.meshgrid(x, y)
+
+        lon, lat = self.proj(X, Y, inverse=True)
+
+        if self.kind == 'lat':
+            return lat
+        else:
+            return lon
+    

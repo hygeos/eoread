@@ -11,7 +11,7 @@ from eoread.common import GeoDatasetAccessor
 
 
 @pytest.mark.parametrize('product,resolution',
-                         [(p.prod_S2_L1_20190419, res) for res in ['60']])   # FIXME: 10m leads to memory error
+                         [(p.prod_S2_L1_20190419, res) for res in ['10', '20', '60']])
 def test_msi_merged(sentinel_product, resolution):
     l1 = Level1_MSI(sentinel_product, resolution)
     print(l1)
@@ -20,7 +20,7 @@ def test_msi_merged(sentinel_product, resolution):
 
 
 @pytest.mark.parametrize('product,resolution',
-                         [(p.prod_S2_L1_20190419, res) for res in ['60']])   # FIXME: 10m leads to memory error
+                         [(p.prod_S2_L1_20190419, res) for res in ['10', '20', '60']])
 def test_msi_split(sentinel_product, resolution):
     l1 = Level1_MSI(sentinel_product, resolution, split=True)
     print(l1)
