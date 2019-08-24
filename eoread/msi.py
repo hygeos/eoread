@@ -155,7 +155,7 @@ def msi_read_toa(ds, granule_dir, quantif, split):
         else:
             # over-sample
             arr_resampled = xr.DataArray(
-                da.from_array(Repeat(arr, (int(1/xrat), int(1/yrat))),
+                da.from_array(Repeat(arr, (int(1/yrat), int(1/xrat))),
                               chunks=chunks),
                 dims=('y', 'x'))
 

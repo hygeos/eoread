@@ -299,6 +299,11 @@ class AtIndex(object):
 
 
 class Interpolator(object):
+    '''
+    An array-like object to interpolate 2-dim array `A` to new `shape`
+
+    Uses coordinates `tie_rows` and `tie_columns`.
+    '''
     def __init__(self, shape, A):
         self.shape = shape
         self.dtype = A.dtype
@@ -315,15 +320,22 @@ class Interpolator(object):
 class Repeat(object):
     def __init__(self, A, repeats):
         '''
-        Repeat elements of A
-            repeats: tuple (number of repeats along each dimension)
+        Repeat elements of `A`
+
+        Parameters:
+        A: DataArray to repeat
+        repeats: tuple of int (number of repeats along each dimension)
         '''
         self.shape = tuple([s*r for (s, r) in zip(A.shape, repeats)])
+        self.repeats = repeats
         self.dtype = A.dtype
         self.A = A
-    
+
     def __getitem__(self, key):
-        return 
+        indices = [np.arange(self.shape[i], dtype='int')[k]//self.repeats[i]
+                   for i, k in enumerate(key)]
+        X, Y = np.meshgrid(*indices)
+        return np.array(self.A)[X, Y].transpose()
 
 
 def rectBivariateSpline(A, shp):

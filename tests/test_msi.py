@@ -40,8 +40,9 @@ def test_msi_merged(sentinel_product, resolution, param):
                 columns=slice(500, None))[param][:10, :10])
 
     if resolution == '60':
+        full = l1[param].compute(scheduler='single-threaded')
         xr.testing.assert_allclose(
-            l1[param].compute()[1000:1010, 500:510],
+            full[1000:1010, 500:510],
             l1.isel(rows=slice(1000, None),
                     columns=slice(500, None))[param][:10, :10])
 
@@ -56,4 +57,10 @@ def test_msi_split(sentinel_product, band, resolution):
     assert 'Rtoa_443' in l1
     assert 'Rtoa' not in l1
 
-    assert l1[band][:12, :12].values.shape == (12, 12)
+    assert l1[band][:10, :10].values.shape == (10, 10)
+
+    xr.testing.assert_allclose(
+            l1[band][:600, :600].compute()[500:550, 450:550],
+            l1.sel(rows=slice(500, 550), columns=slice(450, 550))[band],
+            )
+
