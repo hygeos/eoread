@@ -36,7 +36,7 @@ def test_toa_read_1(i):
     assert data.shape == (ys, xs)
 
 
-@pytest.mark.parametrize('b', [440, 480, 560, 655, 865, 1610, 2200])
+@pytest.mark.parametrize('b', [440, 480, 560, 655, 865, 1370, 1610, 2200])
 def test_toa_read_2(b):
     r = TOA_READ(b, sample_landsat8_oli)
     assert r[5000:5050, 4000:4040].shape == (50, 40)
