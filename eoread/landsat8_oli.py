@@ -22,13 +22,15 @@ import eoread.common
 
 
 dims2 = ('rows', 'columns')
-bands_oli = [440, 480, 560, 655, 865]
+bands_oli = [440, 480, 560, 655, 865, 1610, 2200]
 band_index = {
         440: 1,
         480: 2,
         560: 3,
         655: 4,
         865: 5,
+        1610: 6,
+        2200: 7,
     }
 
 def Level1_L8_OLI(dirname, l8_angles=None, split=False):
