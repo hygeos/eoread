@@ -18,6 +18,7 @@ import osr
 import datetime
 import tempfile
 import eoread.common
+import numpy as np
 
 
 
@@ -59,9 +60,20 @@ def Level1_L8_OLI(dirname, l8_angles=None, split=False):
     '''
     ds = xr.Dataset()
 
+    # Read metadata
+    files_mtl = glob(os.path.join(dirname, 'LC*_MTL.txt'))
+    assert len(files_mtl) == 1
+    file_mtl = files_mtl[0]
+    data_mtl = read_meta(file_mtl)['L1_METADATA_FILE']
+
+    # get datetime
+    d = data_mtl['PRODUCT_METADATA']['DATE_ACQUIRED']
+    t = datetime.datetime.strptime(data_mtl['PRODUCT_METADATA']['SCENE_CENTER_TIME'][:8], '%H:%M:%S')
+    ds.attrs['datetime'] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
+
     read_coordinates(ds, dirname)
     read_geometry(ds, dirname, l8_angles)
-    ds = read_radiometry(ds, dirname, split)
+    ds = read_radiometry(ds, dirname, split, data_mtl)
 
     return ds
 
@@ -132,10 +144,10 @@ def read_geometry(ds, dirname, l8_angles):
     ds['saa'] = (dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split):
+def read_radiometry(ds, dirname, split, data_mtl):
     for b in bands_oli:
         Rtoa = xr.DataArray(
-            da.from_array(TOA_READ(b, dirname), chunks=(300, 400)),
+            da.from_array(TOA_READ(b, dirname, data_mtl), chunks=(300, 400)),
             dims=dims2)
         ds[f'Rtoa_{b}'] = Rtoa/da.cos(da.radians(ds.sza))
 
@@ -239,13 +251,7 @@ class TOA_READ:
     Arguments:
         b: band identifier (440, 480, 560, 655, 865)
     '''
-    def __init__(self, b, dirname):
-        # read metadata
-        files_mtl = glob(os.path.join(dirname, 'LC*_MTL.txt'))
-        assert len(files_mtl) == 1
-        file_mtl = files_mtl[0]
-        data_mtl = read_meta(file_mtl)['L1_METADATA_FILE']
-
+    def __init__(self, b, dirname, data_mtl):
         self.M = data_mtl['RADIOMETRIC_RESCALING']['REFLECTANCE_MULT_BAND_{}'.format(band_index[b])]
         self.A = data_mtl['RADIOMETRIC_RESCALING']['REFLECTANCE_ADD_BAND_{}'.format(band_index[b])]
 
