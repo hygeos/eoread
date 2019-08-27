@@ -55,7 +55,7 @@ def test_toa_read_2(b):
     'longitude',
     ])
 def test_landsat8_split(param):
-    l1 = Level1_L8_OLI(sample_landsat8_oli, l8_angles='l8_angles/l8_angles')
+    l1 = Level1_L8_OLI(sample_landsat8_oli, l8_angles='l8_angles/l8_angles', split=True)
 
     with dask.config.set(scheduler='single-threaded'):
         # l1[param][5000, 6000].compute()
@@ -72,4 +72,9 @@ def test_landsat8_split(param):
 
 
 def test_landsat8_merge():
-    raise NotImplementedError
+    l1 = Level1_L8_OLI(sample_landsat8_oli,
+                       l8_angles='l8_angles/l8_angles',
+                       split=False)
+    assert 'Rtoa' in l1
+    assert 'Rtoa_440' not in l1
+    l1.isel(rows=slice(4000, 4500), columns=slice(5000, 5200)).compute()

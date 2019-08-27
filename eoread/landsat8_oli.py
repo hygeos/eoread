@@ -17,6 +17,7 @@ from glob import glob
 import osr
 import datetime
 import tempfile
+import eoread.common
 
 
 
@@ -30,7 +31,7 @@ band_index = {
         865: 5,
     }
 
-def Level1_L8_OLI(dirname, l8_angles=None):
+def Level1_L8_OLI(dirname, l8_angles=None, split=False):
     '''
     Landsat-8 OLI reader.
 
@@ -50,6 +51,7 @@ def Level1_L8_OLI(dirname, l8_angles=None):
                 cd l8_angles
                 make
                 cd ..
+        split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
 
     Returns a xr.Dataset
     '''
@@ -57,7 +59,7 @@ def Level1_L8_OLI(dirname, l8_angles=None):
 
     read_coordinates(ds, dirname)
     read_geometry(ds, dirname, l8_angles)
-    read_radiometry(ds, dirname)
+    ds = read_radiometry(ds, dirname, split)
 
     return ds
 
@@ -128,12 +130,19 @@ def read_geometry(ds, dirname, l8_angles):
     ds['saa'] = (dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname):
+def read_radiometry(ds, dirname, split):
     for b in bands_oli:
         Rtoa = xr.DataArray(
             da.from_array(TOA_READ(b, dirname), chunks=(300, 400)),
             dims=dims2)
         ds[f'Rtoa_{b}'] = Rtoa/da.cos(da.radians(ds.sza))
+
+    if not split:
+        ds = ds.eo.merge([a for a in ds if a.startswith('Rtoa_')],
+                         'Rtoa', 'bands', coords=bands_oli)
+
+    return ds
+
 
 
 class LATLON:
