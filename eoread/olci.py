@@ -253,3 +253,36 @@ def olci_init_spectral(ds):
                                               'detectors'),
                                       chunks=chunksize))
     ds['F0'].attrs.update(ds.solar_flux.attrs)
+
+def get_l2_flags(wqsf):
+    L2_FLAGS = dict(zip(
+            wqsf.attrs['flag_meanings'].split(' '),
+            [int(x) for x in wqsf.attrs['flag_masks']]))
+    return L2_FLAGS
+
+def decompose_flags(value, flags):
+    '''
+    return list of flag meanings for a given binary value
+    flags: dictionary of meaning: value
+    '''
+    return [m for (m, v) in flags.items() if (v & value != 0)]
+
+
+def get_valid_l2_pixels(wqsf, flags=[
+        'INVALID', 'LAND', 'CLOUD', 'CLOUD_AMBIGUOUS', 'CLOUD_MARGIN',
+        'SNOW_ICE', 'SUSPECT', 'HISOLZEN', 'SATURATED', 'HIGHGLINT', 'WHITECAPS',
+        'AC_FAIL', 'OC4ME_FAIL', 'ANNOT_TAU06', 'RWNEG_O2', 'RWNEG_O3', 'RWNEG_O4',
+        'RWNEG_O5', 'RWNEG_O6', 'RWNEG_O7', 'RWNEG_O8', 'ANNOT_ABSO_D',
+        'ANNOT_DROUT', 'ANNOT_MIXR1']):
+    '''
+    Get valid standard level2 pixels with a given flag set
+    '''
+    bval = 0
+    L2_FLAGS = get_l2_flags(wqsf)
+    for flag in flags:
+        bval += L2_FLAGS[flag]
+
+    return wqsf & bval == 0
+
+
+
