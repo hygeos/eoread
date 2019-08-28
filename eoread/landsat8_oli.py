@@ -6,6 +6,10 @@ Landsat-8 OLI reader
 
 Example:
     l1 = Level1_L8_OLI('LC80140282017275LGN00/')
+
+Data access:
+    * https://earthexplorer.usgs.gov/
+    * https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC08_C01_T1_TOA
 '''
 
 import os
@@ -23,22 +27,22 @@ import numpy as np
 
 
 dims2 = ('rows', 'columns')
-bands_oli = [440, 480, 560, 655, 865, 1370, 1610, 2200]
+bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200]
 band_index = { # Bands - wavelength (um) - resolution (m)
-    440: 1,   # Band 1 - Coastal aerosol	0.43 - 0.45	30
-    480: 2,   # Band 2 - Blue	0.45 - 0.51	30
-    560: 3,   # Band 3 - Green	0.53 - 0.59	30
-    655: 4,   # Band 4 - Red	0.64 - 0.67	30
-    865: 5,   # Band 5 - Near Infrared (NIR)	0.85 - 0.88	30
-    1610: 6,  # Band 6 - SWIR 1	1.57 - 1.65	30
-    2200: 7,  # Band 7 - SWIR 2	2.11 - 2.29	30
-              # Band 8 - Panchromatic	0.50 - 0.68	15
-    1370: 9,  # Band 9 - Cirrus	1.36 - 1.38	30
-              # Band 10 - Thermal Infrared (TIRS) 1	10.60 - 11.19	100 * (30)
-              # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
+    440: 1,    # Band 1 - Coastal aerosol	0.43 - 0.45	30
+    480: 2,    # Band 2 - Blue	0.45 - 0.51	30
+    560: 3,    # Band 3 - Green	0.53 - 0.59	30
+    655: 4,    # Band 4 - Red	0.64 - 0.67	30
+    865: 5,    # Band 5 - Near Infrared (NIR)	0.85 - 0.88	30
+    1610: 6,   # Band 6 - SWIR 1	1.57 - 1.65	30
+    2200: 7,   # Band 7 - SWIR 2	2.11 - 2.29	30
+               # Band 8 - Panchromatic	0.50 - 0.68	15
+    1375: 9,   # Band 9 - Cirrus	1.36 - 1.38	30
+               # Band 10 - Thermal Infrared (TIRS) 1	10.60 - 11.19	100 * (30)
+               # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
     }
 
-def Level1_L8_OLI(dirname, l8_angles=None, split=False):
+def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False):
     '''
     Landsat-8 OLI reader.
 
@@ -58,6 +62,7 @@ def Level1_L8_OLI(dirname, l8_angles=None, split=False):
                 cd l8_angles
                 make
                 cd ..
+        radiometry: 'radiance' or 'reflectance'
         split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
 
     Returns a xr.Dataset
@@ -69,12 +74,14 @@ def Level1_L8_OLI(dirname, l8_angles=None, split=False):
 
     # get datetime
     d = data_mtl['PRODUCT_METADATA']['DATE_ACQUIRED']
-    t = datetime.datetime.strptime(data_mtl['PRODUCT_METADATA']['SCENE_CENTER_TIME'][:8], '%H:%M:%S')
+    t = datetime.datetime.strptime(
+        data_mtl['PRODUCT_METADATA']['SCENE_CENTER_TIME'][:8],
+        '%H:%M:%S')
     ds.attrs['datetime'] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
     read_coordinates(ds, dirname)
     read_geometry(ds, dirname, l8_angles)
-    ds = read_radiometry(ds, dirname, split, data_mtl)
+    ds = read_radiometry(ds, dirname, split, data_mtl, radiometry)
 
     return ds
 
@@ -155,16 +162,29 @@ def read_geometry(ds, dirname, l8_angles):
     ds['saa'] = (dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry):
+    param = {'reflectance': 'Rtoa',
+             'radiance': 'Ltoa'}[radiometry]
+    bnames = []
     for b in bands_oli:
-        Rtoa = xr.DataArray(
-            da.from_array(TOA_READ(b, dirname, data_mtl), chunks=(300, 400)),
+        bname = (param+'_{}').format(b)
+        bnames.append(bname)
+        data = xr.DataArray(
+            da.from_array(TOA_READ(b, dirname, radiometry, data_mtl),
+                          chunks=(300, 400)),
             dims=dims2)
-        ds[f'Rtoa_{b}'] = Rtoa/da.cos(da.radians(ds.sza))
+        if radiometry == 'reflectance':
+            ds[bname] = data/da.cos(da.radians(ds.sza))
+        elif radiometry == 'radiance':
+            ds[bname] = data
+        else:
+            raise Exception('TOA_READ: `kind` should be `radiance` or `reflectance`')
 
     if not split:
-        ds = ds.eo.merge([a for a in ds if a.startswith('Rtoa_')],
-                         'Rtoa', 'bands', coords=bands_oli)
+        ds = ds.eo.merge(bnames,
+                         param,
+                         'bands',
+                         coords=bands_oli)
 
     return ds
 
@@ -182,7 +202,6 @@ class LATLON:
             raise Exception('Invalid directory content ({})'.format(files_B1))
         file_B1 = files_B1[0]
 
-        print('Reading coordinates from {}'.format(file_B1))
         b1 = gdal.Open(file_B1)
         old_cs = osr.SpatialReference()
         old_cs.ImportFromWkt(b1.GetProjectionRef())
@@ -212,8 +231,6 @@ class LATLON:
 
         X0, X1 = (0, width-1)
         Y0, Y1 = (0, height-1)
-
-        print('Image size is {}x{}'.format(width, height))
 
         # generally:
         # Xgeo0 = gt[0] + X0*gt[1] + Y0*gt[2]
@@ -261,13 +278,23 @@ class TOA_READ:
 
     Arguments:
         b: band identifier (440, 480, 560, 655, 865)
+        kind: 'radiance' or 'reflectance'
     '''
-    def __init__(self, b, dirname, data_mtl=None):
+    def __init__(self, b, dirname, radiometry='reflectance', data_mtl=None):
         if data_mtl is None:
             data_mtl = read_metadata(dirname)
 
-        self.M = data_mtl['RADIOMETRIC_RESCALING']['REFLECTANCE_MULT_BAND_{}'.format(band_index[b])]
-        self.A = data_mtl['RADIOMETRIC_RESCALING']['REFLECTANCE_ADD_BAND_{}'.format(band_index[b])]
+        if radiometry == 'reflectance':
+            param_mult = 'REFLECTANCE_MULT_BAND_{}'
+            param_add = 'REFLECTANCE_ADD_BAND_{}'
+        elif radiometry == 'radiance':
+            param_mult = 'RADIANCE_MULT_BAND_{}'
+            param_add = 'RADIANCE_ADD_BAND_{}'
+        else:
+            raise Exception('TOA_READ: `kind` should be `radiance` or `reflectance`')
+
+        self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
+        self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
 
         self.filename = os.path.join(
             dirname,
