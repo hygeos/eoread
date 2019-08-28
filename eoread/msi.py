@@ -32,6 +32,7 @@ from eoread.common import Interpolator
 from datetime import datetime
 import os
 from eoread.common import rectBivariateSpline, Repeat
+from eoread.naming import Naming
 
 
 msi_band_names = {
@@ -45,7 +46,7 @@ msi_band_names = {
         }
 
 
-def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
+def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances,
@@ -99,14 +100,14 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
     ds.attrs['resolution'] = resolution
 
     # lat-lon
-    msi_read_latlon(ds, geocoding)
+    msi_read_latlon(ds, geocoding, naming)
 
     # msi_read_geometry
     if geometry:
-        msi_read_geometry(ds, tileangles)
+        msi_read_geometry(ds, tileangles, naming)
 
     # msi_read_toa
-    ds = msi_read_toa(ds, granule_dir, quantif, split)
+    ds = msi_read_toa(ds, granule_dir, quantif, split, naming)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -114,20 +115,19 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False):
     return ds
 
 
-def msi_read_latlon(ds, geocoding):
+def msi_read_latlon(ds, geocoding, naming):
 
-    shp = ('rows', 'columns')
     chunks = (400, 300)
 
-    ds['latitude'] = (shp,
+    ds[naming.lat] = (naming.dim2,
                       da.from_array(LATLON(geocoding, 'lat', ds),
                                     chunks=chunks))
-    ds['longitude'] = (shp,
-                       da.from_array(LATLON(geocoding, 'lon', ds),
-                                     chunks=chunks))
+    ds[naming.lon] = (naming.dim2,
+                      da.from_array(LATLON(geocoding, 'lon', ds),
+                                    chunks=chunks))
 
 
-def msi_read_toa(ds, granule_dir, quantif, split):
+def msi_read_toa(ds, granule_dir, quantif, split, naming):
     chunks = {'x': 400,
               'y': 300}
 
@@ -160,16 +160,16 @@ def msi_read_toa(ds, granule_dir, quantif, split):
                 dims=('y', 'x'))
 
         arr_resampled = arr_resampled.rename({
-            'x': 'columns',
-            'y': 'rows'})
+            'x': naming.columns,
+            'y': naming.rows})
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
-        ds[f'Rtoa_{k}'] = arr_resampled
+        ds[naming.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = ds.eo.merge([a for a in ds if a.startswith('Rtoa_')],
-                         'Rtoa', 'bands', coords=list(msi_band_names.keys()))
+        ds = ds.eo.merge([a for a in ds if a.startswith(naming.Rtoa+'_')],
+                         naming.Rtoa, 'bands', coords=list(msi_band_names.keys()))
 
     return ds
 
@@ -177,14 +177,13 @@ def msi_read_toa(ds, granule_dir, quantif, split):
 def msi_read_spectral(ds):
     pass
 
-def msi_read_geometry(ds, tileangles):
+def msi_read_geometry(ds, tileangles, naming):
 
     # read solar angles at tiepoints
     sza = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Zenith').find('Values_List'))
     saa = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Azimuth').find('Values_List'))
 
     shp = (int(ds.totalheight), int(ds.totalwidth))
-    shpn = ('rows', 'columns')
 
     # read view angles (for each band)
     vza = {}
@@ -214,10 +213,10 @@ def msi_read_geometry(ds, tileangles):
     assert k in vaa
 
     # initialize the dask arrays
-    for name, tie in [('sza', sza),
-                      ('saa', saa),
-                      ('vza', vza[k]),
-                      ('vaa', vaa[k]),
+    for name, tie in [(naming.sza, sza),
+                      (naming.saa, saa),
+                      (naming.vza, vza[k]),
+                      (naming.vaa, vaa[k]),
                       ]:
         da_tie = xr.DataArray(
             tie,
@@ -225,10 +224,9 @@ def msi_read_geometry(ds, tileangles):
             coords={'tie_rows': np.linspace(0, shp[0]-1, sza.shape[0]),
                     'tie_columns': np.linspace(0, shp[1]-1, sza.shape[1])})
         ds[name+'_tie'] = da_tie
-        ds[name] = (shpn, da.from_array(
+        ds[name] = (naming.dim2, da.from_array(
             Interpolator(shp, ds[name+'_tie']),
             chunks=(300, 200)))
-
 
 
 def read_xml_block(item):

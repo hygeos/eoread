@@ -13,16 +13,16 @@ Data access:
 '''
 
 import os
+from glob import glob
+import datetime
+import tempfile
 import numpy as np
 import xarray as xr
 import dask.array as da
 from osgeo import gdal
-from glob import glob
 import osr
-import datetime
-import tempfile
 import eoread.common
-import numpy as np
+from eoread.naming import Naming
 
 
 
@@ -42,7 +42,7 @@ band_index = { # Bands - wavelength (um) - resolution (m)
                # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
     }
 
-def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False):
+def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False, naming=Naming()):
     '''
     Landsat-8 OLI reader.
 
@@ -77,11 +77,12 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False
     t = datetime.datetime.strptime(
         data_mtl['PRODUCT_METADATA']['SCENE_CENTER_TIME'][:8],
         '%H:%M:%S')
-    ds.attrs['datetime'] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
+    ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
-    read_coordinates(ds, dirname)
-    read_geometry(ds, dirname, l8_angles)
-    ds = read_radiometry(ds, dirname, split, data_mtl, radiometry)
+    read_coordinates(ds, dirname, naming)
+    read_geometry(ds, dirname, l8_angles, naming)
+    ds = read_radiometry(
+        ds, dirname, split, data_mtl, radiometry, naming)
 
     return ds
 
@@ -95,12 +96,12 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname):
+def read_coordinates(ds, dirname, naming):
     '''
     read lat/lon
     '''
-    ds['latitude'] = (dims2, da.from_array(LATLON(dirname, 'lat'), chunks=(400, 300)))
-    ds['longitude'] = (dims2, da.from_array(LATLON(dirname, 'lon'), chunks=(400, 300)))
+    ds[naming.lat] = (dims2, da.from_array(LATLON(dirname, 'lat'), chunks=(400, 300)))
+    ds[naming.lon] = (dims2, da.from_array(LATLON(dirname, 'lon'), chunks=(400, 300)))
     ds['totalheight'] = ds.rows.size
     ds['totalwidth'] = ds.columns.size
 
@@ -120,8 +121,7 @@ def gen_l8_angles(dirname, l8_angles=None):
         os.system(f'cp -v {angle_files} {dirname}')
 
 
-def read_geometry(ds, dirname, l8_angles):
-    dim2 = ('rows', 'columns')
+def read_geometry(ds, dirname, l8_angles, naming):
     filenames_sensor = glob(os.path.join(dirname, 'LC*_sensor_B01.img'))
 
     if (not filenames_sensor) and (l8_angles is not None):
@@ -141,8 +141,8 @@ def read_geometry(ds, dirname, l8_angles):
         chunks=(1, 300, 400),
         )
 
-    ds['vza'] = (dim2, data_sensor[1, :, :]/100.)
-    ds['vaa'] = (dim2, data_sensor[0, :, :]/100.)
+    ds[naming.vza] = (naming.dim2, data_sensor[1, :, :]/100.)
+    ds[naming.vaa] = (naming.dim2, data_sensor[0, :, :]/100.)
 
 
     # read solar angles
@@ -158,13 +158,13 @@ def read_geometry(ds, dirname, l8_angles):
                   shape=(2, int(ds.totalheight), int(ds.totalwidth))),
         chunks=(1, 300, 400),
         )
-    ds['sza'] = (dim2, data_solar[1, :, :]/100.)
-    ds['saa'] = (dim2, data_solar[0, :, :]/100.)
+    ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)
+    ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry):
-    param = {'reflectance': 'Rtoa',
-             'radiance': 'Ltoa'}[radiometry]
+def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming):
+    param = {'reflectance': naming.Rtoa,
+             'radiance': naming.Ltoa}[radiometry]
     bnames = []
     for b in bands_oli:
         bname = (param+'_{}').format(b)
@@ -187,7 +187,6 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry):
                          coords=bands_oli)
 
     return ds
-
 
 
 class LATLON:
@@ -398,5 +397,4 @@ def read_meta(filename):
     data = parser(raw)
 
     return data
-
 
