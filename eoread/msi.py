@@ -117,7 +117,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Nami
 
 def msi_read_latlon(ds, geocoding, naming):
 
-    chunks = (400, 300)
+    chunks = (300, 400)   # FIXME: avoid multiple definitions
 
     ds[naming.lat] = (naming.dim2,
                       da.from_array(LATLON(geocoding, 'lat', ds),
@@ -156,7 +156,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming):
             # over-sample
             arr_resampled = xr.DataArray(
                 da.from_array(Repeat(arr, (int(1/yrat), int(1/xrat))),
-                              chunks=chunks),
+                              chunks=[chunks[d] for d in ('y', 'x')]),
                 dims=('y', 'x'))
 
         arr_resampled = arr_resampled.rename({
