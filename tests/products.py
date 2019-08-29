@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
+import subprocess
 import os
 from sentinelsat import SentinelAPI
 import zipfile
@@ -43,6 +44,11 @@ prod_S3_L2_20190612 = {
     'credentials': credentials.coda,
     }
 
+prod_meris_L1_20060822 = {
+    # from https://earth.esa.int/web/guest/-/meris-sample-data-4320
+    'url': 'https://earth.esa.int/c/document_library/get_file?folderId=23684&name=DLFE-451.zip',
+    'name': 'MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1',
+}
 
 @pytest.fixture
 def sample_data_path():
@@ -79,3 +85,23 @@ def sentinel_product(product, sample_data_path, capsys):
     assert os.path.exists(prod_path)
     
     return prod_path
+
+
+@pytest.fixture
+def meris_product(product, sample_data_path, capsys):
+    ''' Download and uncompress sample MERIS products '''
+    target = os.path.join(sample_data_path, product['name'])
+    if not os.path.exists(target):
+        target_zip = os.path.join(sample_data_path, 'download_meris.zip')
+        url = product['url']
+        cmd = f'wget {url} -O {target_zip}'.split()
+        with capsys.disabled():
+            subprocess.call(cmd)
+
+        with zipfile.ZipFile(target_zip, mode='r') as z, capsys.disabled():
+            print('Uncompressing', target_zip)
+            z.extractall(path=sample_data_path)
+
+        os.remove(target_zip)
+
+    return target
