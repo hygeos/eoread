@@ -26,7 +26,6 @@ from eoread.naming import Naming
 
 
 
-dims2 = ('rows', 'columns')
 bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200]
 band_index = { # Bands - wavelength (um) - resolution (m)
     440: 1,    # Band 1 - Coastal aerosol	0.43 - 0.45	30
@@ -42,7 +41,8 @@ band_index = { # Bands - wavelength (um) - resolution (m)
                # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
     }
 
-def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False, naming=Naming()):
+def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
+                  split=False, naming=Naming(), chunksize=(300, 400)):
     '''
     Landsat-8 OLI reader.
 
@@ -64,6 +64,9 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False
                 cd ..
         radiometry: 'radiance' or 'reflectance'
         split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
+        naming: a Naming instance, used for parameters naming consistency.
+                Ex: custom naming: naming=Naming(Rtoa='RTOA')
+        chunksize: dask arrays chunk sizes.
 
     Returns a xr.Dataset
     '''
@@ -79,10 +82,10 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance', split=False
         '%H:%M:%S')
     ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
-    read_coordinates(ds, dirname, naming)
-    read_geometry(ds, dirname, l8_angles, naming)
+    read_coordinates(ds, dirname, naming, chunksize)
+    read_geometry(ds, dirname, l8_angles, naming, chunksize)
     ds = read_radiometry(
-        ds, dirname, split, data_mtl, radiometry, naming)
+        ds, dirname, split, data_mtl, radiometry, naming, chunksize)
 
     return ds
 
@@ -96,12 +99,12 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname, naming):
+def read_coordinates(ds, dirname, naming, chunksize):
     '''
     read lat/lon
     '''
-    ds[naming.lat] = (dims2, da.from_array(LATLON(dirname, 'lat'), chunks=(400, 300)))
-    ds[naming.lon] = (dims2, da.from_array(LATLON(dirname, 'lon'), chunks=(400, 300)))
+    ds[naming.lat] = (naming.dim2, da.from_array(LATLON(dirname, 'lat'), chunks=chunksize))
+    ds[naming.lon] = (naming.dim2, da.from_array(LATLON(dirname, 'lon'), chunks=chunksize))
     ds['totalheight'] = ds.rows.size
     ds['totalwidth'] = ds.columns.size
 
@@ -121,7 +124,7 @@ def gen_l8_angles(dirname, l8_angles=None):
         os.system(f'cp -v {angle_files} {dirname}')
 
 
-def read_geometry(ds, dirname, l8_angles, naming):
+def read_geometry(ds, dirname, l8_angles, naming, chunksize):
     filenames_sensor = glob(os.path.join(dirname, 'LC*_sensor_B01.img'))
 
     if (not filenames_sensor) and (l8_angles is not None):
@@ -138,7 +141,7 @@ def read_geometry(ds, dirname, l8_angles, naming):
                   mode='r',
                   order='C',
                   shape=(2, int(ds.totalheight), int(ds.totalwidth))),
-        chunks=(1, 300, 400),
+        chunks=(1,)+chunksize,
         )
 
     ds[naming.vza] = (naming.dim2, data_sensor[1, :, :]/100.)
@@ -156,29 +159,25 @@ def read_geometry(ds, dirname, l8_angles, naming):
                   mode='r',
                   order='C',
                   shape=(2, int(ds.totalheight), int(ds.totalwidth))),
-        chunks=(1, 300, 400),
+        chunks=(1,)+chunksize,
         )
     ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)
     ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming, chunksize):
     param = {'reflectance': naming.Rtoa,
              'radiance': naming.Ltoa}[radiometry]
     bnames = []
     for b in bands_oli:
         bname = (param+'_{}').format(b)
         bnames.append(bname)
-        data = xr.DataArray(
+        ds[bname] = (
+            naming.dim2,
             da.from_array(TOA_READ(b, dirname, radiometry, data_mtl),
-                          chunks=(300, 400)),
-            dims=dims2)
+                          chunks=chunksize))
         if radiometry == 'reflectance':
-            ds[bname] = data/da.cos(da.radians(ds.sza))
-        elif radiometry == 'radiance':
-            ds[bname] = data
-        else:
-            raise Exception('TOA_READ: `kind` should be `radiance` or `reflectance`')
+            ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
         ds = ds.eo.merge(bnames,
