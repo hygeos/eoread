@@ -105,8 +105,8 @@ def read_coordinates(ds, dirname, naming, chunksize):
     '''
     ds[naming.lat] = (naming.dim2, da.from_array(LATLON(dirname, 'lat'), chunks=chunksize))
     ds[naming.lon] = (naming.dim2, da.from_array(LATLON(dirname, 'lon'), chunks=chunksize))
-    ds['totalheight'] = ds.rows.size
-    ds['totalwidth'] = ds.columns.size
+    ds.attrs[naming.totalheight] = ds.rows.size
+    ds.attrs[naming.totalwidth] = ds.columns.size
 
 
 def gen_l8_angles(dirname, l8_angles=None):
@@ -140,7 +140,7 @@ def read_geometry(ds, dirname, l8_angles, naming, chunksize):
                   dtype='int16',
                   mode='r',
                   order='C',
-                  shape=(2, int(ds.totalheight), int(ds.totalwidth))),
+                  shape=(2, ds.totalheight, ds.totalwidth)),
         chunks=(1,)+chunksize,
         )
 
@@ -158,7 +158,7 @@ def read_geometry(ds, dirname, l8_angles, naming, chunksize):
                   dtype='int16',
                   mode='r',
                   order='C',
-                  shape=(2, int(ds.totalheight), int(ds.totalwidth))),
+                  shape=(2, ds.totalheight, ds.totalwidth)),
         chunks=(1,)+chunksize,
         )
     ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)

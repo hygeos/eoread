@@ -46,7 +46,8 @@ msi_band_names = {
         }
 
 
-def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Naming()):
+def Level1_MSI(dirname, resolution='60', geometry=True,
+               split=False, naming=Naming(), chunksize=(300, 400)):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances,
@@ -91,8 +92,8 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Nami
     # read image size for current resolution
     for e in geocoding.findall('Size'):
         if e.attrib['resolution'] == str(resolution):
-            ds['totalheight'] = int(e.find('NROWS').text)   # TODO: move to attributes
-            ds['totalwidth'] = int(e.find('NCOLS').text)
+            ds.attrs[naming.totalheight] = int(e.find('NROWS').text)
+            ds.attrs[naming.totalwidth] = int(e.find('NCOLS').text)
             break
 
     # attributes
@@ -100,14 +101,14 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Nami
     ds.attrs['resolution'] = resolution
 
     # lat-lon
-    msi_read_latlon(ds, geocoding, naming)
+    msi_read_latlon(ds, geocoding, naming, chunksize)
 
     # msi_read_geometry
     if geometry:
-        msi_read_geometry(ds, tileangles, naming)
+        msi_read_geometry(ds, tileangles, naming, chunksize)
 
     # msi_read_toa
-    ds = msi_read_toa(ds, granule_dir, quantif, split, naming)
+    ds = msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -115,28 +116,27 @@ def Level1_MSI(dirname, resolution='60', geometry=True, split=False, naming=Nami
     return ds
 
 
-def msi_read_latlon(ds, geocoding, naming):
-
-    chunks = (300, 400)   # FIXME: avoid multiple definitions
+def msi_read_latlon(ds, geocoding, naming, chunksize):
 
     ds[naming.lat] = (naming.dim2,
                       da.from_array(LATLON(geocoding, 'lat', ds),
-                                    chunks=chunks))
+                                    chunks=chunksize))
     ds[naming.lon] = (naming.dim2,
                       da.from_array(LATLON(geocoding, 'lon', ds),
-                                    chunks=chunks))
+                                    chunks=chunksize))
 
 
-def msi_read_toa(ds, granule_dir, quantif, split, naming):
-    chunks = {'x': 400,
-              'y': 300}
+def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
 
     for k, v in msi_band_names.items():
         filenames = glob(os.path.join(granule_dir, 'IMG_DATA', f'*_{v}.jp2'))
         assert len(filenames) == 1
         filename = filenames[0]
 
-        arr = xr.open_rasterio(filename, chunks=chunks)/quantif
+        arr = xr.open_rasterio(filename,
+                               chunks={'y': chunksize[0],
+                                       'x': chunksize[1]}
+                               )/quantif
         arr = arr.squeeze('band')
         arr = arr.drop('x').drop('y')
 
@@ -156,7 +156,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming):
             # over-sample
             arr_resampled = xr.DataArray(
                 da.from_array(Repeat(arr, (int(1/yrat), int(1/xrat))),
-                              chunks=[chunks[d] for d in ('y', 'x')]),
+                              chunks=chunksize),
                 dims=('y', 'x'))
 
         arr_resampled = arr_resampled.rename({
@@ -177,13 +177,13 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming):
 def msi_read_spectral(ds):
     pass
 
-def msi_read_geometry(ds, tileangles, naming):
+def msi_read_geometry(ds, tileangles, naming, chunksize):
 
     # read solar angles at tiepoints
     sza = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Zenith').find('Values_List'))
     saa = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Azimuth').find('Values_List'))
 
-    shp = (int(ds.totalheight), int(ds.totalwidth))
+    shp = (ds.totalheight, ds.totalwidth)
 
     # read view angles (for each band)
     vza = {}
@@ -226,7 +226,7 @@ def msi_read_geometry(ds, tileangles, naming):
         ds[name+'_tie'] = da_tie
         ds[name] = (naming.dim2, da.from_array(
             Interpolator(shp, ds[name+'_tie']),
-            chunks=(300, 200)))
+            chunks=chunksize))
 
 
 def read_xml_block(item):
@@ -258,10 +258,10 @@ class LATLON:
                 XDIM = int(e.find('XDIM').text)
                 YDIM = int(e.find('YDIM').text)
 
-        self.x = ULX + XDIM*np.arange(ds['totalheight'])
-        self.y = ULY + YDIM*np.arange(ds['totalwidth'])
+        self.x = ULX + XDIM*np.arange(ds.totalheight)
+        self.y = ULY + YDIM*np.arange(ds.totalwidth)
 
-        self.shape = (int(ds['totalheight']), int(ds['totalwidth']))
+        self.shape = (ds.totalheight, ds.totalwidth)
         self.dtype = 'float32'
 
     def __getitem__(self, key):

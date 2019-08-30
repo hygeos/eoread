@@ -39,6 +39,8 @@ class Naming:
 
         # Attributes
         self.datetime = 'datetime'
+        self.totalheight = 'totalheight'
+        self.totalwidth = 'totalwidth'
 
         # Dimensions
         self.rows = 'rows'
