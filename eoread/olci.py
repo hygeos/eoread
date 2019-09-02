@@ -143,9 +143,9 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
             ]:
         ds[ds_full] = (dims2, da.from_array(Interpolator(shape2, tie_ds[ds_tie]),
                                             chunks=chunksize2))
-        ds[ds_full].attrs = tie[ds_tie].attrs
+        ds[ds_full].attrs = tie_ds[ds_tie].attrs
         if tie_param:
-            ds[ds_full+'_tie'] = tie[ds_tie]
+            ds[ds_full+'_tie'] = tie_ds[ds_tie]
 
     # tie meteo interpolation
     tie_meteo_file = os.path.join(dirname, 'tie_meteo.nc')
