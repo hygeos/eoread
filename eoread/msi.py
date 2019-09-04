@@ -262,6 +262,7 @@ class LATLON:
         self.y = ULY + YDIM*np.arange(ds.totalwidth)
 
         self.shape = (ds.totalheight, ds.totalwidth)
+        self.ndim = 2
         self.dtype = 'float32'
 
     def __getitem__(self, key):

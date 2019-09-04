@@ -336,12 +336,13 @@ class Interpolator(object):
         self.dtype = A.dtype
         self.A = A
         assert A.dims == ('tie_rows', 'tie_columns')
+        self.ndim = 2
 
     def __getitem__(self, key):
-        ret =  self.A.interp(
-                tie_rows=np.arange(self.shape[0])[key[0]],
-                tie_columns=np.arange(self.shape[1])[key[1]],
-                )
+        ret = self.A.interp(
+            tie_rows=np.arange(self.shape[0])[key[0]],
+            tie_columns=np.arange(self.shape[1])[key[1]],
+        )
         return ret
 
 class Repeat(object):
@@ -354,6 +355,7 @@ class Repeat(object):
         repeats: tuple of int (number of repeats along each dimension)
         '''
         self.shape = tuple([s*r for (s, r) in zip(A.shape, repeats)])
+        self.ndim = len(self.shape)
         self.repeats = repeats
         self.dtype = A.dtype
         self.A = A

@@ -249,6 +249,7 @@ class LATLON:
         Ymax = gt[3] + Y1*gt[5]
 
         self.shape = (height, width)
+        self.ndim = 2
         self.X = np.linspace(Xmin, Xmax, width)
         self.Y = np.linspace(Ymin, Ymax, height)
         self.dtype = np.dtype('float64')
@@ -272,7 +273,8 @@ class LATLON:
 class TOA_READ:
     '''
     An array-like to read Landsat-8 OLI TOA reflectance
-    (have to be divided by cos(sza))
+    (have to be divided by cos(sza) - radiance and reflectance
+    in L1 are independent of the geometry)
 
     Arguments:
         b: band identifier (440, 480, 560, 655, 865)
@@ -305,6 +307,7 @@ class TOA_READ:
         self.width = band.XSize
         self.height = band.YSize
         self.shape = (self.height, self.width)
+        self.ndim = 2
 
     def __getitem__(self, keys):
         ystart = int(keys[0].start) if keys[0].start is not None else 0
