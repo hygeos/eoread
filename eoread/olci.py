@@ -8,6 +8,8 @@ import os
 import numpy as np
 from eoread.common import Interpolator, AtIndex
 from xml.dom.minidom import parse, parseString
+from eoread.naming import Naming
+from datetime import datetime
 
 
 olci_band_names = {
@@ -25,18 +27,22 @@ olci_band_names = {
     }
 
 
-def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
+def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
+                tie_param=False, init_spectral=True, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level1', chunks=chunks, tie_param=tie_param, init_spectral=init_spectral)
+    return read_OLCI(dirname, level='level1', chunks=chunks,
+                     tie_param=tie_param, init_spectral=init_spectral, naming=naming)
 
 
-def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
+def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
+                tie_param=False, init_spectral=True, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level2', chunks=chunks, tie_param=tie_param, init_spectral=init_spectral)
+    return read_OLCI(dirname, level='level2', chunks=chunks,
+                     tie_param=tie_param, init_spectral=init_spectral, naming=naming)
 
 
 def read_manifest(dirname):
@@ -68,7 +74,8 @@ def read_manifest(dirname):
             'textinfo': textinfo,
             }
 
-def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_param=False, init_spectral=True):
+def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
+              tie_param=False, init_spectral=True, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
@@ -100,8 +107,9 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
 
     index_bands = xr.IndexVariable('bands', bands)
     if level == 'level1':
-        param_name = 'Ltoa'
+        param_name = naming.Ltoa
     else:
+        param_name = naming.Rw
     ds[param_name] = xr.concat(prod_list, dim=index_bands).chunk({naming.bands: -1})
 
     # Geo coordinates
@@ -112,8 +120,8 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     ds.attrs.update(geo.attrs)
 
     # dimensions
-    dims2 = ('rows', 'columns')
-    dims3 = ('bands', 'rows', 'columns')
+    dims2 = naming.dim2
+    dims3 = naming.dim3
     if level == 'level1':
         dims3_full = ('bands', 'rows', 'columns')
     else:
@@ -224,7 +232,12 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
         ds['A865'] = qf.A865
         ds['T865'] = qf.T865
 
-    # TODO: read date
+    # attributes
+    ds.attrs['datetime_start'] = datetime.strptime(ds.start_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    ds.attrs['datetime_stop'] = datetime.strptime(ds.stop_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    ds.attrs[naming.datetime] = ds.datetime_start + (ds.datetime_stop - ds.datetime_start)/2.
+    ds.attrs[naming.platform] = 'Sentinel-3'   # FIXME: A or B
+    ds.attrs[naming.sensor] = 'OLCI'
 
     return ds
 

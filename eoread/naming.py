@@ -20,6 +20,9 @@ class Naming:
         self.Ltoa = 'Ltoa'
         self.Ltoa_desc = 'Top of Atmosphere radiance'
 
+        self.Rw = 'Rw'
+        self.Rw_desc = 'Water reflectance'
+
         # Coordinates
         self.lat = 'latitude'
         self.lon = 'longitude'
@@ -41,11 +44,15 @@ class Naming:
         self.datetime = 'datetime'
         self.totalheight = 'totalheight'
         self.totalwidth = 'totalwidth'
+        self.platform = 'platform'
+        self.sensor = 'sensor'
 
         # Dimensions
+        self.bands = 'bands'
         self.rows = 'rows'
         self.columns = 'columns'
         self.dim2 = (self.rows, self.columns)
+        self.dim3 = (self.bands, self.rows, self.columns)
 
         for k, v in kwargs.items():
             assert k in self.__dict__

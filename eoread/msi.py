@@ -31,7 +31,7 @@ from lxml import objectify
 from eoread.common import Interpolator
 from datetime import datetime
 import os
-from eoread.common import rectBivariateSpline, Repeat
+from eoread.common import Repeat
 from eoread.naming import Naming
 
 
@@ -99,6 +99,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     # attributes
     ds.attrs['platform'] = platform
     ds.attrs['resolution'] = resolution
+    ds.attrs[naming.sensor] = 'MSI'
 
     # lat-lon
     msi_read_latlon(ds, geocoding, naming, chunksize)
@@ -169,7 +170,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
 
     if not split:
         ds = ds.eo.merge([a for a in ds if a.startswith(naming.Rtoa+'_')],
-                         naming.Rtoa, 'bands', coords=list(msi_band_names.keys()))
+                         naming.Rtoa, naming.bands, coords=list(msi_band_names.keys()))
 
     return ds
 
