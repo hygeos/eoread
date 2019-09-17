@@ -146,7 +146,7 @@ class Blockwise:
             data = coerce_dtype(res[slice(pos, pos+s), ...], self.dtypes[i])
 
             unstacked.append(
-                data.reshape(shp)
+                xr.DataArray(data.reshape(shp), dims=self.dims_out[i])
                 )
 
             pos += s
