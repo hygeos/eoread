@@ -163,6 +163,11 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
         arr_resampled = arr_resampled.rename({
             'x': naming.columns,
             'y': naming.rows})
+        
+        arr_resampled = arr_resampled.chunk({
+            naming.rows: chunksize[0],
+            naming.columns: chunksize[1],
+            })
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
