@@ -284,7 +284,7 @@ class GeoDatasetAccessor(object):
         if drop:
             copy = copy.drop([var for var in var_names])
 
-        return copy.assign({out_var: data})
+        return copy.assign({out_var: data}).chunk({new_dim_name: -1})
 
 @xr.register_dataarray_accessor('eo')
 class GeoDataArrayAccessor(object):

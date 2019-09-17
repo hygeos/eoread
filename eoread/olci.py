@@ -102,8 +102,7 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300}, tie_par
     if level == 'level1':
         param_name = 'Ltoa'
     else:
-        param_name = 'Rw'
-    ds[param_name] = xr.concat(prod_list, dim=index_bands)
+    ds[param_name] = xr.concat(prod_list, dim=index_bands).chunk({naming.bands: -1})
 
     # Geo coordinates
     geo_coords_file = os.path.join(dirname, 'geo_coordinates.nc')
