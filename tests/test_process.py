@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 
 
+import tempfile
 import numpy as np
 import pytest
 from eoread.olci import Level1_OLCI
+from eoread.msi import Level1_MSI
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
 from eoread.process import blockwise_method
+from dask.diagnostics import ProgressBar
 
 class Calib:
     def __init__(self, bands):
@@ -28,18 +31,19 @@ class Calib:
     @blockwise_method(
         dims_blockwise=('rows', 'columns'),
         dims_out=[('bands', 'rows', 'columns')],
-        dtypes=['float32'])
+        dtypes=['float64'])
     def calc(self, Rtoa):
         return Rtoa * self.coeff
 
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_processing(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+    ds = Level1_OLCI(sentinel_product, init_reflectance=True)
 
-    ds = ds.eo.init_Rtoa()
+    ds['Rtoa_calib'] = Calib(ds.bands).calc(ds.Rtoa)
 
-    Rtoa_calib = Calib(ds.bands).calc(ds.Rtoa)
-
-    pass
-    
-    # def f()
+    sub = ds.isel(
+        rows=slice(1000, 1100),
+        columns=slice(700, 750),
+    )
+    with tempfile.NamedTemporaryFile(suffix='.nc') as tmpf, ProgressBar():
+        sub.to_netcdf(tmpf.name)

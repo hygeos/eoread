@@ -28,18 +28,26 @@ olci_band_names = {
 
 
 def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=True, naming=Naming()):
+                tie_param=False, init_spectral=False,
+                init_reflectance=False, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level1', chunks=chunks,
-                     tie_param=tie_param, init_spectral=init_spectral, naming=naming)
+    ds = read_OLCI(dirname, level='level1', chunks=chunks,
+                   tie_param=tie_param, init_spectral=(init_spectral or init_reflectance),
+                   naming=naming)
+
+    if init_reflectance:
+        ds.eo.init_Rtoa()
+
+    return ds
+
 
 
 def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=True, naming=Naming()):
+                tie_param=False, init_spectral=False, naming=Naming()):
     '''
-    Read an OLCI Level1 product as an xarray.Dataset
+    Read an OLCI Level2 product as an xarray.Dataset
     '''
     return read_OLCI(dirname, level='level2', chunks=chunks,
                      tie_param=tie_param, init_spectral=init_spectral, naming=naming)
@@ -69,23 +77,28 @@ def read_manifest(dirname):
     idata = iter(footprint.split())
     footprint = [(float(v), float(idata.__next__())) for v in idata]
 
+    footprint_lat, footprint_lon = zip(*footprint)
+
     return {'bandfilenames': bandfilenames,
-            'footprint': footprint,
+            'footprint_lat': footprint_lat,
+            'footprint_lon': footprint_lon,
             'textinfo': textinfo,
             }
 
+
 def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
-              tie_param=False, init_spectral=True, naming=Naming()):
+              tie_param=False, init_spectral=False,
+              naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
-
     '''
     ds = xr.Dataset()
 
     # read manifest file for file names and footprint
     manifest = read_manifest(dirname)
-    ds.attrs['Footprint'] = manifest['footprint']
+    ds.attrs[naming.footprint_lat] = manifest['footprint_lat']
+    ds.attrs[naming.footprint_lon] = manifest['footprint_lon']
 
     try:
         level_from_manifest = {
@@ -202,9 +215,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     for x in instrument_data.variables:
         ds[x] = instrument_data[x]
 
-    if init_spectral:
-        olci_init_spectral(ds)
-
     if level == 'level1':
         # quality flags
         qf_file = os.path.join(dirname, 'qualityFlags.nc')
@@ -239,10 +249,17 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     ds.attrs[naming.platform] = 'Sentinel-3'   # FIXME: A or B
     ds.attrs[naming.sensor] = 'OLCI'
 
+    if init_spectral:
+        olci_init_spectral(ds)
+
     return ds
 
 def olci_init_spectral(ds):
-    
+    '''
+    Broadcast all spectral (detector-wise) dataset to the whole image
+
+    Adds the resulting datasets in-place to `ds`: wav, F0
+    '''
     # dimensions to be indexed by this object
     dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
     # ... and their chunksize
@@ -265,6 +282,7 @@ def olci_init_spectral(ds):
                                               'detectors'),
                                       chunks=chunksize))
     ds['F0'].attrs.update(ds.solar_flux.attrs)
+
 
 def get_l2_flags(wqsf):
     L2_FLAGS = dict(zip(
@@ -295,6 +313,3 @@ def get_valid_l2_pixels(wqsf, flags=[
         bval += L2_FLAGS[flag]
 
     return wqsf & bval == 0
-
-
-

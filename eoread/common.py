@@ -10,6 +10,8 @@ from scipy.interpolate import RectBivariateSpline
 from shapely.geometry import Polygon, Point
 
 from numpy import radians, cos, sin, arcsin as asin, sqrt, where
+from eoread.naming import Naming
+naming = Naming()
 
 def haversine(lat1, lon1, lat2, lon2, radius=6371):
     '''
@@ -103,7 +105,10 @@ class GeoDatasetAccessor(object):
 
     def contains(self, lat, lon):
         pt = Point(lat,lon)
-        area = Polygon(self._obj.attrs['Footprint'])
+        area = Polygon(zip(
+            self._obj.attrs[naming.footprint_lat],
+            self._obj.attrs[naming.footprint_lon]
+        ))
         # TODO: proper inclusion test
         # TODO: make it work with arrays
         return area.contains(pt)

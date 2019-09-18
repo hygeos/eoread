@@ -23,6 +23,12 @@ class Naming:
         self.Rw = 'Rw'
         self.Rw_desc = 'Water reflectance'
 
+        self.wav = 'wav'
+        self.wav_desc = 'Effective wavelength'
+
+        self.F0 = 'F0'
+        self.F0_desc = 'Solar irradiance'
+
         # Coordinates
         self.lat = 'latitude'
         self.lon = 'longitude'
@@ -46,6 +52,8 @@ class Naming:
         self.totalwidth = 'totalwidth'
         self.platform = 'platform'
         self.sensor = 'sensor'
+        self.footprint_lat = 'footprint_lat'
+        self.footprint_lon = 'footprint_lon'
 
         # Dimensions
         self.bands = 'bands'

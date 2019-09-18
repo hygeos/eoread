@@ -13,6 +13,7 @@ from eoread.olci import get_l2_flags, get_valid_l2_pixels
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_olci_level1(sentinel_product):
     ds = Level1_OLCI(sentinel_product)
+    olci_init_spectral(ds)
     ds.eo.init(['Rtoa', 'geometry'])
     print(ds)
 
@@ -21,13 +22,6 @@ def test_olci_level1(sentinel_product):
     lon = ds.longitude[100, 100]
     assert ds.eo.contains(lat, lon)
     assert not ds.eo.contains(lat, lon+180)
-
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_olci_reflectance(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
-    ds = ds.eo.sub_rect(55, 56, 18, 19)
-    olci_init_spectral(ds)
-    ds.eo.init()
 
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_split_merge(sentinel_product):
