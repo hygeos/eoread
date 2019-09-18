@@ -233,9 +233,9 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         ds['T865'] = qf.T865
 
     # attributes
-    ds.attrs['datetime_start'] = datetime.strptime(ds.start_time, '%Y-%m-%dT%H:%M:%S.%fZ')
-    ds.attrs['datetime_stop'] = datetime.strptime(ds.stop_time, '%Y-%m-%dT%H:%M:%S.%fZ')
-    ds.attrs[naming.datetime] = ds.datetime_start + (ds.datetime_stop - ds.datetime_start)/2.
+    dstart = datetime.strptime(ds.start_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    dstop = datetime.strptime(ds.stop_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+    ds.attrs[naming.datetime] = (dstart + (dstop - dstart)/2.).isoformat()
     ds.attrs[naming.platform] = 'Sentinel-3'   # FIXME: A or B
     ds.attrs[naming.sensor] = 'OLCI'
 

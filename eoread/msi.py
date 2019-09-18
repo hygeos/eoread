@@ -79,8 +79,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     quantif = float(xmlroot.General_Info.find('Product_Image_Characteristics').QUANTIFICATION_VALUE)
 
     # read date
-    ds.attrs['datetime'] = datetime.strptime(str(xmlgranule.General_Info.find('SENSING_TIME')),
-                                             '%Y-%m-%dT%H:%M:%S.%fZ')
+    ds.attrs['datetime'] = str(xmlgranule.General_Info.find('SENSING_TIME'))
     geocoding = xmlgranule.Geometric_Info.find('Tile_Geocoding')
     tileangles = xmlgranule.Geometric_Info.find('Tile_Angles')
 
@@ -163,7 +162,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
         arr_resampled = arr_resampled.rename({
             'x': naming.columns,
             'y': naming.rows})
-        
+
         arr_resampled = arr_resampled.chunk({
             naming.rows: chunksize[0],
             naming.columns: chunksize[1],
