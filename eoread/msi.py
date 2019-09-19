@@ -33,6 +33,7 @@ from datetime import datetime
 import os
 from eoread.common import Repeat
 from eoread.naming import Naming
+from eoread import eo
 
 
 msi_band_names = {
@@ -173,8 +174,8 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
         ds[naming.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = ds.eo.merge([a for a in ds if a.startswith(naming.Rtoa+'_')],
-                         naming.Rtoa, naming.bands, coords=list(msi_band_names.keys()))
+        ds = eo.merge(ds, [a for a in ds if a.startswith(naming.Rtoa+'_')],
+                      naming.Rtoa, naming.bands, coords=list(msi_band_names.keys()))
 
     return ds
 

@@ -10,6 +10,7 @@ from eoread.common import Interpolator, AtIndex
 from xml.dom.minidom import parse, parseString
 from eoread.naming import Naming
 from datetime import datetime
+from eoread import eo
 
 
 olci_band_names = {
@@ -38,7 +39,7 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
                    naming=naming)
 
     if init_reflectance:
-        ds.eo.init_Rtoa()
+        eo.init_Rtoa(ds)
 
     return ds
 
@@ -258,7 +259,7 @@ def olci_init_spectral(ds):
     '''
     Broadcast all spectral (detector-wise) dataset to the whole image
 
-    Adds the resulting datasets in-place to `ds`: wav, F0
+    Adds the resulting datasets to `ds`: wav, F0 (in place)
     '''
     # dimensions to be indexed by this object
     dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])

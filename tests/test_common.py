@@ -7,6 +7,7 @@ import xarray as xr
 import numpy as np
 import dask.array as da
 from eoread.common import Repeat
+from eoread import eo
 
 
 def test_merge():
@@ -18,7 +19,7 @@ def test_merge():
         l1[b] = xr.DataArray(np.eye(10), dims=('x', 'y'))
     print(l1)
 
-    l1m = l1.eo.merge(bnames, 'Rtoa', 'bands', coords=bands)
+    l1m = eo.merge(l1, bnames, 'Rtoa', 'bands', coords=bands)
     print(l1m)
 
 
@@ -29,7 +30,7 @@ def test_split():
                               coords={'bands': [412, 443, 490, 510, 560]}
                               )
     print(l1)
-    l1s = l1.eo.split('Rtoa')
+    l1s = eo.split(l1, 'Rtoa')
     print(l1s)
 
 

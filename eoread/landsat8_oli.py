@@ -23,6 +23,7 @@ from osgeo import gdal
 import osr
 import eoread.common
 from eoread.naming import Naming
+from eoread import eo
 
 
 
@@ -180,10 +181,10 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming, chunksize)
             ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
-        ds = ds.eo.merge(bnames,
-                         param,
-                         'bands',
-                         coords=bands_oli)
+        ds = eo.merge(ds, bnames,
+                      param,
+                      'bands',
+                      coords=bands_oli)
 
     return ds
 

@@ -77,3 +77,4 @@ class Naming:
         assert name+'_desc' in self.__dict__
         return self.__dict__[name+'_desc']
 
+naming = Naming()

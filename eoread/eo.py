@@ -5,10 +5,271 @@
 Various utility functions for exploiting eoread objects
 '''
 
+import os
 from dateutil.parser import parse
+from numpy import radians, cos, sin, arcsin as asin, sqrt, where
+import numpy as np
+import xarray as xr
+from shapely.geometry import Polygon, Point
+from eoread.naming import naming
+
 
 def datetime(ds):
     '''
     Parse datetime (in isoformat) from `ds` attributes
     '''
     return parse(ds.datetime)
+
+
+def haversine(lat1, lon1, lat2, lon2, radius=6371):
+    '''
+    Calculate the great circle distance between two points (specified in
+    decimal degrees) on a sphere of a given radius
+
+    Returns the distance in the same unit as radius (defaults to earth radius in km)
+    '''
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = [radians(x) for x in [lon1, lat1, lon2, lat2]]
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    dist = radius * c
+
+    return dist
+
+
+def init_Rtoa(ds):
+    '''
+    Initialize TOA reflectances from radiance (in place)
+
+    Implies init_geometry
+    '''
+    init_geometry(ds)
+
+    # TOA reflectance
+    if 'Rtoa' not in ds:
+        ds['Rtoa'] = np.pi*ds.Ltoa/(ds.mus*ds.F0)
+
+    return ds
+
+def init_geometry(ds):
+    '''
+    Initialize geometric variables (in place)
+    '''
+
+    # mus and muv
+    if 'mus' not in ds:
+        ds['mus'] = np.cos(np.radians(ds.sza))
+        ds['mus'].attrs['description'] = 'cosine of the sun zenith angle'
+    if 'muv' not in ds:
+        ds['muv'] = np.cos(np.radians(ds.vza))
+        ds['muv'].attrs['description'] = 'cosine of the view zenith angle'
+
+    # TODO: scattering angle
+
+    return ds
+
+
+def locate(ds, lat, lon):
+    print(f'Locating lat={lat}, lon={lon}')
+    ds = self._obj
+    # TODO: haversine
+    dist = (ds.latitude - lat)**2 + (ds.longitude - lon) **2
+    dist_min = np.amin(dist)
+    # TODO: check if it is within
+    return np.where(dist == dist_min)
+
+
+def contains(ds, lat, lon):
+    pt = Point(lat, lon)
+    area = Polygon(zip(
+        ds.attrs[naming.footprint_lat],
+        ds.attrs[naming.footprint_lon]
+    ))
+    # TODO: proper inclusion test
+    # TODO: make it work with arrays
+    return area.contains(pt)
+
+
+def show_footprint(ds, zoom=4):
+    import ipyleaflet as ipy
+
+    poly_pts = ds.attrs['Footprint']
+    center = [sum(x)/len(poly_pts) for x in zip(*poly_pts)]
+
+    m = ipy.Map(zoom=zoom,
+                center=center)
+    polygon = ipy.Polygon(locations=poly_pts,
+                          color="green",
+                          fillcolor="blue")
+    m.add_layer(polygon)
+    
+    return m
+
+
+def sub(ds, cond, drop_invalid=True, int_default_value=0):
+    '''
+    Creates a Dataset based on the conditions passed in parameters
+
+    cond : a DataArray of booleans that defines which pixels are kept
+
+    drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+
+    int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
+    '''
+    res = xr.Dataset()
+
+    if drop_invalid:
+        assert 'mask_valid' not in res
+        res['mask_valid'] = cond.where(cond, drop=True)
+        res['mask_valid'] = res['mask_valid'].where(~np.isnan(res['mask_valid']), 0).astype(bool)
+
+    slice_dict = dict()
+    for dim in cond.dims:
+        s = cond.any(dim=[d for d in cond.dims if d != dim])
+        wh = where(s)[0]
+        if len(wh) == 0:
+            slice_dict[dim] = slice(2,1)
+        else:
+            slice_dict[dim] = slice(wh[0], wh[-1]+1)
+
+    for var in ds.variables:
+        if set(cond.dims) == set(ds[var].dims).intersection(set(cond.dims)):
+            if drop_invalid:
+                if ds[var].dtype in ['float16', 'float32', 'float64']:
+                    res[var] = ds[var].where(cond, drop=True)
+                else:
+                    res[var] = ds[var].isel(slice_dict).where(res['mask_valid'], int_default_value)
+
+            else:
+                res[var] = ds[var].isel(slice_dict)
+
+    res.attrs.update(ds.attrs)
+
+    return res
+
+
+def sub_rect(ds, lat_min, lon_min, lat_max, lon_max, drop_invalid=True, int_default_value=0):
+    '''
+    Returns a Dataset based on the coordinates of the rectangle passed in parameters
+
+    lat_min, lat_max, lon_min, lon_max : delimitations of the region of interest
+
+    drop_invalid, bool : if True, invalid pixels will be replace by nan
+    for floats and int_default_value for other types
+
+    int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
+    '''
+    lat = ds.latitude.compute()
+    lon = ds.longitude.compute()
+    cond = (lat < lat_max) & (lat > lat_min) & (lon < lon_max) & (lon > lon_min)
+    cond = cond.compute()
+
+    return sub(ds, cond, drop_invalid, int_default_value)
+
+
+def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
+    '''
+    Creates a Dataset based on the circle specified in parameters
+
+    pt_lat, pt_lon : Coordonates of the center of the point
+
+    rad : radius of the circle in km
+
+    drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+
+    int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
+    '''
+    lat = ds[naming.lat].compute()
+    lon = ds[naming.lon].compute()
+    cond = haversine(lat, lon, pt_lat, pt_lon) < rad
+    cond = cond.compute()
+
+    return ds.sub(cond, drop_invalid, int_default_value)
+
+
+def to_netcdf(ds, dirname='.', suffix='', attr_name='product_name', compress=True, **kwargs):
+    '''
+    Write a xr.Dataset using product_name attribute and a suffix
+    '''
+    suffix = suffix+'.nc'
+    fname = os.path.join(dirname, ds._obj.attrs[attr_name]+suffix)
+    fname_tmp = fname+'.tmp'
+
+    encoding = {}
+    if compress:
+        comp = dict(zlib=True, complevel=1)
+        encoding = {var: comp for var in ds._obj.data_vars}
+    
+    ds._obj.to_netcdf(path=fname_tmp, encoding = encoding, **kwargs)
+    os.rename(fname_tmp, fname)
+
+
+def split(ds, var_name, out_vars=None, split_axis=None, drop=True):
+    """
+    Returns a DataSet where the variable 'var_name' is split into many variables along the 'split_axis' dimension.
+
+    var_name, str : name of the variable to split
+    out_vars, str or list of str : names or prefix of the output variables concatenated with their value in the 'split_axis' axis
+                    by default, it uses the var_name as prefix
+    split_axis, str : name of the axis along which the variable is split
+
+    drop : bool, if True, variable var_name is deleted in the returned DataSet
+    """
+    copy = ds.copy()
+    if not split_axis:
+        split_axis = copy[var_name].dims[0]
+    if not (split_axis in copy[var_name].dims):
+        raise Exception("variable '{}' doesn't have '{}' dimension".format(var_name, split_axis))
+
+    if isinstance(out_vars, list):
+        cpt=0
+        for x in copy[var_name][split_axis]:
+            copy[out_vars[cpt]] = copy[var_name].sel({split_axis : x})
+            cpt+=1
+    else:
+        if not out_vars:
+            out_vars = var_name+'_'
+        for x in copy[var_name][split_axis]:
+            copy[out_vars+str(x.data)] = copy[var_name].sel({split_axis : x})
+    
+    if drop:
+        copy = copy.drop(var_name)
+    return copy
+
+def merge(ds, var_names, out_var, new_dim_name, coords=None,
+            dim_index=0, drop=True):
+    """
+    Returns a DataSet where all the variables included in the 'var_names' list are merged into a
+    new variable named 'out_var'.
+    If the 'new_dim' dimension already exists, the variables are concatenated along the dimension,
+    otherwise it creates this dimension in the new variable
+
+    var_names, list of str : names of variables to concatenate
+    out_var, str : the output variable name created
+    new_dim_name, str : name of the dimension along the variables are concatenated
+    coords: coordinates along  the new dimension
+    dim_index, int: index where to put the new dimension
+    drop : bool, if True, variables in var_names are deleted in the returned DataSet
+    """
+    copy = ds.copy()
+    if out_var in list(copy.variables):
+        raise Exception("variable '{}' already exists in the dataset".format(out_var))
+    
+    data = xr.concat([copy[var] for var in var_names], new_dim_name)
+
+    dims = [dim for dim in copy[var_names[0]].dims]
+    if dim_index < 0:
+        dim_index = len(dims)+1+dim_index
+    dims.insert(dim_index, new_dim_name)
+    data = data.transpose(*dims)
+    if coords is not None:
+        data = data.assign_coords(**{new_dim_name: coords})
+
+    if drop:
+        copy = copy.drop([var for var in var_names])
+
+    return copy.assign({out_var: data}).chunk({new_dim_name: -1})

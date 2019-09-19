@@ -9,7 +9,6 @@ from eoread.olci import Level1_OLCI
 from eoread.msi import Level1_MSI
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
-from eoread.common import GeoDatasetAccessor
 from eoread.olci import get_l2_flags, get_valid_l2_pixels
 from eoread.naming import Naming
 from eoread import eo
@@ -25,9 +24,6 @@ def test(sentinel_product, Reader, kwargs):
     '''
     ds = Reader(sentinel_product, **kwargs)
     n = Naming()
-
-    if not n.Rtoa in ds:
-        ds = ds.eo.init_Rtoa()
 
     # datasets
     assert n.Rtoa in ds
