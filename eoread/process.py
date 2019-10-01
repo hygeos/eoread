@@ -4,8 +4,6 @@
 
 '''
 Blockwise process wrapper using dask array's `blockwise` function
-
-TODO: global docstring
 '''
 
 from functools import wraps
@@ -31,8 +29,30 @@ class Blockwise:
     Note2: the block dimensions should be the last ones.
         They are determined based on the input arrays.
 
-    TODO: Example
-        Blockwise(...)(...)
+    Example:
+        def f(x, y):
+            return x, y, (y > 0).astype('uint8')
+
+        dims2 = ('dim1_block', 'dim2_block')
+        dims3 = ('dim0', 'dim1_block', 'dim2_block')
+        ds = xr.Dataset()
+        ds['x'] = (
+            ('dim0', 'dim1_block', 'dim2_block'),
+            dask.array.from_array(
+                np.random.randn(5, 200, 200).astype('float32'),
+                chunks=(-1, 100, 100)))
+        ds['y'] = (
+            ('dim1_block', 'dim2_block'),
+            dask.array.from_array(
+                np.random.randn(200, 200).astype('float64'),
+                chunks=(100, 100)))
+        res = Blockwise(
+            f,
+            dims_blockwise=dims2,
+            dims_out=[dims3, dims2, dims2],
+            dtypes=['float32', 'float64', 'uint8']
+        )(ds.x, ds.y)
+        # res[0], res[1] and res[2] are the lazy outputs of f
     '''
     def __init__(self, ufunc, dims_blockwise, dims_out, dtypes):
         self.ufunc = ufunc
@@ -41,10 +61,11 @@ class Blockwise:
         self.dtypes = dtypes
 
         assert len(dims_out) == len(dtypes)
-        for dims in dims_out:
-            # The last dimensions of all output arrays should be the blockwise ones
-            assert dims[-len(dims_blockwise):] == dims_blockwise
-
+        for i, dims in enumerate(dims_out):
+            assert dims[-len(dims_blockwise):] == dims_blockwise, \
+                f'The last dimensions of all output arrays (output ' \
+                f'#{i} has dimensions {dims}) should be the ' \
+                f'blockwise ones {dims_blockwise}.' 
         # coerce all outputs to the largest dtype
         self.dtype_coerce = sorted(self.dtypes, key=lambda x: np.dtype(x).itemsize)[-1]
 
