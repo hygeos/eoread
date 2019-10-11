@@ -29,8 +29,15 @@ def test_split():
                               dims=('bands', 'x', 'y'),
                               coords={'bands': [412, 443, 490, 510, 560]}
                               )
+    l1['Rw'] = xr.DataArray(np.zeros((5, 10, 10)),
+                            dims=('bands', 'x', 'y'),
+                            coords={'bands': [412, 443, 490, 510, 560]}
+                            )
     print(l1)
-    l1s = eo.split(l1, 'Rtoa')
+    l1s = eo.split(l1, 'bands')
+    assert 'Rtoa412' in l1s
+    assert 'Rw412' in l1s
+    assert 'Rtoa' not in l1s
     print(l1s)
 
 

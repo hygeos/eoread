@@ -208,38 +208,29 @@ def to_netcdf(ds, dirname='.', suffix='', attr_name='product_name', compress=Tru
     os.rename(fname_tmp, fname)
 
 
-def split(ds, var_name, out_vars=None, split_axis=None, drop=True):
-    """
-    Returns a DataSet where the variable 'var_name' is split into many variables along the 'split_axis' dimension.
 
-    var_name, str : name of the variable to split
-    out_vars, str or list of str : names or prefix of the output variables concatenated with their value in the 'split_axis' axis
-                    by default, it uses the var_name as prefix
-    split_axis, str : name of the axis along which the variable is split
+def split(d, dim, sep=''):
+    '''
+    Returns a Dataset where a given dimension is split into as many variables
 
-    drop : bool, if True, variable var_name is deleted in the returned DataSet
-    """
-    copy = ds.copy()
-    if not split_axis:
-        split_axis = copy[var_name].dims[0]
-    if not (split_axis in copy[var_name].dims):
-        raise Exception("variable '{}' doesn't have '{}' dimension".format(var_name, split_axis))
+    d: Dataset or DataArray
+    '''
+    assert dim in d.dims
 
-    if isinstance(out_vars, list):
-        cpt=0
-        for x in copy[var_name][split_axis]:
-            copy[out_vars[cpt]] = copy[var_name].sel({split_axis : x})
-            cpt+=1
+    if isinstance(d, xr.DataArray):
+        return xr.merge([
+            d.isel(**{dim: i}).rename(f'{d.name}{sep}{d[dim].data[i]}').drop(dim)
+            for i in range(len(d[dim]))
+            ])
+    elif isinstance(d, xr.Dataset):
+        return xr.merge([split(d[x], dim)
+                         if dim in d[x].dims
+                         else d[x]
+                         for x in d])
     else:
-        if not out_vars:
-            out_vars = var_name+'_'
-        for x in copy[var_name][split_axis]:
-            copy[out_vars+str(x.data)] = copy[var_name].sel({split_axis : x})
-    
-    if drop:
-        copy = copy.drop(var_name)
-    return copy
+        raise Exception('`split` expects Dataset or DataArray.')
 
+    
 def merge(ds, var_names, out_var, new_dim_name, coords=None,
             dim_index=0, drop=True):
     """
