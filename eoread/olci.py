@@ -29,7 +29,7 @@ olci_band_names = {
 
 
 def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=False,
+                tie_param=False, init_spectral=True,
                 init_reflectance=False, naming=Naming()):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
@@ -46,7 +46,7 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
 
 
 def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=False, naming=Naming()):
+                tie_param=False, init_spectral=True, naming=Naming()):
     '''
     Read an OLCI Level2 product as an xarray.Dataset
     '''
