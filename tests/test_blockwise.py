@@ -3,16 +3,15 @@
 
 import pytest
 from tests.dummy_products import dummy_level1
-from eoread.process import Blockwise
-from tests import products as p
-from tests.products import sentinel_product, sample_data_path
 import dask.array as da
 import dask
 import xarray as xr
-from eoread.olci import Level1_OLCI
-import tempfile
 import numpy as np
+from eoread.process import Blockwise
+from eoread.olci import Level1_OLCI
 from eoread.process import coerce_dtype, blockwise_method, blockwise_function
+from tests import products as p
+from tests.products import sentinel_product, sample_data_path
 dask.config.set(scheduler='single-threaded')
 
 
@@ -87,14 +86,17 @@ def test_blockwise_class():
     np.testing.assert_allclose(res, l1.Rtoa**2)
 
 
-def test_blockwise_1():
+@pytest.mark.parametrize('n', [50, None])
+def test_blockwise_1(n):
     '''
     Simple case: one input, one output
     '''
     def f(sza):
         return sza
 
-    l1 = dummy_level1()
+    l1 = dummy_level1().isel(
+        width=slice(0, n),
+        height=slice(0, n))
 
     blk = Blockwise(
         f,
