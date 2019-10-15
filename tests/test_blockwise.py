@@ -131,6 +131,39 @@ def test_blockwise_2(i):
     np.testing.assert_allclose(res1[i], res2[i])
 
 
+@pytest.mark.parametrize('i', [0, 1, 2])
+def test_showcase(i):
+    '''
+    The same, but with a minimal reproducible example.
+    '''
+    def f(x, y):
+        return x, y, (y > 0).astype('uint8')
+
+    dims2 = ('dim1_block', 'dim2_block')
+    dims3 = ('dim0', 'dim1_block', 'dim2_block')
+    ds = xr.Dataset()
+    ds['x'] = (
+        ('dim0', 'dim1_block', 'dim2_block'),
+        dask.array.from_array(
+            np.random.randn(5, 200, 200).astype('float32'),
+            chunks=(-1, 100, 100)))
+    ds['y'] = (
+        ('dim1_block', 'dim2_block'),
+        dask.array.from_array(
+            np.random.randn(200, 200).astype('float64'),
+            chunks=(100, 100)))
+    res = Blockwise(
+        f,
+        dims_blockwise=dims2,
+        dims_out=[dims3, dims2, dims2],
+        dtypes=['float32', 'float64', 'uint8']
+    )(ds.x, ds.y)
+
+    # check output
+    res2 = f(ds.x.compute(), ds.y.compute())
+    np.testing.assert_allclose(res[i], res2[i])
+
+
 def test_decorator():
     dims2 = ('width', 'height')
     dims3 = ('band', 'width', 'height')
