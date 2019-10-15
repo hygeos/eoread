@@ -12,7 +12,6 @@ from eoread import eo
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_olci_level1(sentinel_product):
     ds = Level1_OLCI(sentinel_product)
-    olci_init_spectral(ds)
 
     # test method contains
     lat = ds.latitude[100, 100]
@@ -20,15 +19,19 @@ def test_olci_level1(sentinel_product):
     assert eo.contains(ds, lat, lon)
     assert not eo.contains(ds, lat, lon+180)
 
+    assert 'total_ozone' in ds
+    assert 'sea_level_pressure' in ds
+    assert 'total_columnar_water_vapour' in ds
+
 
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_split_merge(sentinel_product):
     ds = Level1_OLCI(sentinel_product)
     print(ds)
     ds = eo.sub_rect(ds, 55, 56, 18, 19)
-    split = eo.split(ds, 'Ltoa', out_vars = ['Ltoa_'+str(band) for band in ds.coords['bands'].data], split_axis = 'bands')
+    split = eo.split(ds, 'bands')
     print(split)
-    merge = eo.merge(split, [var for var in split.variables if 'Ltoa_' in var], 'Ltoa', 'bands')
+    merge = eo.merge(split, [var for var in split.variables if 'Ltoa' in var], 'Ltoa', 'bands')
     print(merge)
 
 

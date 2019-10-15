@@ -100,6 +100,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     ds.attrs['platform'] = platform
     ds.attrs['resolution'] = resolution
     ds.attrs[naming.sensor] = 'MSI'
+    ds.attrs[naming.product_name] = os.path.basename(dirname)
 
     # lat-lon
     msi_read_latlon(ds, geocoding, naming, chunksize)

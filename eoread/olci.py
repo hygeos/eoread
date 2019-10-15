@@ -180,9 +180,13 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     assert tie.tie_rows[0] == ds.rows[0]
     assert tie.tie_rows[-1] == ds.rows[-1]
     
-    ds['horizontal_wind'] = (dims2, da.from_array(Interpolator(shape2, np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0),2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))) ,chunks=chunksize2))
-    ds['horizontal_wind'].attrs = tie['horizontal_wind'].attrs
-    variables = ['humidity', 'sea_level_pressure', 'total_columnar_water_vapour', 'total_ozone']
+    ds[naming.horizontal_wind] = (dims2, da.from_array(Interpolator(shape2, np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0),2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))) ,chunks=chunksize2))
+    ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
+    variables = [
+        'humidity',
+        naming.sea_level_pressure,
+        naming.total_columnar_water_vapour,
+        naming.total_ozone]
     for var in variables:
         ds[var] = (dims2, da.from_array(Interpolator(shape2, tie[var]),
                                             chunks=chunksize2))

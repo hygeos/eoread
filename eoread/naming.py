@@ -54,6 +54,7 @@ class Naming:
         self.sensor = 'sensor'
         self.footprint_lat = 'footprint_lat'
         self.footprint_lon = 'footprint_lon'
+        self.product_name = 'product_name'
 
         # Dimensions
         self.bands = 'bands'
@@ -65,6 +66,12 @@ class Naming:
         for k, v in kwargs.items():
             assert k in self.__dict__
             self.__dict__[k] = v
+
+        # Ancillary data
+        self.total_ozone = 'total_ozone'
+        self.sea_level_pressure = 'sea_level_pressure'
+        self.total_columnar_water_vapour = 'total_columnar_water_vapour'
+        self.horizontal_wind = 'horizontal_wind'
 
 
     def name(self, name):

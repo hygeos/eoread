@@ -44,6 +44,7 @@ def test(sentinel_product, Reader, kwargs):
     eo.datetime(ds)
     assert n.platform in ds.attrs
     assert n.sensor in ds.attrs
+    assert n.product_name in ds.attrs
 
     # subset
     sub = ds.isel(rows=slice(1000, 1100), columns=slice(500, 570))
