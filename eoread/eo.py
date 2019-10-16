@@ -187,7 +187,7 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
     cond = haversine(lat, lon, pt_lat, pt_lon) < rad
     cond = cond.compute()
 
-    return ds.sub(cond, drop_invalid, int_default_value)
+    return sub(ds, cond, drop_invalid, int_default_value)
 
 
 def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='product_name',

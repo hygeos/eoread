@@ -35,6 +35,14 @@ def test_split_merge(sentinel_product):
     print(merge)
 
 
+@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
+def test_sub_pt(sentinel_product):
+    ds = Level1_OLCI(sentinel_product)
+    lat0 = ds.latitude[500, 500]
+    lon0 = ds.longitude[500, 500]
+    eo.sub_pt(ds, lat0, lon0, 3)
+
+
 @pytest.mark.parametrize('product', [p.prod_S3_L2_20190612])
 def test_olci_level2(sentinel_product):
     l2 = Level2_OLCI(sentinel_product)
