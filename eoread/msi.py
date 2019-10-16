@@ -120,12 +120,19 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
 
 def msi_read_latlon(ds, geocoding, naming, chunksize):
 
+    lat_arr = LATLON(geocoding, 'lat', ds)
     ds[naming.lat] = (naming.dim2,
-                      da.from_array(LATLON(geocoding, 'lat', ds),
-                                    chunks=chunksize))
+                      da.from_array(lat_arr,
+                                    chunks=chunksize,
+                                    meta=np.array([], lat_arr.dtype),
+                                    ))
+
+    lon_arr = LATLON(geocoding, 'lon', ds)
     ds[naming.lon] = (naming.dim2,
-                      da.from_array(LATLON(geocoding, 'lon', ds),
-                                    chunks=chunksize))
+                      da.from_array(lon_arr,
+                                    chunks=chunksize,
+                                    meta=np.array([], lon_arr.dtype),
+                                    ))
 
 
 def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
@@ -273,11 +280,22 @@ class LATLON:
         self.dtype = 'float32'
 
     def __getitem__(self, key):
-        X, Y = np.meshgrid(self.x[key[1]], self.y[key[0]])
+        X, Y = self.x[key[1]], self.y[key[0]]
+        if isinstance(key[0], slice) and isinstance(key[1], slice):
+            # keys are both slices
+            X, Y = np.meshgrid(X, Y)
+        else:
+            X, Y = np.broadcast_arrays(X, Y)
 
         lon, lat = self.proj(X, Y, inverse=True)
 
         if self.kind == 'lat':
-            return lat.astype(self.dtype)
+            if hasattr(lat, 'astype'):
+                return lat.astype(self.dtype)
+            else:
+                return np.array(lat, dtype=self.dtype)
         else:
-            return lon.astype(self.dtype)
+            if hasattr(lon, 'astype'):
+                return lon.astype(self.dtype)
+            else:
+                return np.array(lon, dtype=self.dtype)
