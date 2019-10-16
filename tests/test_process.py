@@ -30,20 +30,24 @@ class Calib:
         self.coeff = np.array([self.calib[b] for b in bands.values]).reshape((-1, 1, 1))
     @blockwise_method(
         dims_blockwise=('rows', 'columns'),
-        dims_out=[('bands', 'rows', 'columns')],
-        dtypes=['float64'])
+        dims_out=[('bands', 'rows', 'columns'),
+                  ('rows', 'columns')],
+        dtypes=['float64', 'bool'])
     def calc(self, Rtoa):
-        return Rtoa * self.coeff
+        return Rtoa * self.coeff, Rtoa[0,:,:] > 0
 
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
 def test_processing(sentinel_product):
+    '''
+    Try processing a Sentinel file
+    '''
     ds = Level1_OLCI(sentinel_product, init_reflectance=True)
 
-    ds['Rtoa_calib'] = Calib(ds.bands).calc(ds.Rtoa)
+    ds['Rtoa_calib'], ds['flags'] = Calib(ds.bands).calc(ds.Rtoa)
 
     sub = ds.isel(
-        rows=slice(1000, 1100),
-        columns=slice(700, 750),
+        rows=slice(0, 1000),
+        columns=slice(0, 1000),
     )
     with tempfile.NamedTemporaryFile(suffix='.nc') as tmpf, ProgressBar():
         sub.to_netcdf(tmpf.name)
