@@ -5,29 +5,42 @@
 import os
 import tempfile
 import pytest
-from eoread.olci import Level1_OLCI
+import dask
 from eoread.msi import Level1_MSI
-from tests import products as p
-from tests.products import sentinel_product, sample_data_path
-from eoread.olci import get_l2_flags, get_valid_l2_pixels
+from eoread.olci import Level1_OLCI, get_l2_flags, get_valid_l2_pixels
 from eoread.naming import Naming
 from eoread import eo
+from tests import products as p
+from tests.products import sentinel_product, sample_data_path
+dask.config.set(scheduler='single-threaded')
 
 
+@pytest.mark.parametrize('idx1, idx2', [
+    (slice(20, 30), slice(20, 30)),
+    (20, slice(20, 30)),
+    (20, 20),
+    ])
+@pytest.mark.parametrize('param', ['Rtoa', 'latitude', 'longitude', 'vza', 'sza'])   # FIXME: raa
 @pytest.mark.parametrize('Reader,product,kwargs', [
     (Level1_OLCI, p.prod_S3_L1_20190430, {'init_reflectance': True}),
     (Level1_MSI, p.prod_S2_L1_20190419, {}),
     ])
-def test(sentinel_product, Reader, kwargs):
+def test(sentinel_product, Reader, kwargs, idx1, idx2, param):
     '''
     Various verifications to check the consistency of all products
     '''
     ds = Reader(sentinel_product, **kwargs)
     n = Naming()
 
-    # datasets
+    # presence of datasets
     assert n.Rtoa in ds
-    # TODO: test reading slices, and pixels
+
+    # test reading
+    # (slice of pixel)
+    if param == 'Rtoa':
+        ds[param][0, idx1, idx2].compute()
+    else:
+        ds[param][idx1, idx2].compute()
 
     # check dimensions
     assert n.rows in ds.dims
