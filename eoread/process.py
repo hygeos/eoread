@@ -130,8 +130,6 @@ class Blockwise:
 
             # Check that the chunked dimensions are the last ones
             chunked = [len(c) > 1 for c in a.chunks]
-            assert False not in chunked[-ndimblk:],\
-                f'Encountered a non-chunked dimension in following dimensions: {a.dims[-ndimblk:]}'
             assert True not in chunked[:-ndimblk], \
                 f'Encountered a chunked dimension in following dimensions: {a.dims[:-ndimblk]}'
 
