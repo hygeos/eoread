@@ -75,7 +75,6 @@ def init_geometry(ds):
 
 def locate(ds, lat, lon):
     print(f'Locating lat={lat}, lon={lon}')
-    ds = self._obj
     # TODO: haversine
     dist = (ds.latitude - lat)**2 + (ds.longitude - lon) **2
     dist_min = np.amin(dist)
@@ -191,22 +190,52 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
     return ds.sub(cond, drop_invalid, int_default_value)
 
 
-def to_netcdf(ds, dirname='.', suffix='', attr_name='product_name', compress=True, **kwargs):
+def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='product_name',
+              overwrite=False, compress=True, tmpdir=None, **kwargs):
     '''
-    Write a xr.Dataset using product_name attribute and a suffix
+    Write a xarray Dataset `ds` with several features:
+    - construct file name using  `dirname`, `product_name` and `ext`
+    - check that the output file does not exist already
+    - Use file compression
+    - Use temporary file
+
+    Arguments:
+    - dirname: directory for output file (default '.')
+    - product_name: base name for the output file. If None (default), use the attribute named attr_name
+    - product_name_attr: name of the attribute to use for product_name in `ds`
+    - ext: extension (default: '.nc')
+    - overwrite: whether to overwrite existing file (default: False ; raises an error).
+    - compress: activate output file compression
+    - tmpdir: use a given temporary directory instead of the output directory
+
+    Other kwargs are passed to `to_netcdf`
+
+    Returns: output file name
     '''
-    suffix = suffix+'.nc'
-    fname = os.path.join(dirname, ds._obj.attrs[attr_name]+suffix)
-    fname_tmp = fname+'.tmp'
+    if product_name is None:
+        product_name = ds.attrs[product_name_attr]
+    fname = os.path.join(dirname, product_name+ext)
+    if tmpdir is None:
+        tmpdir = dirname
+    fname_tmp = os.path.join(tmpdir, product_name+ext+'.tmp')
 
     encoding = {}
     if compress:
-        comp = dict(zlib=True, complevel=1)
-        encoding = {var: comp for var in ds._obj.data_vars}
-    
-    ds._obj.to_netcdf(path=fname_tmp, encoding = encoding, **kwargs)
+        comp = dict(zlib=True, complevel=9)
+        encoding = {var: comp for var in ds.data_vars}
+
+    if os.path.exists(fname):
+        if overwrite:
+            os.remove(fname)
+        else:
+            raise IOError(f'Output file "{fname}" exists.')
+
+    ds.to_netcdf(path=fname_tmp,
+                 encoding=encoding,
+                 **kwargs)
     os.rename(fname_tmp, fname)
 
+    return fname
 
 
 def split(d, dim, sep=''):
