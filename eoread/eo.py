@@ -70,6 +70,14 @@ def init_geometry(ds):
 
     # TODO: scattering angle
 
+    # relative azimuth angle
+    if 'raa' not in ds:
+        raa = ds.saa - ds.vaa
+        raa = raa % 360
+        ds['raa'] = raa.where(raa < 180, 360-raa)
+        ds.raa.attrs['description'] = 'relative azimuth angle'
+        ds.raa.attrs['unit'] = 'degrees'
+
     return ds
 
 
