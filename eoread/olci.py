@@ -212,20 +212,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie_ds.dims['tie_columns']-1)
     assert (ds.dims['rows']-1) == ds.al_subsampling_factor*(tie_ds.dims['tie_rows']-1)
 
-    # check lat/lon from tie
-    if False:
-        tie_geo_coords_file = os.path.join(dirname, 'tie_geo_coordinates.nc')
-        tie_geo = xr.open_dataset(tie_geo_coords_file, chunks={})
-        for (ds_full, ds_tie, method) in [
-                    ('lat_from_tie', 'latitude', 'linear'),
-                    ('lon_from_tie', 'longitude', 'nearest'),
-                ]:
-            ds[ds_full] = (dims2, da.from_array(
-                tie_geo[ds_tie].interp(tie_rows=ds.rows/ds.al_subsampling_factor,
-                                tie_columns=ds.columns/ds.ac_subsampling_factor,
-                                method=method),
-                chunks=chunksize2))
-
     # instrument data
     instrument_data_file = os.path.join(dirname, 'instrument_data.nc')
     instrument_data = xr.open_dataset(instrument_data_file, chunks=chunks, mask_and_scale=False)
