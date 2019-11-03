@@ -3,6 +3,8 @@
 
 import numpy as np
 from scipy.ndimage import distance_transform_edt
+import dask.array as da
+import xarray as xr
 
 class AtIndex(object):
     '''
@@ -76,6 +78,22 @@ class Repeat(object):
         X, Y = np.meshgrid(*indices)
         return np.array(self.A)[X, Y].transpose()
 
+
+def DataArray_from_array(A, dims, chunksize):
+    '''
+    Returns a DataArray (backed by dask) from array-like `A`
+
+    Arguments:
+    - dims: named dimensions of DataArray (ex: ('x', 'y'))
+    - chunksize: tuple of ints
+    '''
+    return xr.DataArray(
+        da.from_array(
+            A,
+            chunks=chunksize,
+            meta=np.array([], A.dtype),
+        ),
+        dims=dims)
 
 def rectBivariateSpline(A, shp):
     '''
