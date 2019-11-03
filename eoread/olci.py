@@ -164,7 +164,7 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
                 ('vaa', 'OAA', 'nearest'),
             ]:
         ds[ds_full] = DataArray_from_array(
-            Interpolator(shape2, tie_ds[ds_tie]),
+            Interpolator(shape2, tie_ds[ds_tie], method),
             dims2,
             chunksize2,
         )
