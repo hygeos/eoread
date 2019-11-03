@@ -104,8 +104,16 @@ def read_coordinates(ds, dirname, naming, chunksize):
     '''
     read lat/lon
     '''
-    ds[naming.lat] = (naming.dim2, da.from_array(LATLON(dirname, 'lat'), chunks=chunksize))
-    ds[naming.lon] = (naming.dim2, da.from_array(LATLON(dirname, 'lon'), chunks=chunksize))
+    ds[naming.lat] = eoread.common.DataArray_from_array(
+        LATLON(dirname, 'lat'),
+        naming.dim2,
+        chunksize,
+    )
+    ds[naming.lon] = eoread.common.DataArray_from_array(
+        LATLON(dirname, 'lon'),
+        naming.dim2,
+        chunksize,
+    )
     ds.attrs[naming.totalheight] = ds.rows.size
     ds.attrs[naming.totalwidth] = ds.columns.size
 
@@ -143,6 +151,7 @@ def read_geometry(ds, dirname, l8_angles, naming, chunksize):
                   order='C',
                   shape=(2, ds.totalheight, ds.totalwidth)),
         chunks=(1,)+chunksize,
+        meta=np.array([], 'int16'),
         )
 
     ds[naming.vza] = (naming.dim2, data_sensor[1, :, :]/100.)
@@ -161,6 +170,7 @@ def read_geometry(ds, dirname, l8_angles, naming, chunksize):
                   order='C',
                   shape=(2, ds.totalheight, ds.totalwidth)),
         chunks=(1,)+chunksize,
+        meta=np.array([], 'int16'),
         )
     ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)
     ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
@@ -173,10 +183,11 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming, chunksize)
     for b in bands_oli:
         bname = (param+'_{}').format(b)
         bnames.append(bname)
-        ds[bname] = (
+        ds[bname] = eoread.common.DataArray_from_array(
+            TOA_READ(b, dirname, radiometry, data_mtl),
             naming.dim2,
-            da.from_array(TOA_READ(b, dirname, radiometry, data_mtl),
-                          chunks=chunksize))
+            chunksize,
+        )
         if radiometry == 'reflectance':
             ds[bname] /= da.cos(da.radians(ds.sza))
 
