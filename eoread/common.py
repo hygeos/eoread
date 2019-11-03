@@ -100,3 +100,15 @@ def rectBivariateSpline(A, shp):
     f = RectBivariateSpline(x, y, A)
 
     return f(xin, yin).astype('float32')
+
+
+def len_slice(s, l):
+    '''
+    returns the length of slice `s` applied to an iterable of lenght `l`
+
+    (thus, `len(range(l)[s])`)
+    '''
+    # https://stackoverflow.com/questions/36188429
+    start, stop, step = s.indices(l)
+
+    return max(0, (stop - start + (step - (1 if step > 0 else -1))) // step)
