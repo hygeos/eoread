@@ -31,7 +31,7 @@ from lxml import objectify
 from eoread.common import Interpolator
 from datetime import datetime
 import os
-from eoread.common import Repeat
+from eoread.common import Repeat, DataArray_from_array
 from eoread.naming import Naming
 from eoread import eo
 
@@ -119,20 +119,17 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
 
 
 def msi_read_latlon(ds, geocoding, naming, chunksize):
+    ds[naming.lat] = DataArray_from_array(
+        LATLON(geocoding, 'lat', ds),
+        naming.dim2,
+        chunksize,
+    )
 
-    lat_arr = LATLON(geocoding, 'lat', ds)
-    ds[naming.lat] = (naming.dim2,
-                      da.from_array(lat_arr,
-                                    chunks=chunksize,
-                                    meta=np.array([], lat_arr.dtype),
-                                    ))
-
-    lon_arr = LATLON(geocoding, 'lon', ds)
-    ds[naming.lon] = (naming.dim2,
-                      da.from_array(lon_arr,
-                                    chunks=chunksize,
-                                    meta=np.array([], lon_arr.dtype),
-                                    ))
+    ds[naming.lon] = DataArray_from_array(
+        LATLON(geocoding, 'lon', ds),
+        naming.dim2,
+        chunksize,
+    )
 
 
 def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
@@ -163,10 +160,11 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
             arr_resampled = arr_resampled.drop('band')
         else:
             # over-sample
-            arr_resampled = xr.DataArray(
-                da.from_array(Repeat(arr, (int(1/yrat), int(1/xrat))),
-                              chunks=chunksize),
-                dims=('y', 'x'))
+            arr_resampled = DataArray_from_array(
+                Repeat(arr, (int(1/yrat), int(1/xrat))),
+                ('y', 'x'),
+                chunksize,
+            )
 
         arr_resampled = arr_resampled.rename({
             'x': naming.columns,
@@ -238,9 +236,11 @@ def msi_read_geometry(ds, tileangles, naming, chunksize):
             coords={'tie_rows': np.linspace(0, shp[0]-1, sza.shape[0]),
                     'tie_columns': np.linspace(0, shp[1]-1, sza.shape[1])})
         ds[name+'_tie'] = da_tie
-        ds[name] = (naming.dim2, da.from_array(
+        ds[name] = DataArray_from_array(
             Interpolator(shp, ds[name+'_tie']),
-            chunks=chunksize))
+            naming.dim2,
+            chunksize,
+        )
 
 
 def read_xml_block(item):
