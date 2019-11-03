@@ -42,17 +42,19 @@ class Interpolator(object):
 
     Uses coordinates `tie_rows` and `tie_columns`.
     '''
-    def __init__(self, shape, A):
+    def __init__(self, shape, A, method='linear'):
         self.shape = shape
         self.dtype = A.dtype
         self.A = A
         assert A.dims == ('tie_rows', 'tie_columns')
         self.ndim = 2
+        self.method = method
 
     def __getitem__(self, key):
         ret = self.A.interp(
             tie_rows=np.arange(self.shape[0])[key[0]],
             tie_columns=np.arange(self.shape[1])[key[1]],
+            method=self.method,
         )
         return ret
 
