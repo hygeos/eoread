@@ -11,6 +11,7 @@ from xml.dom.minidom import parse, parseString
 from eoread.naming import Naming
 from datetime import datetime
 from eoread import eo
+from eoread.common import DataArray_from_array
 
 
 olci_band_names = {
@@ -162,8 +163,11 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
                 ('vza', 'OZA', 'linear'),
                 ('vaa', 'OAA', 'nearest'),
             ]:
-        ds[ds_full] = (dims2, da.from_array(Interpolator(shape2, tie_ds[ds_tie]),
-                                            chunks=chunksize2))
+        ds[ds_full] = DataArray_from_array(
+            Interpolator(shape2, tie_ds[ds_tie]),
+            dims2,
+            chunksize2,
+        )
         ds[ds_full].attrs = tie_ds[ds_tie].attrs
         if tie_param:
             ds[ds_full+'_tie'] = tie_ds[ds_tie]
@@ -180,7 +184,14 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     assert tie.tie_rows[0] == ds.rows[0]
     assert tie.tie_rows[-1] == ds.rows[-1]
     
-    ds[naming.horizontal_wind] = (dims2, da.from_array(Interpolator(shape2, np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0),2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))) ,chunks=chunksize2))
+    ds[naming.horizontal_wind] = DataArray_from_array(
+        Interpolator(
+            shape2,
+            np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0), 2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))
+        ),
+        dims2,
+        chunksize2,
+    )
     ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
     variables = [
         'humidity',
@@ -188,8 +199,11 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         naming.total_columnar_water_vapour,
         naming.total_ozone]
     for var in variables:
-        ds[var] = (dims2, da.from_array(Interpolator(shape2, tie[var]),
-                                            chunks=chunksize2))
+        ds[var] = DataArray_from_array(
+            Interpolator(shape2, tie[var]),
+            dims2,
+            chunksize2,
+        )
         ds[var].attrs = tie[var].attrs
         if tie_param:
             ds[var+'_tie'] = tie[var]
@@ -275,17 +289,23 @@ def olci_init_spectral(ds):
         chunksize = sum([[ds.lambda0.data.chunksize[i]] if not x == 'detectors' else list(ds.detector_index.data.chunksize) for i, x in enumerate(ds.lambda0.dims)], [])
 
     # wavelength
-    ds['wav'] = (dims, da.from_array(AtIndex(ds.lambda0,
-                                              ds.detector_index,
-                                              'detectors'),
-                                      chunks=chunksize))
+    ds['wav'] = DataArray_from_array(
+        AtIndex(ds.lambda0,
+                ds.detector_index,
+                'detectors'),
+        dims,
+        chunksize,
+    )
     ds['wav'].attrs.update(ds.lambda0.attrs)
 
     # solar flux
-    ds['F0'] = (dims, da.from_array(AtIndex(ds.solar_flux,
-                                              ds.detector_index,
-                                              'detectors'),
-                                      chunks=chunksize))
+    ds['F0'] = DataArray_from_array(
+        AtIndex(ds.solar_flux,
+                ds.detector_index,
+                'detectors'),
+        dims,
+        chunksize,
+    )
     ds['F0'].attrs.update(ds.solar_flux.attrs)
 
 
