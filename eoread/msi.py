@@ -28,12 +28,12 @@ import xarray as xr
 import dask.array as da
 from glob import glob
 from lxml import objectify
-from eoread.common import Interpolator
+from .common import Interpolator
 from datetime import datetime
 import os
-from eoread.common import Repeat, DataArray_from_array
-from eoread.naming import Naming
-from eoread import eo
+from .common import Repeat, DataArray_from_array
+from .naming import Naming
+from . import eo
 
 
 msi_band_names = {

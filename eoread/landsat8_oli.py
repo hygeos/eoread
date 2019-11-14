@@ -21,9 +21,9 @@ import xarray as xr
 import dask.array as da
 from osgeo import gdal
 import osr
-import eoread.common
-from eoread.naming import Naming
-from eoread import eo
+from . import common
+from .naming import Naming
+from . import eo
 
 
 
@@ -104,12 +104,12 @@ def read_coordinates(ds, dirname, naming, chunksize):
     '''
     read lat/lon
     '''
-    ds[naming.lat] = eoread.common.DataArray_from_array(
+    ds[naming.lat] = common.DataArray_from_array(
         LATLON(dirname, 'lat'),
         naming.dim2,
         chunksize,
     )
-    ds[naming.lon] = eoread.common.DataArray_from_array(
+    ds[naming.lon] = common.DataArray_from_array(
         LATLON(dirname, 'lon'),
         naming.dim2,
         chunksize,
@@ -183,7 +183,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming, chunksize)
     for b in bands_oli:
         bname = (param+'_{}').format(b)
         bnames.append(bname)
-        ds[bname] = eoread.common.DataArray_from_array(
+        ds[bname] = common.DataArray_from_array(
             TOA_READ(b, dirname, radiometry, data_mtl),
             naming.dim2,
             chunksize,

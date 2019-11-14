@@ -11,7 +11,7 @@ from numpy import radians, cos, sin, arcsin as asin, sqrt, where
 import numpy as np
 import xarray as xr
 from shapely.geometry import Polygon, Point
-from eoread.naming import naming
+from .naming import naming
 
 
 def datetime(ds):

@@ -6,12 +6,13 @@ import xarray as xr
 import dask.array as da
 import os
 import numpy as np
-from eoread.common import Interpolator, AtIndex
 from xml.dom.minidom import parse, parseString
-from eoread.naming import Naming
 from datetime import datetime
-from eoread import eo
-from eoread.common import DataArray_from_array
+
+from . import eo
+from .common import Interpolator, AtIndex
+from .naming import Naming
+from .common import DataArray_from_array
 
 
 olci_band_names = {
