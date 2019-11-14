@@ -58,3 +58,16 @@ def test_repeat(A):
                 B[i::rep[0], j::rep[1]],
                 A
                 )
+
+def test_da_from_array_meta():
+    """
+    Check that da.from_array has an argument `meta` (use a recent version of dask)
+
+    Note: this argument avoids calling A.__getitem__ to retrieve its dtype
+    """
+    A = np.eye(10)
+    da.from_array(
+        A,
+        chunks=(2, 2),
+        meta=np.array([], A.dtype),
+    )
