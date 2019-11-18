@@ -8,7 +8,7 @@ import pytest
 import dask
 from eoread.msi import Level1_MSI
 from eoread.olci import Level1_OLCI, get_l2_flags, get_valid_l2_pixels
-from eoread.naming import Naming
+from eoread.naming import naming as n
 from eoread import eo
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
@@ -30,7 +30,6 @@ def test(sentinel_product, Reader, kwargs, idx1, idx2, param):
     Various verifications to check the consistency of all products
     '''
     ds = Reader(sentinel_product, **kwargs)
-    n = Naming()
 
     # presence of datasets
     assert n.Rtoa in ds

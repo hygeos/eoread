@@ -32,7 +32,7 @@ from .common import Interpolator
 from datetime import datetime
 import os
 from .common import Repeat, DataArray_from_array
-from .naming import Naming
+from .naming import naming
 from . import eo
 
 
@@ -48,7 +48,7 @@ msi_band_names = {
 
 
 def Level1_MSI(dirname, resolution='60', geometry=True,
-               split=False, naming=Naming(), chunksize=(300, 400)):
+               split=False, chunksize=(300, 400)):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances,
@@ -103,14 +103,14 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     ds.attrs[naming.product_name] = os.path.basename(dirname)
 
     # lat-lon
-    msi_read_latlon(ds, geocoding, naming, chunksize)
+    msi_read_latlon(ds, geocoding, chunksize)
 
     # msi_read_geometry
     if geometry:
-        msi_read_geometry(ds, tileangles, naming, chunksize)
+        msi_read_geometry(ds, tileangles, chunksize)
 
     # msi_read_toa
-    ds = msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize)
+    ds = msi_read_toa(ds, granule_dir, quantif, split, chunksize)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -118,7 +118,7 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     return ds
 
 
-def msi_read_latlon(ds, geocoding, naming, chunksize):
+def msi_read_latlon(ds, geocoding, chunksize):
     ds[naming.lat] = DataArray_from_array(
         LATLON(geocoding, 'lat', ds),
         naming.dim2,
@@ -132,7 +132,7 @@ def msi_read_latlon(ds, geocoding, naming, chunksize):
     )
 
 
-def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
+def msi_read_toa(ds, granule_dir, quantif, split, chunksize):
 
     for k, v in msi_band_names.items():
         filenames = glob(os.path.join(granule_dir, 'IMG_DATA', f'*_{v}.jp2'))
@@ -189,7 +189,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, naming, chunksize):
 def msi_read_spectral(ds):
     pass
 
-def msi_read_geometry(ds, tileangles, naming, chunksize):
+def msi_read_geometry(ds, tileangles, chunksize):
 
     # read solar angles at tiepoints
     sza = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Zenith').find('Values_List'))

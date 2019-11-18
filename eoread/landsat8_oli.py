@@ -22,7 +22,7 @@ import dask.array as da
 from osgeo import gdal
 import osr
 from . import common
-from .naming import Naming
+from .naming import naming
 from . import eo
 
 
@@ -43,7 +43,7 @@ band_index = { # Bands - wavelength (um) - resolution (m)
     }
 
 def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
-                  split=False, naming=Naming(), chunksize=(300, 400)):
+                  split=False, chunksize=(300, 400)):
     '''
     Landsat-8 OLI reader.
 
@@ -65,8 +65,6 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
                 cd ..
         radiometry: 'radiance' or 'reflectance'
         split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
-        naming: a Naming instance, used for parameters naming consistency.
-                Ex: custom naming: naming=Naming(Rtoa='RTOA')
         chunksize: dask arrays chunk sizes.
 
     Returns a xr.Dataset
@@ -83,10 +81,10 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
         '%H:%M:%S')
     ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
-    read_coordinates(ds, dirname, naming, chunksize)
-    read_geometry(ds, dirname, l8_angles, naming, chunksize)
+    read_coordinates(ds, dirname, chunksize)
+    read_geometry(ds, dirname, l8_angles, chunksize)
     ds = read_radiometry(
-        ds, dirname, split, data_mtl, radiometry, naming, chunksize)
+        ds, dirname, split, data_mtl, radiometry, chunksize)
 
     return ds
 
@@ -100,7 +98,7 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname, naming, chunksize):
+def read_coordinates(ds, dirname, chunksize):
     '''
     read lat/lon
     '''
@@ -133,7 +131,7 @@ def gen_l8_angles(dirname, l8_angles=None):
         os.system(f'cp -v {angle_files} {dirname}')
 
 
-def read_geometry(ds, dirname, l8_angles, naming, chunksize):
+def read_geometry(ds, dirname, l8_angles, chunksize):
     filenames_sensor = glob(os.path.join(dirname, 'LC*_sensor_B01.img'))
 
     if (not filenames_sensor) and (l8_angles is not None):
@@ -176,7 +174,7 @@ def read_geometry(ds, dirname, l8_angles, naming, chunksize):
     ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry, naming, chunksize):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunksize):
     param = {'reflectance': naming.Rtoa,
              'radiance': naming.Ltoa}[radiometry]
     bnames = []

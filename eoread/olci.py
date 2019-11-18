@@ -11,7 +11,7 @@ from datetime import datetime
 
 from . import eo
 from .common import Interpolator, AtIndex
-from .naming import Naming
+from .naming import naming
 from .common import DataArray_from_array
 
 
@@ -32,13 +32,12 @@ olci_band_names = {
 
 def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
                 tie_param=False, init_spectral=True,
-                init_reflectance=False, naming=Naming()):
+                init_reflectance=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
     ds = read_OLCI(dirname, level='level1', chunks=chunks,
-                   tie_param=tie_param, init_spectral=(init_spectral or init_reflectance),
-                   naming=naming)
+                   tie_param=tie_param, init_spectral=(init_spectral or init_reflectance))
 
     if init_reflectance:
         eo.init_Rtoa(ds)
@@ -48,12 +47,12 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
 
 
 def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=True, naming=Naming()):
+                tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level2 product as an xarray.Dataset
     '''
     return read_OLCI(dirname, level='level2', chunks=chunks,
-                     tie_param=tie_param, init_spectral=init_spectral, naming=naming)
+                     tie_param=tie_param, init_spectral=init_spectral)
 
 
 def read_manifest(dirname):
@@ -90,8 +89,7 @@ def read_manifest(dirname):
 
 
 def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
-              tie_param=False, init_spectral=False,
-              naming=Naming()):
+              tie_param=False, init_spectral=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
