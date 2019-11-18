@@ -6,7 +6,7 @@ from scipy.ndimage import distance_transform_edt
 import dask.array as da
 import xarray as xr
 
-class AtIndex(object):
+class AtIndex:
     '''
     An array-like using DataArray `idx` to index DataArray `A` along dimension `idx_name`
 
@@ -36,7 +36,7 @@ class AtIndex(object):
                              for i, k in enumerate(self.A.dims)])]
 
 
-class Interpolator(object):
+class Interpolator:
     '''
     An array-like object to interpolate 2-dim array `A` to new `shape`
 
@@ -59,7 +59,7 @@ class Interpolator(object):
         return ret
 
 
-class Repeat(object):
+class Repeat:
     def __init__(self, A, repeats):
         '''
         Repeat elements of `A`

@@ -50,8 +50,8 @@ def init_Rtoa(ds):
     init_geometry(ds)
 
     # TOA reflectance
-    if 'Rtoa' not in ds:
-        ds['Rtoa'] = np.pi*ds.Ltoa/(ds.mus*ds.F0)
+    if naming.Rtoa not in ds:
+        ds[naming.Rtoa] = np.pi*ds[naming.Ltoa]/(ds.mus*ds[naming.F0])
 
     return ds
 
