@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 import numpy as np
 import dask.array as da
-from eoread.common import Repeat
+from eoread.common import AtIndex, Repeat
 from eoread import eo
 
 
@@ -71,3 +71,47 @@ def test_da_from_array_meta():
         chunks=(2, 2),
         meta=np.array([], A.dtype),
     )
+
+
+def test_AtIndex_1():
+    shp = (25, 25)
+    A = xr.DataArray(
+        np.random.random(100),
+        dims=('index'),
+    )
+    idx = xr.DataArray(
+        np.random.randint(0, 100, shp),
+        dims=('x', 'y'),
+    )
+
+    AA = AtIndex(
+        A,
+        idx,
+        'index'
+    )
+
+    assert AA.dims == ('x', 'y')
+    assert AA.shape == shp
+    np.testing.assert_allclose(AA[:, :], A[idx])
+
+
+def test_AtIndex_2():
+    shp = (25, 25)
+    A = xr.DataArray(
+        np.random.random((10, 100)),
+        dims=('bands', 'index'),
+    )
+    idx = xr.DataArray(
+        np.random.randint(0, 100, shp),
+        dims=('x', 'y'),
+    )
+
+    AA = AtIndex(
+        A,
+        idx,
+        'index'
+    )
+
+    assert AA.dims == ('bands', 'x', 'y')
+    assert AA.shape == (10,) + shp
+    np.testing.assert_allclose(AA[:, :, :], A[:, idx])

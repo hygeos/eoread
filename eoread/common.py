@@ -8,7 +8,7 @@ import xarray as xr
 
 class AtIndex(object):
     '''
-    Use DataArray idx to index DataArray A along dimension idx_name
+    An array-like using DataArray `idx` to index DataArray `A` along dimension `idx_name`
 
     Example:
         A: DataArray (nbands x detectors)
@@ -17,9 +17,9 @@ class AtIndex(object):
     '''
     def __init__(self, A, idx, idx_name):
         # dimensions to be indexed by this object
-        self.dims = sum([[x] if not x == idx_name else list(idx.dims) for x in A.dims], [])
+        self.dims = tuple(sum([[x] if not x == idx_name else list(idx.dims) for x in A.dims], []))
         # ... and their shape
-        shape = sum([[A.shape[i]] if not x == idx_name else list(idx.shape) for i, x in enumerate(A.dims)], [])
+        shape = tuple(sum([[A.shape[i]] if not x == idx_name else list(idx.shape) for i, x in enumerate(A.dims)], []))
         self.shape = shape
         self.dtype = A.dtype
         self.A = A
