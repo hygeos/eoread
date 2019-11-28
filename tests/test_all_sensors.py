@@ -36,6 +36,7 @@ def test_misc(sentinel_product, Reader):
     assert n.rows in ds.dims
     assert n.columns in ds.dims
     assert ds[n.Rtoa].dims == n.dim3
+    assert n.wav in ds
 
     # check chunking
     if n.Ltoa in ds:

@@ -22,19 +22,20 @@ B12  SWIR 2      2190nm     20m
 '''
 
 
+import os
+from datetime import datetime
+from glob import glob
+
+import dask.array as da
 import numpy as np
+import pandas as pd
 import pyproj
 import xarray as xr
-import dask.array as da
-from glob import glob
 from lxml import objectify
-from .common import Interpolator
-from datetime import datetime
-import os
-from .common import Repeat, DataArray_from_array
-from .naming import naming
-from . import eo
 
+from . import eo
+from .common import DataArray_from_array, Interpolator, Repeat
+from .naming import naming
 
 msi_band_names = {
         443 : 'B01', 490 : 'B02',
@@ -187,7 +188,33 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunksize):
 
 
 def msi_read_spectral(ds):
-    pass
+    # read srf
+    dir_aux_msi = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'auxdata', 'msi')
+    platform = ds.attrs['platform']
+    srf_file = os.path.join(
+        dir_aux_msi,
+        f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv')
+
+    assert os.path.exists(srf_file)
+
+    srf_data = pd.read_csv(srf_file)
+    wav = srf_data.SR_WL
+
+    wav_data = []
+
+    for b, bn in msi_band_names.items():
+        col = platform + '_SR_AV_' + bn.replace('B0', 'B')
+        srf = srf_data[col]
+        wav_eq = np.trapz(wav*srf)/np.trapz(srf)
+        wav_data.append(wav_eq)
+
+    ds['wav'] = xr.DataArray(
+        wav_data,
+        dims=(naming.wav),
+    )
+
 
 def msi_read_geometry(ds, tileangles, chunksize):
 
