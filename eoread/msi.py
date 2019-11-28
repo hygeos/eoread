@@ -212,7 +212,7 @@ def msi_read_spectral(ds):
 
     ds['wav'] = xr.DataArray(
         wav_data,
-        dims=(naming.wav),
+        dims=(naming.bands),
     )
 
 
