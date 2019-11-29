@@ -200,13 +200,15 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
 
 
 def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='product_name',
-              overwrite=False, compress=True, tmpdir=None, **kwargs):
+              overwrite=False, compress=True, tmpdir=None, create_out_dir=True,
+              **kwargs):
     '''
-    Write a xarray Dataset `ds` with several features:
+    Write a xarray Dataset `ds` using `.to_netcdf` with several additional features:
     - construct file name using  `dirname`, `product_name` and `ext`
     - check that the output file does not exist already
     - Use file compression
     - Use temporary file
+    - Create output directory if it does not exist
 
     Arguments:
     - dirname: directory for output file (default '.')
@@ -216,6 +218,7 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
     - overwrite: whether to overwrite existing file (default: False ; raises an error).
     - compress: activate output file compression
     - tmpdir: use a given temporary directory instead of the output directory
+    - create_out_dir: create output directory if it does not exist
 
     Other kwargs are passed to `to_netcdf`
 
@@ -238,6 +241,12 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
             os.remove(fname)
         else:
             raise IOError(f'Output file "{fname}" exists.')
+
+    if not os.path.exists(dirname):
+        if create_out_dir:
+            os.makedirs(dirname)
+        else:
+            raise IOError(f'Directory "{dirname}" does not exist.')
 
     ds.to_netcdf(path=fname_tmp,
                  encoding=encoding,
