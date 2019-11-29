@@ -115,3 +115,39 @@ def test_AtIndex_2():
     assert AA.dims == ('bands', 'x', 'y')
     assert AA.shape == (10,) + shp
     np.testing.assert_allclose(AA[:, :, :], A[:, idx])
+
+
+
+@pytest.mark.parametrize('dimsA,shpA', [
+    (('bands',), (10,)),
+])
+@pytest.mark.parametrize('dimsB,shpB', [
+    (('bands', 'x', 'y'), (10, 4, 5)),
+    (('x', 'bands', 'y'), (4, 10, 5)),
+    (('x', 'y', 'bands'), (4, 5, 10)),
+])
+def test_broadcast(dimsA, shpA, dimsB, shpB):
+    """
+    test the function eo.broadcast
+    """
+    A = xr.DataArray(
+        da.from_array(
+            np.random.random(shpA),
+        ),
+        dims=dimsA,
+    )
+    B = xr.DataArray(
+        da.from_array(
+            np.random.random(shpB),
+        ),
+        dims=dimsB,
+    )
+    AA = eo.broadcast(A, B)
+    assert np.isclose(
+        AA.sel(bands=3).min(),
+        AA.sel(bands=3).max(),
+    )
+
+    # test case where broadcasting has no effect
+    BB = eo.broadcast(B, B)
+    np.testing.assert_allclose(BB, B)

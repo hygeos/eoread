@@ -10,6 +10,7 @@ from dateutil.parser import parse
 from numpy import radians, cos, sin, arcsin as asin, sqrt, where
 import numpy as np
 import xarray as xr
+import dask.array as da
 from shapely.geometry import Polygon, Point
 from .naming import naming
 
@@ -301,3 +302,29 @@ def merge(ds, var_names, out_var, new_dim_name, coords=None,
         copy = copy.drop([var for var in var_names])
 
     return copy.assign({out_var: data}).chunk({new_dim_name: -1})
+
+
+def broadcast(A, B):
+    """
+    Broadcast DataArray `A` to match the dimensions of DataArray `B`
+
+    Returns: the broadcasted DataArray
+    """
+    new_shp1 = tuple([
+        s
+        if d in A.dims
+        else 1
+        for (s, d) in zip(B.shape, B.dims)
+        ])
+
+    AA = A.data.reshape(new_shp1)
+    for i, s in [(i, s)
+                 for (i, (s, d)) in enumerate(zip(B.shape, B.dims))
+                 if d not in A.dims
+                 ]:
+        AA = da.repeat(AA, s, axis=i)
+
+    return xr.DataArray(
+        AA,
+        dims=B.dims,
+    )
