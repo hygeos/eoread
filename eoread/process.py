@@ -64,7 +64,7 @@ class Blockwise:
         for i, dims in enumerate(dims_out):
             assert dims[-len(dims_blockwise):] == dims_blockwise, \
                 f'The last dimensions of all output arrays (output ' \
-                f'#{i} has dimensions {dims}) should be the ' \
+                f'#{i+1}/{len(dims_out)} has dimensions {dims}) should be the ' \
                 f'blockwise ones {dims_blockwise}.' 
         # coerce all outputs to the largest dtype
         self.dtype_coerce = sorted(self.dtypes, key=lambda x: np.dtype(x).itemsize)[-1]
@@ -99,7 +99,8 @@ class Blockwise:
         res_stacked = []
         for i, r in enumerate(res):
             assert r.dtype == self.dtypes[i], \
-                f'output {i}/{len(res)-1}: expected dtype {self.dtypes[i]} but received {r.dtype}'
+                f'output {i+1}/{len(res)-1}: expected dtype {self.dtypes[i]} ' + \
+                f'but received {r.dtype} (in blockwise call to {self.ufunc})'
 
             new_shp = r.shape[-len(self.dims_blockwise):]
             new_shp = (r.size // np.prod(new_shp),) + new_shp
@@ -129,6 +130,7 @@ class Blockwise:
                 f'but found {a.dims[-ndimblk:]}'
 
             # Check that the chunked dimensions are the last ones
+            assert a.chunks is not None, f'Error in blockwise call: {a.name} is not chunked'
             chunked = [len(c) > 1 for c in a.chunks]
             assert True not in chunked[:-ndimblk], \
                 f'Encountered a chunked dimension in following dimensions: {a.dims[:-ndimblk]}'
@@ -247,6 +249,7 @@ def blockwise_method(dims_blockwise, dims_out, dtypes):
     def decorator(method):
         @wraps(method)
         def wrapper(self, *args):
+            @wraps(method)
             def run(*a):
                 return method(self, *a)
             return Blockwise(run, dims_blockwise, dims_out, dtypes)(*args)
