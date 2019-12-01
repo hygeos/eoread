@@ -42,7 +42,7 @@ msi_band_names = {
         560 : 'B03', 665 : 'B04',
         705 : 'B05', 740 : 'B06',
         783 : 'B07', 842 : 'B08',
-        865 : 'B8A', 940 : 'B09',
+        865 : 'B8A', 945 : 'B09',
         1375: 'B10', 1610: 'B11',
         2190: 'B12',
         }
@@ -211,7 +211,7 @@ def msi_read_spectral(ds):
         wav_data.append(wav_eq)
 
     ds['wav'] = xr.DataArray(
-        wav_data,
+        da.from_array(wav_data),
         dims=(naming.bands),
     )
 
