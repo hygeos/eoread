@@ -151,3 +151,15 @@ def test_broadcast(dimsA, shpA, dimsB, shpB):
     # test case where broadcasting has no effect
     BB = eo.broadcast(B, B)
     np.testing.assert_allclose(BB, B)
+
+
+def test_raiseflag():
+    flags = xr.DataArray(
+        np.zeros((15, 15), dtype='uint16')
+    )
+    A = xr.DataArray(np.random.randn(15, 15))
+    eo.raiseflag(flags, 'FLAG_1', 2, A>0)
+    with pytest.raises(AssertionError):
+        eo.raiseflag(flags, 'FLAG_2', 2, A>0.1) 
+
+    eo.raiseflag(flags, 'FLAG_2', 4, A>0.1) 

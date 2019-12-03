@@ -15,6 +15,7 @@ import dask.array as da
 from shapely.geometry import Polygon, Point
 from .naming import naming
 import shutil
+from collections import OrderedDict
 
 
 def datetime(ds):
@@ -344,3 +345,78 @@ def broadcast(A, B):
         AA,
         dims=B.dims,
     )
+
+
+def getflags(da):
+    """
+    returns the flags in attributes of `da` as a dictionary
+
+    Arguments:
+    ---------
+
+    da: Dataarray
+    """
+    try:
+        m = da.attrs[naming.flags_meanings].split(naming.flags_meanings_separator)
+        v = da.attrs[naming.flags_masks]
+    except KeyError:
+        return OrderedDict()
+    return OrderedDict(zip(m, v))
+
+
+def getflag(da, name):
+    """
+    Return the binary flag with given `name` as a boolean array
+
+    example: getflag(flags, 'LAND')
+    """
+    flags = getflags(da)
+
+    assert name in flags, f'Error, {name} no in {list(flags)}'
+
+    return (da & flags[name]) != 0 
+
+
+def raiseflag(da, flag_name, flag_value, condition):
+    """
+    Raise a flag in Dataarray `da` with name `flag_name`, value `flag_value` and `condition`
+    The name and value of the flag is recorded in the attributes of `da`
+
+    Arguments:
+    ----------
+    da: Dataarray of integers
+    flag_name: str
+        Name of the flag
+    flag_value: int
+        Value of the flag
+    condition: boolean array-like of same shape as `da`
+        Condition to raise flag
+    """
+    flags = getflags(da)
+    dtype_flag_masks = 'uint16'
+
+    if naming.flags_meanings not in da.attrs:
+        da.attrs[naming.flags_meanings] = ''
+    if naming.flags_masks not in da.attrs:
+        da.attrs[naming.flags_masks] = np.array([], dtype=dtype_flag_masks)
+
+    # update the attributes if necessary
+    if flag_name in flags:
+        # existing flag: check value
+        assert flags[flag_name] == flag_value, \
+            f'Flag {flag_name} already exists with a different value'
+    else:
+        assert flag_value not in flags.values(), \
+            f'Flag value {flag_value} is already assigned to a different flags'
+
+        flags[flag_name] = flag_value
+
+        # sort the flags by values
+        keys, values = zip(*sorted(flags.items(), key=lambda y: y[1]))
+
+        da.attrs[naming.flags_meanings] = naming.flags_meanings_separator.join(keys)
+        da.attrs[naming.flags_masks] = np.array(values, dtype=dtype_flag_masks)
+
+    notraised = (da & flag_value) == 0
+    da += flag_value * (condition & notraised).astype(naming.flags_dtype)
+
