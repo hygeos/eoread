@@ -5,7 +5,7 @@ import pytest
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
-from eoread.olci import get_l2_flags, get_valid_l2_pixels
+from eoread.olci import get_valid_l2_pixels
 from eoread import eo
 
 
@@ -53,5 +53,5 @@ def test_olci_level2(sentinel_product):
 def test_olci_level2_flags(sentinel_product):
     l2 = Level2_OLCI(sentinel_product)
 
-    get_l2_flags(l2.wqsf)
+    eo.getflags(l2.wqsf)
     get_valid_l2_pixels(l2.wqsf)

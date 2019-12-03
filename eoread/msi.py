@@ -35,7 +35,7 @@ from lxml import objectify
 
 from . import eo
 from .common import DataArray_from_array, Interpolator, Repeat
-from .naming import naming
+from .naming import naming, flags
 
 msi_band_names = {
         443 : 'B01', 490 : 'B02',
@@ -115,6 +115,17 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
 
     # read spectral information
     msi_read_spectral(ds)
+
+    # flags
+    ds[naming.flags] = xr.zeros_like(
+        ds.vza,
+        dtype=naming.flags_dtype)
+    eo.raiseflag(
+        ds[naming.flags],
+        'L1_INVALID',
+        flags['L1_INVALID'],
+        np.isnan(ds.vza)
+        )
 
     return ds
 

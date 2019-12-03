@@ -11,7 +11,7 @@ from datetime import datetime
 
 from . import eo
 from .common import Interpolator, AtIndex
-from .naming import naming
+from .naming import naming, flags
 from .common import DataArray_from_array
 
 
@@ -246,6 +246,21 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         ds['A865'] = qf.A865
         ds['T865'] = qf.T865
 
+    # flags
+    if level == 'level1':
+        ds[naming.flags] = xr.zeros_like(
+            ds.vza,
+            dtype=naming.flags_dtype)
+        qf = eo.getflags(ds.quality_flags)
+        eo.raiseflag(ds[naming.flags],
+                    'LAND',
+                    flags['LAND'],
+                    ds.quality_flags & qf['land'])
+        eo.raiseflag(ds[naming.flags],
+                    'L1_INVALID',
+                    flags['L1_INVALID'],
+                    ds.quality_flags & qf['invalid'])
+
     # attributes
     dstart = datetime.strptime(ds.start_time, '%Y-%m-%dT%H:%M:%S.%fZ')
     dstop = datetime.strptime(ds.stop_time, '%Y-%m-%dT%H:%M:%S.%fZ')
@@ -294,12 +309,6 @@ def olci_init_spectral(ds):
     ds['F0'].attrs.update(ds.solar_flux.attrs)
 
 
-def get_l2_flags(wqsf):
-    L2_FLAGS = dict(zip(
-            wqsf.attrs['flag_meanings'].split(' '),
-            [int(x) for x in wqsf.attrs['flag_masks']]))
-    return L2_FLAGS
-
 def decompose_flags(value, flags):
     '''
     return list of flag meanings for a given binary value
@@ -318,8 +327,8 @@ def get_valid_l2_pixels(wqsf, flags=[
     Get valid standard level2 pixels with a given flag set
     '''
     bval = 0
-    L2_FLAGS = get_l2_flags(wqsf)
+    L2_FLAGS = eo.getflags(wqsf)
     for flag in flags:
-        bval += L2_FLAGS[flag]
+        bval += int(L2_FLAGS[flag])
 
     return wqsf & bval == 0

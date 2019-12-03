@@ -46,6 +46,13 @@ class Naming:
         self.vaa = 'vaa'
         self.vaa_desc = 'View azimuth angle'
 
+        # Flags
+        self.flags = 'flags'
+        self.flags_dtype = 'uint16'
+        self.flags_meanings = 'flag_meanings'
+        self.flags_masks = 'flag_masks'
+        self.flags_meanings_separator = ' '
+
         # Attributes
         self.datetime = 'datetime'
         self.totalheight = 'totalheight'
@@ -85,3 +92,9 @@ class Naming:
         return self.__dict__[name+'_desc']
 
 naming = Naming()
+
+flags = {
+    'LAND'          : 1,
+    'CLOUD_BASE'    : 2,
+    'L1_INVALID'    : 4,
+}

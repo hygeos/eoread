@@ -7,7 +7,7 @@ import tempfile
 import pytest
 import dask
 from eoread.msi import Level1_MSI
-from eoread.olci import Level1_OLCI, get_l2_flags, get_valid_l2_pixels
+from eoread.olci import Level1_OLCI, get_valid_l2_pixels
 from eoread.naming import naming as n
 from eoread import eo
 from tests import products as p
@@ -50,7 +50,11 @@ def test_misc(sentinel_product, Reader):
     assert n.sensor in ds.attrs
     assert n.product_name in ds.attrs
 
-    # TODO: test footprint?
+    # test datasets
+    assert n.flags in ds
+    assert ds[n.flags].dtype == n.flags_dtype
+
+    # TODO: test footprint
 
 
 @pytest.mark.parametrize('idx1, idx2', [
