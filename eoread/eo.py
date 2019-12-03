@@ -10,9 +10,11 @@ from dateutil.parser import parse
 from numpy import radians, cos, sin, arcsin as asin, sqrt, where
 import numpy as np
 import xarray as xr
+import tempfile
 import dask.array as da
 from shapely.geometry import Polygon, Point
 from .naming import naming
+import shutil
 
 
 def datetime(ds):
@@ -227,9 +229,6 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
     if product_name is None:
         product_name = ds.attrs[product_name_attr]
     fname = os.path.join(dirname, product_name+ext)
-    if tmpdir is None:
-        tmpdir = dirname
-    fname_tmp = os.path.join(tmpdir, product_name+ext+'.tmp')
 
     encoding = {}
     if compress:
@@ -248,10 +247,18 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
         else:
             raise IOError(f'Directory "{dirname}" does not exist.')
 
-    ds.to_netcdf(path=fname_tmp,
-                 encoding=encoding,
-                 **kwargs)
-    os.rename(fname_tmp, fname)
+    with tempfile.TemporaryDirectory(dir=tmpdir) as tmp:
+
+        fname_tmp = os.path.join(tmp, product_name+ext+'.tmp')
+
+        ds.to_netcdf(path=fname_tmp,
+                     encoding=encoding,
+                     **kwargs)
+
+        # use intermediary move
+        # (both files may be on different devices)
+        shutil.move(fname_tmp, fname+'.tmp')
+        shutil.move(fname+'.tmp', fname)
 
     return fname
 
