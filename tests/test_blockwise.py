@@ -133,6 +133,26 @@ def test_blockwise_2(i):
     np.testing.assert_allclose(res1[i], res2[i])
 
 
+def test_blockwise_3():
+    '''
+    Multiple inputs, no output
+    '''
+    def f(Rtoa, sza):
+        assert Rtoa.ndims == 3
+        assert sza.ndims == 2
+        return None
+
+    l1 = dummy_level1()
+
+    blk = Blockwise(
+        f,
+        dims_blockwise=('width', 'height'),
+        dims_out=[],
+        dtypes=[])
+
+    blk(l1.Rtoa, l1.sza)
+
+
 @pytest.mark.parametrize('i', [0, 1, 2])
 def test_showcase(i):
     '''
@@ -166,7 +186,7 @@ def test_showcase(i):
     np.testing.assert_allclose(res[i], res2[i])
 
 
-def test_decorator():
+def test_decorator_1():
     dims2 = ('width', 'height')
     dims3 = ('band', 'width', 'height')
     @blockwise_function(
@@ -209,7 +229,7 @@ def test_with_a_processing_class():
     np.testing.assert_allclose(res0[1], res1[1])
 
 
-def test_with_a_processing_class_decorator():
+def test_with_a_processing_class_decorator_1():
     '''
     Use a class to share initializations, then process in a method
     '''
@@ -236,5 +256,34 @@ def test_with_a_processing_class_decorator():
 
     np.testing.assert_allclose(res0[0], res1[0])
     np.testing.assert_allclose(res0[1], res1[1])
+
+    assert proc.nexec > 0
+
+
+def test_with_a_processing_class_decorator_2():
+    '''
+    Use a class to share initializations, then process in a method
+
+    Method returns nothing here
+    '''
+    class Process:
+        def __init__(self):
+            self.nexec = 0
+
+        def run(self, Rtoa, sza):
+            self.nexec += 1
+            return Rtoa+sza, sza**2
+
+        @blockwise_method(
+            dims_blockwise=('width', 'height'),
+            dims_out=[],
+            dtypes=[])
+        def run_blockwise(self, Rtoa, sza):
+            return None
+
+    l1 = dummy_level1()
+    proc = Process()
+    proc.run_blockwise(l1.Rtoa, l1.sza)
+    proc.run(l1.Rtoa, l1.sza)
 
     assert proc.nexec > 0

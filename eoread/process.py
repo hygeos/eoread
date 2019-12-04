@@ -65,9 +65,12 @@ class Blockwise:
             assert dims[-len(dims_blockwise):] == dims_blockwise, \
                 f'The last dimensions of all output arrays (output ' \
                 f'#{i+1}/{len(dims_out)} has dimensions {dims}) should be the ' \
-                f'blockwise ones {dims_blockwise}.' 
+                f'blockwise ones {dims_blockwise}.'
         # coerce all outputs to the largest dtype
-        self.dtype_coerce = sorted(self.dtypes, key=lambda x: np.dtype(x).itemsize)[-1]
+        if self.dtypes:
+            self.dtype_coerce = sorted(self.dtypes, key=lambda x: np.dtype(x).itemsize)[-1]
+        else:   # empty self.dtypes
+            self.dtype_coerce = None
 
 
     def run(self, *args):
@@ -91,7 +94,7 @@ class Blockwise:
         if len(self.dtypes) == 1:
             assert not isinstance(res, tuple), f'Expected single output, received {len(res)}'
             res = [res]
-        
+
         assert len(res) == len(self.dtypes), \
             f'Expected {len(self.dtypes)} outputs, received {len(res)}.'
 
@@ -112,7 +115,7 @@ class Blockwise:
 
     def __call__(self, *args):
         '''
-        Apply the run function in parallel using apply_gufunc and split the results
+        Apply the run function in parallel using `da.blockwise` and split the results
         '''
         blockwise_args = []
         ndimblk = len(self.dims_blockwise)
