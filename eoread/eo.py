@@ -278,10 +278,13 @@ def split(d, dim, sep=''):
             for i in range(len(d[dim]))
             ])
     elif isinstance(d, xr.Dataset):
-        return xr.merge([split(d[x], dim)
-                         if dim in d[x].dims
-                         else d[x]
-                         for x in d])
+        merged = xr.merge(
+            [split(d[x], dim)
+             if dim in d[x].dims
+             else d[x]
+             for x in d])
+        merged.attrs = d.attrs
+        return merged
     else:
         raise Exception('`split` expects Dataset or DataArray.')
 

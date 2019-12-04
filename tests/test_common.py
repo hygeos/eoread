@@ -33,12 +33,16 @@ def test_split():
                             dims=('bands', 'x', 'y'),
                             coords={'bands': [412, 443, 490, 510, 560]}
                             )
+    l1.attrs['sensor'] = 'OLCI'
+    l1.Rw.attrs['unit'] = 'dimensionless'
     print(l1)
     l1s = eo.split(l1, 'bands')
     assert 'Rtoa412' in l1s
     assert 'Rw412' in l1s
     assert 'Rtoa' not in l1s
     print(l1s)
+    assert 'sensor' in l1s.attrs
+    assert 'unit' in l1s.Rw412.attrs
 
 
 @pytest.mark.parametrize('A', [
