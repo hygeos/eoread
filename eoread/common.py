@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from time import time
+from functools import wraps
 import numpy as np
 from scipy.ndimage import distance_transform_edt
 import dask.array as da
@@ -132,3 +134,18 @@ def len_slice(s, l):
     start, stop, step = s.indices(l)
 
     return max(0, (stop - start + (step - (1 if step > 0 else -1))) // step)
+
+
+def timeit(func):
+    """
+    A decorator to print the execution time of a callable
+    """
+    @wraps(func)
+    def timed(*args, **kwargs):
+        start = time()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            t = time() - start
+            print(f"Total execution time of {func}: {t:.3f} s")
+    return timed
