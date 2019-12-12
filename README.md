@@ -81,6 +81,16 @@ Writing to NetCDF is supported by the `xarray.Dataset.to_netcdf` method.
 A helper function is provided by `eo.to_netcdf`, which provided features like automatic file
 naming, temporary files and compression.
 
+
+## Chunking
+
+For efficient processing:
+
+- Chunks should be aligned with NetCDF chunks (`netCDF4.Dataset(f).variables[v].chunking()`)
+- Do NOT chunk and then sel. This leads to very poor efficiency. Chunk your data as late as possible.
+- See also http://xarray.pydata.org/en/stable/dask.html#chunking-and-performance
+
+
 ## Tests
 
 Uses pytest:

@@ -321,7 +321,7 @@ def merge(ds, var_names, out_var, new_dim_name, coords=None,
     if drop:
         copy = copy.drop([var for var in var_names])
 
-    return copy.assign({out_var: data}).chunk({new_dim_name: -1})
+    return copy.assign({out_var: data})
 
 
 def broadcast(A, B):

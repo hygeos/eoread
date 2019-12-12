@@ -38,11 +38,6 @@ def test_misc(sentinel_product, Reader):
     assert ds[n.Rtoa].dims == n.dim3
     assert n.wav in ds
 
-    # check chunking
-    if n.Ltoa in ds:
-        assert len(ds[n.Ltoa].chunks[0]) == 1, 'Ltoa is chunked along dimension `bands`'
-    assert len(ds[n.Rtoa].chunks[0]) == 1, 'Rtoa is chunked along dimension `bands`'
-
     # check attributes
     assert n.datetime in ds.attrs
     eo.datetime(ds)

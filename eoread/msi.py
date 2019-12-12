@@ -48,8 +48,10 @@ msi_band_names = {
         }
 
 
-def Level1_MSI(dirname, resolution='60', geometry=True,
-               split=False, chunksize=(300, 400)):
+def Level1_MSI(dirname,
+               resolution='60',
+               geometry=True,
+               split=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances,
@@ -104,14 +106,14 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     ds.attrs[naming.product_name] = os.path.basename(dirname)
 
     # lat-lon
-    msi_read_latlon(ds, geocoding, chunksize)
+    msi_read_latlon(ds, geocoding)
 
     # msi_read_geometry
     if geometry:
-        msi_read_geometry(ds, tileangles, chunksize)
+        msi_read_geometry(ds, tileangles)
 
     # msi_read_toa
-    ds = msi_read_toa(ds, granule_dir, quantif, split, chunksize)
+    ds = msi_read_toa(ds, granule_dir, quantif, split)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -130,21 +132,19 @@ def Level1_MSI(dirname, resolution='60', geometry=True,
     return ds
 
 
-def msi_read_latlon(ds, geocoding, chunksize):
+def msi_read_latlon(ds, geocoding):
     ds[naming.lat] = DataArray_from_array(
         LATLON(geocoding, 'lat', ds),
         naming.dim2,
-        chunksize,
     )
 
     ds[naming.lon] = DataArray_from_array(
         LATLON(geocoding, 'lon', ds),
         naming.dim2,
-        chunksize,
     )
 
 
-def msi_read_toa(ds, granule_dir, quantif, split, chunksize):
+def msi_read_toa(ds, granule_dir, quantif, split):
 
     for k, v in msi_band_names.items():
         filenames = glob(os.path.join(granule_dir, 'IMG_DATA', f'*_{v}.jp2'))
@@ -152,8 +152,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunksize):
         filename = filenames[0]
 
         arr = xr.open_rasterio(filename,
-                               chunks={'y': chunksize[0],
-                                       'x': chunksize[1]}
+                               chunks={}
                                )/quantif
         arr = arr.squeeze('band')
         arr = arr.drop('x').drop('y')
@@ -175,17 +174,11 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunksize):
             arr_resampled = DataArray_from_array(
                 Repeat(arr, (int(1/yrat), int(1/xrat))),
                 ('y', 'x'),
-                chunksize,
             )
 
         arr_resampled = arr_resampled.rename({
             'x': naming.columns,
             'y': naming.rows})
-
-        arr_resampled = arr_resampled.chunk({
-            naming.rows: chunksize[0],
-            naming.columns: chunksize[1],
-            })
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
@@ -227,7 +220,7 @@ def msi_read_spectral(ds):
     )
 
 
-def msi_read_geometry(ds, tileangles, chunksize):
+def msi_read_geometry(ds, tileangles):
 
     # read solar angles at tiepoints
     sza = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Zenith').find('Values_List'))
@@ -277,7 +270,6 @@ def msi_read_geometry(ds, tileangles, chunksize):
         ds[name] = DataArray_from_array(
             Interpolator(shp, ds[name+'_tie']),
             naming.dim2,
-            chunksize,
         )
 
 

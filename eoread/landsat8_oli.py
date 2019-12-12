@@ -43,7 +43,7 @@ band_index = { # Bands - wavelength (um) - resolution (m)
     }
 
 def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
-                  split=False, chunksize=(300, 400)):
+                  split=False):
     '''
     Landsat-8 OLI reader.
 
@@ -65,7 +65,6 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
                 cd ..
         radiometry: 'radiance' or 'reflectance'
         split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
-        chunksize: dask arrays chunk sizes.
 
     Returns a xr.Dataset
     '''
@@ -81,10 +80,10 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
         '%H:%M:%S')
     ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
-    read_coordinates(ds, dirname, chunksize)
-    read_geometry(ds, dirname, l8_angles, chunksize)
+    read_coordinates(ds, dirname)
+    read_geometry(ds, dirname, l8_angles)
     ds = read_radiometry(
-        ds, dirname, split, data_mtl, radiometry, chunksize)
+        ds, dirname, split, data_mtl, radiometry)
 
     return ds
 
@@ -98,19 +97,17 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname, chunksize):
+def read_coordinates(ds, dirname):
     '''
     read lat/lon
     '''
     ds[naming.lat] = common.DataArray_from_array(
         LATLON(dirname, 'lat'),
         naming.dim2,
-        chunksize,
     )
     ds[naming.lon] = common.DataArray_from_array(
         LATLON(dirname, 'lon'),
         naming.dim2,
-        chunksize,
     )
     ds.attrs[naming.totalheight] = ds.rows.size
     ds.attrs[naming.totalwidth] = ds.columns.size
@@ -131,7 +128,7 @@ def gen_l8_angles(dirname, l8_angles=None):
         os.system(f'cp -v {angle_files} {dirname}')
 
 
-def read_geometry(ds, dirname, l8_angles, chunksize):
+def read_geometry(ds, dirname, l8_angles):
     filenames_sensor = glob(os.path.join(dirname, 'LC*_sensor_B01.img'))
 
     if (not filenames_sensor) and (l8_angles is not None):
@@ -148,7 +145,6 @@ def read_geometry(ds, dirname, l8_angles, chunksize):
                   mode='r',
                   order='C',
                   shape=(2, ds.totalheight, ds.totalwidth)),
-        chunks=(1,)+chunksize,
         meta=np.array([], 'int16'),
         )
 
@@ -167,14 +163,13 @@ def read_geometry(ds, dirname, l8_angles, chunksize):
                   mode='r',
                   order='C',
                   shape=(2, ds.totalheight, ds.totalwidth)),
-        chunks=(1,)+chunksize,
         meta=np.array([], 'int16'),
         )
     ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)
     ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunksize):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry):
     param = {'reflectance': naming.Rtoa,
              'radiance': naming.Ltoa}[radiometry]
     bnames = []
@@ -184,7 +179,6 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunksize):
         ds[bname] = common.DataArray_from_array(
             TOA_READ(b, dirname, radiometry, data_mtl),
             naming.dim2,
-            chunksize,
         )
         if radiometry == 'reflectance':
             ds[bname] /= da.cos(da.radians(ds.sza))

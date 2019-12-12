@@ -25,7 +25,7 @@ BANDS_MERIS = [412, 443, 490, 510, 560,
                760, 779, 865, 885, 900]
 
 
-def Level1_MERIS(filename, split=False, chunksize=(300, 400)):
+def Level1_MERIS(filename, split=False):
     '''
     Read a MERIS Level1 product as an `xarray.Dataset`.
 
@@ -58,7 +58,6 @@ def Level1_MERIS(filename, split=False, chunksize=(300, 400)):
         ds[name] = DataArray_from_array(
             READ_MERIS(prod.get_band(param), lock),
             naming.dim2,
-            chunksize
         )
     
     # Read attributes
@@ -86,7 +85,6 @@ def Level1_MERIS(filename, split=False, chunksize=(300, 400)):
                 ds.detector_index,
                 'index'),
             naming.dim2,
-            chunksize,
         )
     # ds['F0'].attrs.update(ds.solar_flux.attrs)
 

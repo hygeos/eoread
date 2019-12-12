@@ -30,13 +30,14 @@ olci_band_names = {
     }
 
 
-def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
-                tie_param=False, init_spectral=True,
+def Level1_OLCI(dirname,
+                tie_param=False,
+                init_spectral=True,
                 init_reflectance=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    ds = read_OLCI(dirname, level='level1', chunks=chunks,
+    ds = read_OLCI(dirname, level='level1',
                    tie_param=tie_param, init_spectral=(init_spectral or init_reflectance))
 
     if init_reflectance:
@@ -46,12 +47,12 @@ def Level1_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
 
 
 
-def Level2_OLCI(dirname, chunks={'columns': 400, 'rows': 300},
+def Level2_OLCI(dirname,
                 tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level2 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level2', chunks=chunks,
+    return read_OLCI(dirname, level='level2',
                      tie_param=tie_param, init_spectral=init_spectral)
 
 
@@ -88,8 +89,10 @@ def read_manifest(dirname):
             }
 
 
-def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
-              tie_param=False, init_spectral=False):
+def read_OLCI(dirname,
+              level=None,
+              tie_param=False,
+              init_spectral=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
@@ -116,7 +119,7 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     bands = []
     for idx, filename in manifest['bandfilenames']:
         fname = os.path.join(dirname, filename)
-        prod_list.append(xr.open_dataset(fname, chunks=chunks)[os.path.basename(fname)[:-3]])
+        prod_list.append(xr.open_dataset(fname, chunks={})[os.path.basename(fname)[:-3]])
         bands.append(olci_band_names[idx])
 
     index_bands = xr.IndexVariable('bands', bands)
@@ -124,11 +127,11 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         param_name = naming.Ltoa
     else:
         param_name = naming.Rw
-    ds[param_name] = xr.concat(prod_list, dim=index_bands).chunk({naming.bands: -1})
+    ds[param_name] = xr.concat(prod_list, dim=index_bands)
 
     # Geo coordinates
     geo_coords_file = os.path.join(dirname, 'geo_coordinates.nc')
-    geo = xr.open_dataset(geo_coords_file, chunks=chunks)
+    geo = xr.open_dataset(geo_coords_file, chunks={})
     for k in geo.variables:
         ds[k] = geo[k]
     ds.attrs.update(geo.attrs)
@@ -142,7 +145,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         dims3_full = ('bands_full', 'rows', 'columns')
     assert dims2 == ds.latitude.dims
     shape2 = ds.latitude.shape
-    chunksize2 = ds.latitude.data.chunksize
     assert dims3 == ds[param_name].dims
 
     # tie geometry interpolation
@@ -165,7 +167,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         ds[ds_full] = DataArray_from_array(
             Interpolator(shape2, tie_ds[ds_tie], method),
             dims2,
-            chunksize2,
         )
         ds[ds_full].attrs = tie_ds[ds_tie].attrs
         if tie_param:
@@ -189,7 +190,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
             np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0), 2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))
         ),
         dims2,
-        chunksize2,
     )
     ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
     variables = [
@@ -201,7 +201,6 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
         ds[var] = DataArray_from_array(
             Interpolator(shape2, tie[var]),
             dims2,
-            chunksize2,
         )
         ds[var].attrs = tie[var].attrs
         if tie_param:
@@ -213,7 +212,9 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
 
     # instrument data
     instrument_data_file = os.path.join(dirname, 'instrument_data.nc')
-    instrument_data = xr.open_dataset(instrument_data_file, chunks=chunks, mask_and_scale=False)
+    instrument_data = xr.open_dataset(instrument_data_file,
+                                      chunks={},
+                                      mask_and_scale=False)
     if level == 'level2':
         instrument_data = instrument_data.rename({'bands': 'bands_full'})
     for x in instrument_data.variables:
@@ -222,27 +223,27 @@ def read_OLCI(dirname, level=None, chunks={'columns': 400, 'rows': 300},
     if level == 'level1':
         # quality flags
         qf_file = os.path.join(dirname, 'qualityFlags.nc')
-        qf = xr.open_dataset(qf_file, chunks=chunks)
+        qf = xr.open_dataset(qf_file, chunks={})
         ds['quality_flags'] = qf.quality_flags
     else:
         # chl_nn
         fname = os.path.join(dirname, 'chl_nn.nc')
-        qf = xr.open_dataset(fname, chunks=chunks)
+        qf = xr.open_dataset(fname, chunks={})
         ds['chl_nn'] = qf.CHL_NN
 
         # chl_oc4me
         fname = os.path.join(dirname, 'chl_oc4me.nc')
-        qf = xr.open_dataset(fname, chunks=chunks)
+        qf = xr.open_dataset(fname, chunks={})
         ds['chl_oc4me'] = qf.CHL_OC4ME
 
         # quality flags
         fname = os.path.join(dirname, 'wqsf.nc')
-        qf = xr.open_dataset(fname, chunks=chunks)
+        qf = xr.open_dataset(fname, chunks={})
         ds['wqsf'] = qf.WQSF
 
         # aerosol properties
         fname = os.path.join(dirname, 'w_aer.nc')
-        qf = xr.open_dataset(fname, chunks=chunks)
+        qf = xr.open_dataset(fname, chunks={})
         ds['A865'] = qf.A865
         ds['T865'] = qf.T865
 
@@ -281,12 +282,6 @@ def olci_init_spectral(ds):
     '''
     # dimensions to be indexed by this object
     dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
-    # ... and their chunksize
-    if not ds.lambda0.chunks:
-        # if DataSet not chunked
-        chunksize = {}
-    else:
-        chunksize = sum([[ds.lambda0.data.chunksize[i]] if not x == 'detectors' else list(ds.detector_index.data.chunksize) for i, x in enumerate(ds.lambda0.dims)], [])
 
     # wavelength
     ds['wav'] = DataArray_from_array(
@@ -294,7 +289,6 @@ def olci_init_spectral(ds):
                 ds.detector_index,
                 'detectors'),
         dims,
-        chunksize,
     )
     ds['wav'].attrs.update(ds.lambda0.attrs)
 
@@ -304,7 +298,6 @@ def olci_init_spectral(ds):
                 ds.detector_index,
                 'detectors'),
         dims,
-        chunksize,
     )
     ds['F0'].attrs.update(ds.solar_flux.attrs)
 
