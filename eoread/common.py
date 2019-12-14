@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from time import time
+from datetime import datetime
 from functools import wraps
-import numpy as np
-from scipy.ndimage import distance_transform_edt
+from time import time
+
 import dask.array as da
+import numpy as np
 import xarray as xr
+from scipy.ndimage import distance_transform_edt
+
 
 class AtIndex:
     '''
@@ -141,10 +144,10 @@ def timeit(func):
     """
     @wraps(func)
     def timed(*args, **kwargs):
-        start = time()
+        start = datetime.now()
         try:
             return func(*args, **kwargs)
         finally:
-            t = time() - start
-            print(f"Total execution time of {func}: {t:.3f} s")
+            t = datetime.now() - start
+            print(f"Total execution time of {func}: {t}")
     return timed
