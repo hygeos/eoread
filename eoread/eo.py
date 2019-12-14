@@ -304,9 +304,14 @@ def split(d, dim, sep=''):
     else:
         raise Exception('`split` expects Dataset or DataArray.')
 
-    
-def merge(ds, var_names, out_var, new_dim_name, coords=None,
-            dim_index=0, drop=True):
+
+def merge(ds,
+          var_names,
+          out_var,
+          new_dim_name,
+          coords=None,
+          dim_index=0,
+          drop=True):
     """
     Returns a DataSet where all the variables included in the 'var_names' list are merged into a
     new variable named 'out_var'.
@@ -366,58 +371,61 @@ def broadcast(A, B):
     )
 
 
-def getflags(da):
+def getflags(A):
     """
-    returns the flags in attributes of `da` as a dictionary
+    returns the flags in attributes of `A` as a dictionary
 
     Arguments:
     ---------
 
-    da: Dataarray
+    A: Dataarray
     """
     try:
-        m = da.attrs[naming.flags_meanings].split(naming.flags_meanings_separator)
-        v = da.attrs[naming.flags_masks]
+        m = A.attrs[naming.flags_meanings].split(naming.flags_meanings_separator)
+        v = A.attrs[naming.flags_masks]
     except KeyError:
         return OrderedDict()
     return OrderedDict(zip(m, v))
 
 
-def getflag(da, name):
+def getflag(A, name):
     """
     Return the binary flag with given `name` as a boolean array
 
+    A: DataArray
+    name: str
+
     example: getflag(flags, 'LAND')
     """
-    flags = getflags(da)
+    flags = getflags(A)
 
     assert name in flags, f'Error, {name} no in {list(flags)}'
 
-    return (da & flags[name]) != 0 
+    return (A & flags[name]) != 0 
 
 
-def raiseflag(da, flag_name, flag_value, condition):
+def raiseflag(A, flag_name, flag_value, condition):
     """
-    Raise a flag in Dataarray `da` with name `flag_name`, value `flag_value` and `condition`
-    The name and value of the flag is recorded in the attributes of `da`
+    Raise a flag in Dataarray `A` with name `flag_name`, value `flag_value` and `condition`
+    The name and value of the flag is recorded in the attributes of `A`
 
     Arguments:
     ----------
-    da: Dataarray of integers
+    A: Dataarray of integers
     flag_name: str
         Name of the flag
     flag_value: int
         Value of the flag
-    condition: boolean array-like of same shape as `da`
+    condition: boolean array-like of same shape as `A`
         Condition to raise flag
     """
-    flags = getflags(da)
+    flags = getflags(A)
     dtype_flag_masks = 'uint16'
 
-    if naming.flags_meanings not in da.attrs:
-        da.attrs[naming.flags_meanings] = ''
-    if naming.flags_masks not in da.attrs:
-        da.attrs[naming.flags_masks] = np.array([], dtype=dtype_flag_masks)
+    if naming.flags_meanings not in A.attrs:
+        A.attrs[naming.flags_meanings] = ''
+    if naming.flags_masks not in A.attrs:
+        A.attrs[naming.flags_masks] = np.array([], dtype=dtype_flag_masks)
 
     # update the attributes if necessary
     if flag_name in flags:
@@ -433,9 +441,8 @@ def raiseflag(da, flag_name, flag_value, condition):
         # sort the flags by values
         keys, values = zip(*sorted(flags.items(), key=lambda y: y[1]))
 
-        da.attrs[naming.flags_meanings] = naming.flags_meanings_separator.join(keys)
-        da.attrs[naming.flags_masks] = np.array(values, dtype=dtype_flag_masks)
+        A.attrs[naming.flags_meanings] = naming.flags_meanings_separator.join(keys)
+        A.attrs[naming.flags_masks] = np.array(values, dtype=dtype_flag_masks)
 
-    notraised = (da & flag_value) == 0
-    da += flag_value * (condition & notraised).astype(naming.flags_dtype)
-
+    notraised = (A & flag_value) == 0
+    A += flag_value * (condition & notraised).astype(naming.flags_dtype)
