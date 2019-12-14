@@ -12,6 +12,7 @@ import numpy as np
 import xarray as xr
 import tempfile
 import dask.array as da
+from dask.diagnostics import ProgressBar
 from shapely.geometry import Polygon, Point
 from .naming import naming
 import shutil
@@ -202,8 +203,16 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
     return sub(ds, cond, drop_invalid, int_default_value)
 
 
-def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='product_name',
-              overwrite=False, compress=True, tmpdir=None, create_out_dir=True,
+def to_netcdf(ds,
+              dirname='.',
+              product_name=None,
+              ext='.nc',
+              product_name_attr='product_name',
+              overwrite=False,
+              compress=True,
+              tmpdir=None,
+              create_out_dir=True,
+              verbose=True,
               **kwargs):
     '''
     Write a xarray Dataset `ds` using `.to_netcdf` with several additional features:
@@ -229,6 +238,7 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
     '''
     if product_name is None:
         product_name = ds.attrs[product_name_attr]
+    assert product_name, 'Empty product name'
     fname = os.path.join(dirname, product_name+ext)
 
     encoding = {}
@@ -252,9 +262,15 @@ def to_netcdf(ds, dirname='.', product_name=None, ext='.nc', product_name_attr='
 
         fname_tmp = os.path.join(tmp, product_name+ext+'.tmp')
 
-        ds.to_netcdf(path=fname_tmp,
-                     encoding=encoding,
-                     **kwargs)
+        if verbose:
+            print('Writing:', fname)
+            print('Using temporary file:', fname_tmp)
+        with open(os.devnull, 'w') as devnull, \
+             ProgressBar(out={True: None,
+                              False: devnull}[verbose]):
+            ds.to_netcdf(path=fname_tmp,
+                         encoding=encoding,
+                         **kwargs)
 
         # use intermediary move
         # (both files may be on different devices)
