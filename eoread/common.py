@@ -51,14 +51,17 @@ class Interpolator:
         self.shape = shape
         self.dtype = A.dtype
         self.A = A
-        assert A.dims == ('tie_rows', 'tie_columns')
-        self.ndim = 2
+        assert A.ndim == 2
+        self.ndim = A.ndim
         self.method = method
+        self.dims = A.dims
 
     def __getitem__(self, key):
         ret = self.A.interp(
-            tie_rows=np.arange(self.shape[0])[key[0]],
-            tie_columns=np.arange(self.shape[1])[key[1]],
+            {
+                self.dims[0]: np.arange(self.shape[0])[key[0]],
+                self.dims[1]: np.arange(self.shape[1])[key[1]],
+            },
             method=self.method,
         )
         return ret
