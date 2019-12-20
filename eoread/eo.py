@@ -6,17 +6,20 @@ Various utility functions for exploiting eoread objects
 '''
 
 import os
-from dateutil.parser import parse
-from numpy import radians, cos, sin, arcsin as asin, sqrt, where
-import numpy as np
-import xarray as xr
+import shutil
 import tempfile
+from collections import OrderedDict
+
 import dask.array as da
 from dask.diagnostics import ProgressBar
-from shapely.geometry import Polygon, Point
+import xarray as xr
+from dateutil.parser import parse
+import numpy as np
+from numpy import arcsin as asin
+from numpy import cos, radians, sin, sqrt, where
+from shapely.geometry import Point, Polygon
+
 from .naming import naming
-import shutil
-from collections import OrderedDict
 
 
 def datetime(ds):
@@ -40,7 +43,7 @@ def haversine(lat1, lon1, lat2, lon2, radius=6371):
     dlon = lon2 - lon1
     dlat = lat2 - lat1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
+    c = 2 * asin(sqrt(a))
     dist = radius * c
 
     return dist
@@ -215,7 +218,7 @@ def to_netcdf(ds,
               verbose=True,
               **kwargs):
     '''
-    Write a xarray Dataset `ds` using `.to_netcdf` with several additional features:
+    Write an xarray Dataset `ds` using `.to_netcdf` with several additional features:
     - construct file name using  `dirname`, `product_name` and `ext`
     - check that the output file does not exist already
     - Use file compression
@@ -223,18 +226,31 @@ def to_netcdf(ds,
     - Create output directory if it does not exist
 
     Arguments:
-    - dirname: directory for output file (default '.')
-    - product_name: base name for the output file. If None (default), use the attribute named attr_name
-    - product_name_attr: name of the attribute to use for product_name in `ds`
-    - ext: extension (default: '.nc')
-    - overwrite: whether to overwrite existing file (default: False ; raises an error).
-    - compress: activate output file compression
-    - tmpdir: use a given temporary directory instead of the output directory
-    - create_out_dir: create output directory if it does not exist
+    ----------
+
+    dirname: str
+        directory for output file (default '.')
+    product_name: str
+        base name for the output file. If None (default), use the attribute named attr_name
+    product_name_attr: str
+        name of the attribute to use for product_name in `ds`
+    ext: str
+        extension (default: '.nc')
+    overwrite: bool
+        whether to overwrite existing file (default: False ; raises an error).
+    compress: bool
+        activate output file compression
+    tmpdir: str
+        use a given temporary directory instead of the output directory
+    create_out_dir: str
+        create output directory if it does not exist
 
     Other kwargs are passed to `to_netcdf`
 
-    Returns: output file name
+    Returns:
+    -------
+    
+    output file name (str)
     '''
     if product_name is None:
         product_name = ds.attrs[product_name_attr]
@@ -258,19 +274,20 @@ def to_netcdf(ds,
         else:
             raise IOError(f'Directory "{dirname}" does not exist.')
 
-    with tempfile.TemporaryDirectory(dir=tmpdir) as tmp:
+    with tempfile.TemporaryDirectory(dir=tmpdir) as tmp, \
+            open(os.devnull, 'w') as devnull, \
+            ProgressBar(out={True: None,
+                             False: devnull}[verbose]):
 
         fname_tmp = os.path.join(tmp, product_name+ext+'.tmp')
 
         if verbose:
             print('Writing:', fname)
             print('Using temporary file:', fname_tmp)
-        with open(os.devnull, 'w') as devnull, \
-             ProgressBar(out={True: None,
-                              False: devnull}[verbose]):
-            ds.to_netcdf(path=fname_tmp,
-                         encoding=encoding,
-                         **kwargs)
+
+        ds.to_netcdf(path=fname_tmp,
+                     encoding=encoding,
+                     **kwargs)
 
         # use intermediary move
         # (both files may be on different devices)
