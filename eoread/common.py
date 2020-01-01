@@ -89,18 +89,21 @@ class Repeat:
         return np.array(self.A)[X, Y].transpose()
 
 
-def DataArray_from_array(A, dims):
+def DataArray_from_array(A, dims, chunks):
     '''
     Returns a DataArray (backed by dask) from array-like `A`
 
     Arguments:
     - A: array-like
     - dims: named dimensions of DataArray (ex: ('x', 'y'))
+    - chunks: int
     '''
+    assert not isinstance(chunks, dict)
     return xr.DataArray(
         da.from_array(
             A,
             meta=np.array([], A.dtype),
+            chunks=chunks,
         ),
         dims=dims)
 

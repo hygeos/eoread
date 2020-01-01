@@ -42,8 +42,13 @@ band_index = { # Bands - wavelength (um) - resolution (m)
                # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
     }
 
-def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
-                  split=False):
+
+def Level1_L8_OLI(dirname,
+                  l8_angles=None,
+                  radiometry='reflectance',
+                  split=False,
+                  chunks=500,
+                  ):
     '''
     Landsat-8 OLI reader.
 
@@ -63,8 +68,10 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
                 cd l8_angles
                 make
                 cd ..
-        radiometry: 'radiance' or 'reflectance'
-        split: (boolean) whether the wavelength dependent variables should be split in multiple 2D variables
+        radiometry: str
+            'radiance' or 'reflectance'
+        split: boolean
+            whether the wavelength dependent variables should be split in multiple 2D variables
 
     Returns a xr.Dataset
     '''
@@ -80,10 +87,10 @@ def Level1_L8_OLI(dirname, l8_angles=None, radiometry='reflectance',
         '%H:%M:%S')
     ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
 
-    read_coordinates(ds, dirname)
+    read_coordinates(ds, dirname, chunks)
     read_geometry(ds, dirname, l8_angles)
     ds = read_radiometry(
-        ds, dirname, split, data_mtl, radiometry)
+        ds, dirname, split, data_mtl, radiometry, chunks)
 
     return ds
 
@@ -97,17 +104,19 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname):
+def read_coordinates(ds, dirname, chunks):
     '''
     read lat/lon
     '''
     ds[naming.lat] = common.DataArray_from_array(
         LATLON(dirname, 'lat'),
         naming.dim2,
+        chunks=chunks,
     )
     ds[naming.lon] = common.DataArray_from_array(
         LATLON(dirname, 'lon'),
         naming.dim2,
+        chunks=chunks,
     )
     ds.attrs[naming.totalheight] = ds.rows.size
     ds.attrs[naming.totalwidth] = ds.columns.size
@@ -169,7 +178,7 @@ def read_geometry(ds, dirname, l8_angles):
     ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
     param = {'reflectance': naming.Rtoa,
              'radiance': naming.Ltoa}[radiometry]
     bnames = []
@@ -179,6 +188,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry):
         ds[bname] = common.DataArray_from_array(
             TOA_READ(b, dirname, radiometry, data_mtl),
             naming.dim2,
+            chunks=chunks,
         )
         if radiometry == 'reflectance':
             ds[bname] /= da.cos(da.radians(ds.sza))

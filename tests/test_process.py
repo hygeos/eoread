@@ -43,6 +43,8 @@ def test_processing(sentinel_product):
     '''
     ds = Level1_OLCI(sentinel_product, init_reflectance=True)
 
+    ds = ds.chunk({'bands': -1})
+
     ds['Rtoa_calib'], ds['flags'] = Calib(ds.bands).calc(ds.Rtoa)
 
     sub = ds.isel(

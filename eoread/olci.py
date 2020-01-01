@@ -31,14 +31,19 @@ olci_band_names = {
 
 
 def Level1_OLCI(dirname,
+                chunks=500,
                 tie_param=False,
                 init_spectral=True,
                 init_reflectance=False):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
-    ds = read_OLCI(dirname, level='level1',
-                   tie_param=tie_param, init_spectral=(init_spectral or init_reflectance))
+    ds = read_OLCI(dirname,
+                   level='level1',
+                   chunks=chunks,
+                   tie_param=tie_param,
+                   init_spectral=(init_spectral or init_reflectance),
+                   )
 
     if init_reflectance:
         eo.init_Rtoa(ds)
@@ -48,12 +53,17 @@ def Level1_OLCI(dirname,
 
 
 def Level2_OLCI(dirname,
+                chunks=500,
                 tie_param=False, init_spectral=True):
     '''
     Read an OLCI Level2 product as an xarray.Dataset
     '''
-    return read_OLCI(dirname, level='level2',
-                     tie_param=tie_param, init_spectral=init_spectral)
+    return read_OLCI(dirname,
+                     level='level2',
+                     chunks=chunks,
+                     tie_param=tie_param,
+                     init_spectral=init_spectral,
+                     )
 
 
 def read_manifest(dirname):
@@ -90,6 +100,7 @@ def read_manifest(dirname):
 
 
 def read_OLCI(dirname,
+              chunks={},
               level=None,
               tie_param=False,
               init_spectral=False):
@@ -119,7 +130,7 @@ def read_OLCI(dirname,
     bands = []
     for idx, filename in manifest['bandfilenames']:
         fname = os.path.join(dirname, filename)
-        prod_list.append(xr.open_dataset(fname, chunks={})[os.path.basename(fname)[:-3]])
+        prod_list.append(xr.open_dataset(fname, chunks=chunks)[os.path.basename(fname)[:-3]])
         bands.append(olci_band_names[idx])
 
     index_bands = xr.IndexVariable('bands', bands)
@@ -131,7 +142,7 @@ def read_OLCI(dirname,
 
     # Geo coordinates
     geo_coords_file = os.path.join(dirname, 'geo_coordinates.nc')
-    geo = xr.open_dataset(geo_coords_file, chunks={})
+    geo = xr.open_dataset(geo_coords_file, chunks=chunks)
     for k in geo.variables:
         ds[k] = geo[k]
     ds.attrs.update(geo.attrs)
@@ -151,8 +162,8 @@ def read_OLCI(dirname,
     tie_geom_file = os.path.join(dirname, 'tie_geometries.nc')
     tie_ds = xr.open_dataset(tie_geom_file, chunks={})
     tie_ds = tie_ds.assign_coords(
-                tie_columns = np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
-                tie_rows = np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
+                tie_columns=np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
+                tie_rows=np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
     assert tie_ds.tie_columns[0] == ds.columns[0]
     assert tie_ds.tie_columns[-1] == ds.columns[-1]
@@ -167,6 +178,7 @@ def read_OLCI(dirname,
         ds[ds_full] = DataArray_from_array(
             Interpolator(shape2, tie_ds[ds_tie], method),
             dims2,
+            chunks,
         )
         ds[ds_full].attrs = tie_ds[ds_tie].attrs
         if tie_param:
@@ -190,6 +202,7 @@ def read_OLCI(dirname,
             np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0), 2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))
         ),
         dims2,
+        chunks,
     )
     ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
     variables = [
@@ -201,6 +214,7 @@ def read_OLCI(dirname,
         ds[var] = DataArray_from_array(
             Interpolator(shape2, tie[var]),
             dims2,
+            chunks,
         )
         ds[var].attrs = tie[var].attrs
         if tie_param:
@@ -213,7 +227,7 @@ def read_OLCI(dirname,
     # instrument data
     instrument_data_file = os.path.join(dirname, 'instrument_data.nc')
     instrument_data = xr.open_dataset(instrument_data_file,
-                                      chunks={},
+                                      chunks=chunks,
                                       mask_and_scale=False)
     if level == 'level2':
         instrument_data = instrument_data.rename({'bands': 'bands_full'})
@@ -223,27 +237,27 @@ def read_OLCI(dirname,
     if level == 'level1':
         # quality flags
         qf_file = os.path.join(dirname, 'qualityFlags.nc')
-        qf = xr.open_dataset(qf_file, chunks={})
+        qf = xr.open_dataset(qf_file, chunks=chunks)
         ds['quality_flags'] = qf.quality_flags
     else:
         # chl_nn
         fname = os.path.join(dirname, 'chl_nn.nc')
-        qf = xr.open_dataset(fname, chunks={})
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['chl_nn'] = qf.CHL_NN
 
         # chl_oc4me
         fname = os.path.join(dirname, 'chl_oc4me.nc')
-        qf = xr.open_dataset(fname, chunks={})
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['chl_oc4me'] = qf.CHL_OC4ME
 
         # quality flags
         fname = os.path.join(dirname, 'wqsf.nc')
-        qf = xr.open_dataset(fname, chunks={})
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['wqsf'] = qf.WQSF
 
         # aerosol properties
         fname = os.path.join(dirname, 'w_aer.nc')
-        qf = xr.open_dataset(fname, chunks={})
+        qf = xr.open_dataset(fname, chunks=chunks)
         ds['A865'] = qf.A865
         ds['T865'] = qf.T865
 
@@ -270,11 +284,11 @@ def read_OLCI(dirname,
     ds.attrs[naming.sensor] = 'OLCI'
 
     if init_spectral:
-        olci_init_spectral(ds)
+        olci_init_spectral(ds, chunks)
 
     return ds
 
-def olci_init_spectral(ds):
+def olci_init_spectral(ds, chunks):
     '''
     Broadcast all spectral (detector-wise) dataset to the whole image
 
@@ -289,6 +303,7 @@ def olci_init_spectral(ds):
                 ds.detector_index,
                 'detectors'),
         dims,
+        chunks,
     )
     ds['wav'].attrs.update(ds.lambda0.attrs)
 
@@ -298,6 +313,7 @@ def olci_init_spectral(ds):
                 ds.detector_index,
                 'detectors'),
         dims,
+        chunks,
     )
     ds['F0'].attrs.update(ds.solar_flux.attrs)
 

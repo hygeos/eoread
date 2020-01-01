@@ -25,12 +25,20 @@ BANDS_MERIS = [412, 443, 490, 510, 560,
                760, 779, 865, 885, 900]
 
 
-def Level1_MERIS(filename, split=False):
+def Level1_MERIS(filename,
+                 split=False,
+                 chunks=500):
     '''
     Read a MERIS Level1 product as an `xarray.Dataset`.
 
     Arguments:
-    - split (bool): whether the wavelength dependent variables should be split in multiple 2D variables
+    filename: str
+        path to MERIS file
+        (ex: 'MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1')
+    split: bool
+        whether the wavelength dependent variables should be split in multiple 2D variables
+    chunks: int
+        chunk size for dask array
     '''
     bname = basename(filename)
 
@@ -58,8 +66,9 @@ def Level1_MERIS(filename, split=False):
         ds[name] = DataArray_from_array(
             READ_MERIS(prod.get_band(param), lock),
             naming.dim2,
+            chunks=chunks,
         )
-    
+
     # Read attributes
     mph = prod.get_mph()
     for fname in mph.get_field_names():
@@ -85,6 +94,7 @@ def Level1_MERIS(filename, split=False):
                 ds.detector_index,
                 'index'),
             naming.dim2,
+            chunks=chunks,
         )
     # ds['F0'].attrs.update(ds.solar_flux.attrs)
 
