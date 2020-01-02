@@ -335,12 +335,20 @@ def merge(ds,
     If the 'new_dim' dimension already exists, the variables are concatenated along the dimension,
     otherwise it creates this dimension in the new variable
 
-    var_names, list of str : names of variables to concatenate
-    out_var, str : the output variable name created
-    new_dim_name, str : name of the dimension along the variables are concatenated
-    coords: coordinates along  the new dimension
-    dim_index, int: index where to put the new dimension
-    drop : bool, if True, variables in var_names are deleted in the returned DataSet
+    Args:
+    -----
+    var_names: list of str
+        names of variables to concatenate
+    out_var: str
+        the output variable name created
+    new_dim_name: str
+        name of the dimension along which the variables are concatenated
+    coords:
+        coordinates along the new dimension
+    dim_index: int
+        index where to put the new dimension
+    drop: bool
+        if True, variables in var_names are deleted in the returned DataSet
     """
     copy = ds.copy()
     if out_var in list(copy.variables):
@@ -423,12 +431,13 @@ def getflag(A, name):
 
 def raiseflag(A, flag_name, flag_value, condition):
     """
-    Raise a flag in Dataarray `A` with name `flag_name`, value `flag_value` and `condition`
+    Raise a flag in DataArray `A` with name `flag_name`, value `flag_value` and `condition`
     The name and value of the flag is recorded in the attributes of `A`
 
     Arguments:
     ----------
-    A: Dataarray of integers
+    A: DataArray of integers
+
     flag_name: str
         Name of the flag
     flag_value: int

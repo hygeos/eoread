@@ -101,7 +101,7 @@ def Level1_MSI(dirname,
             break
 
     # attributes
-    ds.attrs['platform'] = platform
+    ds.attrs[naming.platform] = platform
     ds.attrs['resolution'] = resolution
     ds.attrs[naming.sensor] = 'MSI'
     ds.attrs[naming.product_name] = os.path.basename(dirname)
