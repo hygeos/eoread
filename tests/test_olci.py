@@ -7,6 +7,8 @@ from tests.products import sentinel_product, sample_data_path
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
+from . import generic
+from .generic import param, indices
 
 
 @pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
@@ -55,3 +57,22 @@ def test_olci_level2_flags(sentinel_product):
 
     eo.getflags(l2.wqsf)
     get_valid_l2_pixels(l2.wqsf)
+
+
+@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
+def test_main(sentinel_product):
+    ds = Level1_OLCI(sentinel_product)
+    eo.init_Rtoa(ds)
+    generic.test_main(ds)
+
+@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
+def test_read(sentinel_product, param, indices):
+    ds = Level1_OLCI(sentinel_product)
+    eo.init_Rtoa(ds)
+    generic.test_read(ds, param, indices)
+
+
+@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
+def test_subset(sentinel_product):
+    ds = Level1_OLCI(sentinel_product)
+    generic.test_subset(ds)

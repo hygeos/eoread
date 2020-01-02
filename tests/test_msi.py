@@ -7,23 +7,34 @@ import xarray as xr
 from eoread.msi import Level1_MSI
 from tests import products as p
 from tests.products import sentinel_product, sample_data_path
+from .generic import indices, param
+from . import generic
+from eoread import eo
+
+resolutions = ['10', '20', '60']
 
 
+@pytest.fixture
+def product():
+    return p.prod_S2_L1_20190419
 
-@pytest.mark.parametrize('product,resolution,split',
-                         [(p.prod_S2_L1_20190419, res, split)
-                          for res in ['10', '20', '60']
-                          for split in [True, False]])
+@pytest.fixture(params=resolutions)
+def resolution(request):
+    return request.param
+
+@pytest.fixture
+def S2_product(sentinel_product, resolution):
+    return Level1_MSI(sentinel_product, resolution)
+
+
+@pytest.mark.parametrize('split', [True, False])
 def test_instantiation(sentinel_product, resolution, split):
     Level1_MSI(sentinel_product, resolution, split=split)
 
 
-@pytest.mark.parametrize('product,resolution,param',
-                         [(p.prod_S2_L1_20190419, res, param)
-                          for res in ['10', '20', '60']
-                          for param in ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude']])
-def test_msi_merged(sentinel_product, resolution, param):
-    l1 = Level1_MSI(sentinel_product, resolution)
+@pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
+def test_msi_merged(S2_product, param):
+    l1 = S2_product
     print(l1)
     assert 'Rtoa_443' not in l1
     assert 'Rtoa' in l1
@@ -47,10 +58,7 @@ def test_msi_merged(sentinel_product, resolution, param):
                     columns=slice(500, None))[param][:10, :10])
 
 
-@pytest.mark.parametrize('product,band,resolution',
-                         [(p.prod_S2_L1_20190419, band, res)
-                          for band in ['Rtoa_443', 'Rtoa_490', 'Rtoa_865']
-                          for res in ['10', '20', '60']])
+@pytest.mark.parametrize('band', ['Rtoa_443', 'Rtoa_490', 'Rtoa_865'])
 def test_msi_split(sentinel_product, band, resolution):
     l1 = Level1_MSI(sentinel_product, resolution, split=True)
     print(l1)
@@ -64,3 +72,16 @@ def test_msi_split(sentinel_product, band, resolution):
             l1.sel(rows=slice(500, 550), columns=slice(450, 550))[band],
             )
 
+
+
+def test_main(S2_product):
+    generic.test_main(S2_product)
+
+
+def test_read(S2_product, param, indices):
+    eo.init_geometry(S2_product)
+    generic.test_read(S2_product, param, indices)
+
+
+def test_subset(S2_product):
+    generic.test_subset(S2_product)
