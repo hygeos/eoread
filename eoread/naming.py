@@ -46,6 +46,9 @@ class Naming:
         self.vaa = 'vaa'
         self.vaa_desc = 'View azimuth angle'
 
+        self.raa = 'raa'
+        self.raa_desc = 'Relative azimuth angle'
+
         # Flags
         self.flags = 'flags'
         self.flags_dtype = 'uint16'
