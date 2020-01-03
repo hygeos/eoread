@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 
 
-import os
-import zipfile
+import numpy as np
 import pytest
 from tests import products as p
 from tests.products import meris_product, sample_data_path
-from eoread.meris import Level1_MERIS
+
 from eoread import eo
+from eoread.meris import Level1_MERIS
 
-
-@pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
-def test_meris_file_available(meris_product):
-    assert os.path.exists(meris_product), f'"{meris_product}" does not exist'
+from . import generic
+from .generic import indices, param
 
 
 @pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
@@ -22,12 +20,21 @@ def test_instantiation(meris_product):
 
 
 @pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
-@pytest.mark.parametrize('param', ['latitude', 'longitude', 'sza', 'vza', 'Ltoa', 'Rtoa'])
-def test_meris_1(meris_product, param):
+def test_main(meris_product):
     l1 = Level1_MERIS(meris_product)
     eo.init_Rtoa(l1)
-    l1 = l1.isel(
-        rows=slice(500, 550),
-        columns=slice(500, 550),
-    )
-    l1[param].compute()
+    generic.test_main(l1)
+
+
+@pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
+@pytest.mark.parametrize('chunks', [500, (300, 500)])
+def test_read(meris_product, param, indices, chunks):
+    l1 = Level1_MERIS(meris_product, chunks=chunks)
+    eo.init_Rtoa(l1)
+    generic.test_read(l1, param, indices)
+
+
+@pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
+def test_subset(meris_product):
+    l1 = Level1_MERIS(meris_product)
+    generic.test_subset(l1)
