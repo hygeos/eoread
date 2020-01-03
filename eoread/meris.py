@@ -19,7 +19,7 @@ import pandas as pd
 import xarray as xr
 
 from . import eo
-from .common import AtIndex, DataArray_from_array, len_slice
+from .common import AtIndex, DataArray_from_array, len_slice, convert_for_nc
 from .naming import naming, flags
 
 BANDS_MERIS = [412, 443, 490, 510, 560,
@@ -139,12 +139,12 @@ def Level1_MERIS(filename,
     #
     mph = prod.get_mph()
     for fname in mph.get_field_names():
-        ds.attrs[fname] = mph.get_field(fname).get_elem()
-    
+        ds.attrs[fname] = convert_for_nc(mph.get_field(fname).get_elem())
+
     ds.attrs[naming.platform] = 'ENVISAT'
     ds.attrs[naming.sensor] = 'MERIS'
     ds.attrs[naming.product_name] = ds.attrs['PRODUCT']
-    
+
     # Read date
     dstart = read_date(mph, 'SENSING_START')
     dstop = read_date(mph, 'SENSING_STOP')
