@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 import numpy as np
 import dask.array as da
-from eoread.common import AtIndex, Repeat
+from eoread.common import AtIndex, Repeat, len_slice
 from eoread import eo
 
 
@@ -121,6 +121,11 @@ def test_AtIndex_2():
     np.testing.assert_allclose(AA[:, :, :], A[:, idx])
 
 
+@pytest.mark.parametrize('l', [1, 10, 100])
+@pytest.mark.parametrize('s', [slice(5), slice(5, 50), slice(5, None, 3), slice(5, 50, 7)])
+def test_len_slice(s, l):
+    assert len_slice(s, l) == len(range(l)[s])
+
 
 @pytest.mark.parametrize('dimsA,shpA', [
     (('bands',), (10,)),
@@ -162,8 +167,8 @@ def test_raiseflag():
         np.zeros((15, 15), dtype='uint16')
     )
     A = xr.DataArray(np.random.randn(15, 15))
-    eo.raiseflag(flags, 'FLAG_1', 2, A>0)
+    eo.raiseflag(flags, 'FLAG_1', 2, A > 0)
     with pytest.raises(AssertionError):
-        eo.raiseflag(flags, 'FLAG_2', 2, A>0.1) 
+        eo.raiseflag(flags, 'FLAG_2', 2, A > 0.1)
 
-    eo.raiseflag(flags, 'FLAG_2', 4, A>0.1) 
+    eo.raiseflag(flags, 'FLAG_2', 4, A > 0.1)
