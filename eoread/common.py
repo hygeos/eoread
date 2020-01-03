@@ -144,6 +144,17 @@ def len_slice(s, l):
     return max(0, (stop - start + (step - (1 if step > 0 else -1))) // step)
 
 
+def convert_for_nc(value):
+    """
+    Convert value to a number, a string, an ndarray or a list/tuple of numbers/strings
+    for serialization to netCDF files
+    """
+    if isinstance(value, bytes):
+        return value.decode()
+    else:
+        return value
+
+
 def timeit(func):
     """
     A decorator to print the execution time of a callable
