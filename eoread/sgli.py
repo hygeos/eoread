@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-# TODO: check rows/columns
-
 from os.path import dirname, exists, join
 
 import dask.array as da
@@ -15,8 +13,6 @@ from warnings import warn
 from .common import Interpolator, DataArray_from_array
 from .naming import naming, flags
 from . import eo
-
-
 
 
 sgli_bands = [
@@ -32,6 +28,11 @@ sgli_bands = [
     868, #'VN10'
     869, #'VN11'
 ]
+
+sgli_central_wavelengths = [
+    380.00, 412.00, 443.00, 490.00,
+    530.00, 565.00, 673.50, 673.50,
+    763.00, 868.50, 868.50]
 
 
 def Level1_SGLI(filename,
@@ -66,8 +67,6 @@ def Level1_SGLI(filename,
 
     ds = init_toa(ds, imdata, split)
 
-    init_spectral(ds)
-
     ds = ds.assign_coords(bands=sgli_bands)
 
     #
@@ -94,6 +93,14 @@ def Level1_SGLI(filename,
         'LAND',
         flags['LAND'],
         imdata['Land_water_flag'] > thres_land_flag,
+    )
+
+    #
+    # Central wavelengths
+    #
+    ds['wav'] = xr.DataArray(
+        da.from_array(sgli_central_wavelengths),
+        dims=(naming.bands),
     )
 
     return ds
@@ -139,6 +146,8 @@ def init_geometry(ds, filename, shp, chunks):
     delta = 10
     for x in [x for x in ds if x.endswith('_tie')]:
         assert ds[x].Resampling_interval == delta
+        assert ds[x].Offset == 0.
+        ds[x] = ds[x] * ds[x].Slope
 
     # assign tiepoint coordinates
     ds['columns_tie'] = np.arange(ds.dims['columns_tie'])*delta
@@ -160,9 +169,33 @@ def init_geometry(ds, filename, shp, chunks):
         )
 
 
-def init_spectral(ds):
+def show_all(filename):
     """
-    Read SRF
+    List all content of netcdf file (utility function)
+    """
+    from netCDF4 import Dataset
+
+    for grp in Dataset(filename).groups:
+        print('')
+        print('Current group is', grp)
+        im = xr.open_dataset(
+            filename,
+            group=grp,
+        )
+        print(im)
+
+
+def calc_central_wavelength():
+    """
+    Read SRF and calculate central wavelength for each band
+
+    `print([f'{x:.2f}' for x in calc_central_wavelength()[1]])`
+
+    Returns:
+    --------
+    sgli_bands: list of band identifiers
+
+    wav_data: list of central wavelengths for each band
     """
     dir_auxdata = join(dirname(dirname(__file__)), 'auxdata', 'sgli')
 
@@ -190,23 +223,4 @@ def init_spectral(ds):
         wav_eq = np.trapz(wav*srf)/np.trapz(srf)
         wav_data.append(wav_eq)
 
-    ds['wav'] = xr.DataArray(
-        da.from_array(wav_data),
-        dims=(naming.bands),
-    )
-
-
-def show_all(filename):
-    """
-    List all content of netcdf file (utility function)
-    """
-    from netCDF4 import Dataset
-
-    for grp in Dataset(filename).groups:
-        print('')
-        print('Current group is', grp)
-        im = xr.open_dataset(
-            filename,
-            group=grp,
-        )
-        print(im)
+    return sgli_bands, wav_data
