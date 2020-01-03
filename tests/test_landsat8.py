@@ -3,12 +3,17 @@
 
 
 import os
+
+import dask
 import pytest
 import xarray as xr
-from eoread.landsat8_oli import Level1_L8_OLI, LATLON, TOA_READ
-from tests.custom_products import sample_landsat8_oli
 from osgeo import gdal
-import dask
+from tests.custom_products import sample_landsat8_oli
+
+from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
+
+from . import generic
+from .generic import indices, param
 
 
 @pytest.mark.parametrize('lat_or_lon', ['lat', 'lon'])
@@ -43,38 +48,28 @@ def test_toa_read_2(b):
     assert r[5000:5050:2, 4000:4040:2].shape == (25, 20)
 
 
-@pytest.mark.parametrize('param', [
-    'Rtoa_440',
-    'Rtoa_560',
-    'Rtoa_865',
-    'sza',
-    'vza',
-    'saa',
-    'vaa',
-    'latitude',
-    'longitude',
-    ])
-def test_landsat8_split(param):
-    l1 = Level1_L8_OLI(sample_landsat8_oli, l8_angles='l8_angles/l8_angles', split=True)
+@pytest.mark.parametrize('split', [True, False])
+def test_instantiate(split):
+    l1 = Level1_L8_OLI(sample_landsat8_oli, split=split)
 
-    with dask.config.set(scheduler='single-threaded'):
-        # l1[param][5000, 6000].compute()
-        l1[param][:500, :400].compute()
-        l1[param][6500:, 6500:].compute()
-        l1[param][5000:5010, 4000:4020].compute()
-        l1[param][4000:5000:100, 5000:6000:100].compute()
-        l1[param][::100, ::100].compute()
-
-        xr.testing.assert_allclose(
-            l1[param][1000:1010, 500:510],
-            l1.isel(rows=slice(1000, None),
-                    columns=slice(500, None))[param][:10, :10])
+    if split:
+        assert 'Rtoa' not in l1
+        assert 'Rtoa_440' in l1
+    else:
+        assert 'Rtoa' in l1
+        assert 'Rtoa_440' not in l1
 
 
-def test_landsat8_merge():
-    l1 = Level1_L8_OLI(sample_landsat8_oli,
-                       l8_angles='l8_angles/l8_angles',
-                       split=False)
-    assert 'Rtoa' in l1
-    assert 'Rtoa_440' not in l1
-    l1.isel(rows=slice(4000, 4500), columns=slice(5000, 5200)).compute()
+def test_main():
+    l1 = Level1_L8_OLI(sample_landsat8_oli)
+    generic.test_main(l1)
+
+
+def test_read(param, indices):
+    l1 = Level1_L8_OLI(sample_landsat8_oli)
+    generic.test_read(l1, param, indices)
+
+
+def test_subset():
+    l1 = Level1_L8_OLI(sample_landsat8_oli)
+    generic.test_subset(l1)
