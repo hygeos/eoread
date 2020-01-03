@@ -9,6 +9,8 @@ Generic tests implementation
 import os
 import tempfile
 
+import dask
+import numpy as np
 import pytest
 
 from eoread import eo
@@ -16,19 +18,21 @@ from eoread.naming import naming as n
 
 
 @pytest.fixture(params=[
-    'Rtoa',
-    'latitude',
-    'longitude',
-    'vza',
-    'sza',
-    'raa',
+    n.Rtoa,
+    n.lat,
+    n.lon,
+    n.vza,
+    n.sza,
+    n.raa,
+    n.flags,
 ])
 def param(request):
     return request.param
 
 @pytest.fixture(params=[
-    (slice(20, 30), slice(20, 30)),
-    (20, slice(20, 30)),
+    (slice(120, 130), slice(122, 135)),
+    (slice(100, 130, 3), slice(122, 135, 2)),
+    (20, slice(120, 130)),
     (20, 20),
 ])
 def indices(request):
@@ -61,14 +65,9 @@ def test_read(ds, param, indices):
     idx1, idx2 = indices
     assert param in ds
 
-    # test reading
-    # (slice of pixel)
-    if ds[param].ndim == 3:
-        ds[param][0, idx1, idx2].compute()
-    elif ds[param].ndim == 2:
-        ds[param][idx1, idx2].compute()
-    else:
-        raise Exception(f'Unexpected number of dimensions ({param}: {ds[param].ndim})')
+    with dask.config.set(scheduler='single-threaded'):
+        # v = da.compute()
+        ds[param].sel(rows=idx1, columns=idx2).compute()
 
 
 def test_subset(ds):
@@ -76,6 +75,7 @@ def test_subset(ds):
         rows=slice(300, 400),
         columns=slice(500, 570))
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir,\
+            dask.config.set(scheduler='single-threaded'):
         target = os.path.join(tmpdir, 'test.nc')
         sub.to_netcdf(target)
