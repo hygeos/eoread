@@ -22,14 +22,18 @@ def product():
 def resolution(request):
     return request.param
 
+@pytest.fixture(params=[500, (400, 600)])
+def chunks(request):
+    return request.param
+
 @pytest.fixture
-def S2_product(sentinel_product, resolution):
-    return Level1_MSI(sentinel_product, resolution)
+def S2_product(sentinel_product, resolution, chunks):
+    return Level1_MSI(sentinel_product, resolution, chunks=chunks)
 
 
 @pytest.mark.parametrize('split', [True, False])
-def test_instantiation(sentinel_product, resolution, split):
-    Level1_MSI(sentinel_product, resolution, split=split)
+def test_instantiation(sentinel_product, resolution, split, chunks):
+    Level1_MSI(sentinel_product, resolution, split=split, chunks=chunks)
 
 
 @pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
