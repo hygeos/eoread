@@ -63,7 +63,18 @@ def init_Rtoa(ds):
 
     return ds
 
-def init_geometry(ds):
+def scattering_angle(mu_s, mu_v, phi):
+    """
+    Scattering angle
+
+    mu_s: cos of the sun zenith angle
+    mu_v: cos of the view zenith angle
+    phi: relative azimuth angle in degrees
+    """
+    return -mu_s*mu_v - sqrt((1.-mu_s*mu_s)*(1.-mu_v*mu_v)) * cos(radians(phi))
+
+
+def init_geometry(ds, scat_angle=False):
     '''
     Initialize geometric variables (in place)
     '''
@@ -76,8 +87,6 @@ def init_geometry(ds):
         ds['muv'] = np.cos(np.radians(ds.vza))
         ds['muv'].attrs['description'] = 'cosine of the view zenith angle'
 
-    # TODO: scattering angle
-
     # relative azimuth angle
     if 'raa' not in ds:
         raa = ds.saa - ds.vaa
@@ -85,6 +94,12 @@ def init_geometry(ds):
         ds['raa'] = raa.where(raa < 180, 360-raa)
         ds.raa.attrs['description'] = 'relative azimuth angle'
         ds.raa.attrs['unit'] = 'degrees'
+
+    # scattering angle
+    if scat_angle:
+        ds['scat_angle'] = scattering_angle(ds.mus, ds.muv, ds.raa)
+        ds['scat_angle'].attrs = 'Scattering angle'
+
 
     return ds
 
