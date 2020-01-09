@@ -86,6 +86,17 @@ class Naming:
         self.total_columnar_water_vapour = 'total_columnar_water_vapour'
         self.horizontal_wind = 'horizontal_wind'
 
+        # dtype for floats
+        self.dtypes = {
+            self.Rtoa : 'float32',
+            self.lat  : 'float32',
+            self.lon  : 'float32',
+            self.vza  : 'float32',
+            self.sza  : 'float32',
+            self.raa  : 'float32',
+            self.flags: 'uint16',
+        }
+
 
     def name(self, name):
         assert name in self.__dict__

@@ -160,7 +160,7 @@ def read_OLCI(dirname,
     geo_coords_file = os.path.join(dirname, 'geo_coordinates.nc')
     geo = xr.open_dataset(geo_coords_file, chunks=chunks)
     for k in geo.variables:
-        ds[k] = geo[k]
+        ds[k] = geo[k].astype('float32')
     ds.attrs.update(geo.attrs)
 
     # dimensions
@@ -192,7 +192,7 @@ def read_OLCI(dirname,
                 ('vaa', 'OAA', 'nearest'),
             ]:
         ds[ds_full] = DataArray_from_array(
-            Interpolator(shape2, tie_ds[ds_tie], method),
+            Interpolator(shape2, tie_ds[ds_tie].astype('float32'), method),
             dims2,
             chunks,
         )
