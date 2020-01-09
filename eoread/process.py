@@ -17,6 +17,7 @@ class Blockwise:
     Call a function by blocks using da.blockwise
 
     ufunc: the universal function to apply
+
     dims_blockwise (tuple)
         Blockwise dimensions, like ('height', 'width')
         These dimensions should be the last ones of all arrays, input and output
@@ -102,7 +103,7 @@ class Blockwise:
         res_stacked = []
         for i, r in enumerate(res):
             assert r.dtype == self.dtypes[i], \
-                f'output {i+1}/{len(res)-1}: expected dtype {self.dtypes[i]} ' + \
+                f'output {i+1}/{len(res)}: expected dtype {self.dtypes[i]} ' + \
                 f'but received {r.dtype} (in blockwise call to {self.ufunc})'
 
             new_shp = r.shape[-len(self.dims_blockwise):]
@@ -130,7 +131,7 @@ class Blockwise:
             # The last dimensions of the input arrays should be the blockwise ones
             assert a.dims[-ndimblk:] == self.dims_blockwise, \
                 f'Expected blockwise dimensions to be {self.dims_blockwise}, ' \
-                f'but found {a.dims[-ndimblk:]}'
+                f'but found {a.dims[-ndimblk:]} (in {a})'
 
             # Check that the chunked dimensions are the last ones
             assert a.chunks is not None, f'Error in blockwise call: {a.name} is not chunked'
@@ -159,6 +160,7 @@ class Blockwise:
             new_axes={0: sum(sizes_stacked)},
             meta=np.array([], dtype=self.dtype_coerce),  # otherwise f is called
                                                          # immediately with dummy parameters
+            name=f'blockwise_{self.ufunc}',
             )
 
         # Unstack the results
