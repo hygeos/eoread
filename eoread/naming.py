@@ -26,6 +26,9 @@ class Naming:
         self.wav = 'wav'
         self.wav_desc = 'Effective wavelength'
 
+        self.cwav = 'cwav'
+        self.cwav_desc = 'Central (nominal) wavelength'
+
         self.F0 = 'F0'
         self.F0_desc = 'Solar irradiance'
 

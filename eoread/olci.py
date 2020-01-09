@@ -16,19 +16,35 @@ from .common import DataArray_from_array
 
 
 olci_band_names = {
-        '01': 400 , '02': 412,
-        '03': 443 , '04': 490,
-        '05': 510 , '06': 560,
-        '07': 620 , '08': 665,
-        '09': 674 , '10': 681,
-        '11': 709 , '12': 754,
-        '13': 760 , '14': 764,
-        '15': 767 , '16': 779,
-        '17': 865 , '18': 885,
-        '19': 900 , '20': 940,
+        '01': 400, '02': 412,
+        '03': 443, '04': 490,
+        '05': 510, '06': 560,
+        '07': 620, '08': 665,
+        '09': 674, '10': 681,
+        '11': 709, '12': 754,
+        '13': 760, '14': 764,
+        '15': 767, '16': 779,
+        '17': 865, '18': 885,
+        '19': 900, '20': 940,
         '21': 1020,
     }
 
+# central wavelength of the detector (for normalization)
+# (detector 374 of camera 3)
+central_wavelength_olci = {
+    400: 400.664, 412: 412.076,
+    443: 443.183, 490: 490.713,
+    510: 510.639, 560: 560.579,
+    620: 620.632, 665: 665.3719,
+    674: 674.105, 681: 681.66,
+    709: 709.1799, 754: 754.2236,
+    760: 761.8164, 764: 764.9075,
+    767: 767.9734, 779: 779.2685,
+    865: 865.4625, 885: 884.3256,
+    900: 899.3162, 940: 939.02,
+    1020: 1015.9766, 1375: 1375.,
+    1610: 1610., 2250: 2250.,
+}
 
 def Level1_OLCI(dirname,
                 chunks=500,
@@ -298,24 +314,29 @@ def olci_init_spectral(ds, chunks):
     dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
 
     # wavelength
-    ds['wav'] = DataArray_from_array(
+    ds[naming.wav] = DataArray_from_array(
         AtIndex(ds.lambda0,
                 ds.detector_index,
                 'detectors'),
         dims,
         chunks,
     )
-    ds['wav'].attrs.update(ds.lambda0.attrs)
+    ds[naming.wav].attrs.update(ds.lambda0.attrs)
 
     # solar flux
-    ds['F0'] = DataArray_from_array(
+    ds[naming.F0] = DataArray_from_array(
         AtIndex(ds.solar_flux,
                 ds.detector_index,
                 'detectors'),
         dims,
         chunks,
     )
-    ds['F0'].attrs.update(ds.solar_flux.attrs)
+    ds[naming.F0].attrs.update(ds.solar_flux.attrs)
+
+    # central (nominal) wavelength
+    ds[naming.cwav] = xr.DataArray(
+        [central_wavelength_olci[b] for b in ds.bands.data],
+        dims=('bands',))
 
 
 def decompose_flags(value, flags):
