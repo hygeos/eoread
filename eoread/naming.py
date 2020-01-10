@@ -87,7 +87,7 @@ class Naming:
         self.horizontal_wind = 'horizontal_wind'
 
         # dtype for floats
-        self.dtypes = {
+        self.expected_dtypes = {
             self.Rtoa : 'float32',
             self.lat  : 'float32',
             self.lon  : 'float32',

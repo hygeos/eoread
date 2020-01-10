@@ -67,10 +67,13 @@ def test_read(ds, param, indices):
 
     with dask.config.set(scheduler='single-threaded'):
         # v = da.compute()
-        ds[param].sel(rows=idx1, columns=idx2).compute()
-        extected_dtype = np.dtype(n.dtypes[param])
-        assert ds[param].dtype == extected_dtype,\
-            f'Dtype error: expected {extected_dtype}, found {ds[param].dtype}'
+        expected_dtype = np.dtype(n.expected_dtypes[param])
+
+        res = ds[param].sel(rows=idx1, columns=idx2).compute()
+        assert ds[param].dtype == expected_dtype,\
+            f'Dtype error: expected {expected_dtype}, found {ds[param].dtype}'
+        assert res.dtype == expected_dtype,\
+            f'Dtype error: expected {expected_dtype}, found {res.dtype} (after compute)'
 
 
 def test_subset(ds):
