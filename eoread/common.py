@@ -64,7 +64,9 @@ class Interpolator:
             },
             method=self.method,
         )
-        return ret
+        # dtype is not preserved by interp
+        # coercing to self.dtype
+        return ret.compute().astype(self.dtype)
 
 
 class Repeat:
