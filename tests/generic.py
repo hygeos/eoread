@@ -45,7 +45,17 @@ def test_main(ds):
     assert n.rows in ds.dims
     assert n.columns in ds.dims
     assert ds[n.Rtoa].dims == n.dim3
+
+    # spectral data
+    # either just provide wav (per-band central wavelength)
+    # or per-pixel wavelength + central wavelength
     assert n.wav in ds
+    if ds.wav.ndim == 3:
+        assert n.cwav in ds
+        assert n.cwav.ndim == 1
+    else:
+        assert (ds.wav.ndim == 1)
+
 
     # check attributes
     assert n.datetime in ds.attrs
