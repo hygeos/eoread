@@ -29,10 +29,10 @@ sgli_bands = [
     869, #'VN11'
 ]
 
-sgli_central_wavelengths = [
+sgli_central_wavelengths = np.array([
     380.00, 412.00, 443.00, 490.00,
     530.00, 565.00, 673.50, 673.50,
-    763.00, 868.50, 868.50]
+    763.00, 868.50, 868.50], dtype='float32')
 
 
 def Level1_SGLI(filename,
@@ -59,7 +59,7 @@ def Level1_SGLI(filename,
         imdata.Lt_VN01.dims,
         naming.dim2
     )))
-    shp = (imdata.dims['rows'], imdata.dims['columns'])
+    shp = (imdata.dims[naming.rows], imdata.dims[naming.columns])
 
     init_geometry(ds, filename, shp, chunks)
 
@@ -98,7 +98,7 @@ def Level1_SGLI(filename,
     #
     # Central wavelengths
     #
-    ds['wav'] = xr.DataArray(
+    ds[naming.wav] = xr.DataArray(
         da.from_array(sgli_central_wavelengths),
         dims=(naming.bands),
     )
