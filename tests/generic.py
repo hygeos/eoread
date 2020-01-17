@@ -52,7 +52,7 @@ def test_main(ds):
     assert n.wav in ds
     if ds.wav.ndim == 3:
         assert n.cwav in ds
-        assert n.cwav.ndim == 1
+        assert ds.cwav.ndim == 1
     else:
         assert (ds.wav.ndim == 1)
 

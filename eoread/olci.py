@@ -335,7 +335,8 @@ def olci_init_spectral(ds, chunks):
 
     # central (nominal) wavelength
     ds[naming.cwav] = xr.DataArray(
-        [central_wavelength_olci[b] for b in ds.bands.data],
+        np.array([central_wavelength_olci[b] for b in ds.bands.data],
+                 dtype='float32'),
         dims=('bands',))
 
 

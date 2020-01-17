@@ -26,6 +26,17 @@ BANDS_MERIS = [412, 443, 490, 510, 560,
                620, 665, 681, 709, 754,
                760, 779, 865, 885, 900]
 
+central_wavelength_meris = {
+        412: 412.691 , 443: 442.559,
+        490: 489.882 , 510: 509.819,
+        560: 559.694 , 620: 619.601,
+        665: 664.573 , 681: 680.821,
+        709: 708.329 , 754: 753.371,
+        760: 761.508 , 779: 778.409,
+        865: 864.876 , 885: 884.944,
+        900: 900.000 ,
+        }
+
 
 def Level1_MERIS(filename,
                  dir_smile=None,
@@ -133,6 +144,14 @@ def Level1_MERIS(filename,
             naming.wav,
             naming.bands,
         )
+
+    ds = ds.assign_coords(bands=BANDS_MERIS)
+
+    # central (nominal) wavelength
+    ds[naming.cwav] = xr.DataArray(
+        np.array([central_wavelength_meris[b] for b in ds.bands.data],
+                 dtype='float32'),
+        dims=('bands',))
 
     #
     # Read attributes
