@@ -100,6 +100,7 @@ def Level1_MERIS(filename,
     file_sun_spectral_flux = join(dir_smile, f'sun_spectral_flux_{res}.txt')
     file_detector_wavelength = join(dir_smile, f'central_wavelen_{res}.txt')
     F0 = pd.read_csv(file_sun_spectral_flux,
+                     dtype='float32',
                      delimiter='\t').to_xarray()
     detector_wavelength = pd.read_csv(file_detector_wavelength,
                                       delimiter='\t').to_xarray()
