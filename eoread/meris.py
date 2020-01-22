@@ -164,6 +164,7 @@ def Level1_MERIS(filename,
     ds.attrs[naming.platform] = 'ENVISAT'
     ds.attrs[naming.sensor] = 'MERIS'
     ds.attrs[naming.product_name] = ds.attrs['PRODUCT']
+    ds.attrs[naming.input_directory] = dirname(filename)
 
     # Read date
     dstart = read_date(mph, 'SENSING_START')

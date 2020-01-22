@@ -68,6 +68,7 @@ class Naming:
         self.footprint_lat = 'footprint_lat'
         self.footprint_lon = 'footprint_lon'
         self.product_name = 'product_name'
+        self.input_directory = 'input_directory'
 
         # Dimensions
         self.bands = 'bands'

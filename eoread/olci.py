@@ -298,6 +298,7 @@ def read_OLCI(dirname,
     ds.attrs[naming.datetime] = (dstart + (dstop - dstart)/2.).isoformat()
     ds.attrs[naming.platform] = 'Sentinel-3'   # FIXME: A or B
     ds.attrs[naming.sensor] = 'OLCI'
+    ds.attrs[naming.input_directory] = os.path.dirname(dirname)
 
     if init_spectral:
         olci_init_spectral(ds, chunks)

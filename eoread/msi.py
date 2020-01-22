@@ -64,8 +64,9 @@ def Level1_MSI(dirname,
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds = xr.Dataset()
+    dirname = os.path.abspath(dirname)
 
-    if dirname.endswith('.SAFE') or dirname.endswith('.SAFE/'):
+    if dirname.endswith('.SAFE'):
         granules = glob(os.path.join(dirname, 'GRANULE', '*'))
         assert len(granules) == 1
         granule_dir = granules[0]
@@ -105,6 +106,7 @@ def Level1_MSI(dirname,
     ds.attrs['resolution'] = resolution
     ds.attrs[naming.sensor] = 'MSI'
     ds.attrs[naming.product_name] = os.path.basename(dirname)
+    ds.attrs[naming.input_directory] = os.path.dirname(dirname)
 
     # lat-lon
     msi_read_latlon(ds, geocoding, chunks)

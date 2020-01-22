@@ -57,12 +57,13 @@ def test_main(ds):
         assert (ds.wav.ndim == 1)
 
 
-    # check attributes
-    assert n.datetime in ds.attrs
+    # check that attributes exist and are not empty
+    assert ds.datetime
     eo.datetime(ds)
-    assert n.platform in ds.attrs
-    assert n.sensor in ds.attrs
-    assert n.product_name in ds.attrs
+    assert ds.platform
+    assert ds.sensor
+    assert ds.product_name
+    assert ds.input_directory
 
     # test datasets
     assert n.flags in ds

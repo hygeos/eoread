@@ -80,6 +80,7 @@ def Level1_SGLI(filename,
     ds.attrs[naming.product_name] = ga.attrs['Product_file_name']
     ds.attrs[naming.platform] = 'GCOM-C'
     ds.attrs[naming.sensor] = 'SGLI'
+    ds.attrs[naming.input_directory] = dirname(filename)
 
     #
     # Flags
