@@ -10,6 +10,7 @@ import xarray as xr
 from osgeo import gdal
 from tests.custom_products import sample_landsat8_oli
 
+from eoread import eo
 from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
 
 from . import generic
@@ -67,6 +68,7 @@ def test_main():
 
 def test_read(param, indices):
     l1 = Level1_L8_OLI(sample_landsat8_oli)
+    eo.init_geometry(l1)
     generic.test_read(l1, param, indices)
 
 

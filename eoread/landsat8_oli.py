@@ -191,8 +191,8 @@ def read_geometry(ds, dirname, l8_angles):
         meta=np.array([], 'int16'),
         )
 
-    ds[naming.vza] = (naming.dim2, data_sensor[1, :, :]/100.)
-    ds[naming.vaa] = (naming.dim2, data_sensor[0, :, :]/100.)
+    ds[naming.vza] = (naming.dim2, (data_sensor[1, :, :]/100.).astype('float32'))
+    ds[naming.vaa] = (naming.dim2, (data_sensor[0, :, :]/100.).astype('float32'))
 
 
     # read solar angles
@@ -208,8 +208,8 @@ def read_geometry(ds, dirname, l8_angles):
                   shape=(2, ds.totalheight, ds.totalwidth)),
         meta=np.array([], 'int16'),
         )
-    ds[naming.sza] = (naming.dim2, data_solar[1, :, :]/100.)
-    ds[naming.saa] = (naming.dim2, data_solar[0, :, :]/100.)
+    ds[naming.sza] = (naming.dim2, (data_solar[1, :, :]/100.).astype('float32'))
+    ds[naming.saa] = (naming.dim2, (data_solar[0, :, :]/100.).astype('float32'))
 
 
 def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
@@ -237,7 +237,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
 
 
 class LATLON:
-    def __init__(self, dirname, kind):
+    def __init__(self, dirname, kind, dtype='float32'):
         '''
         kind: 'lat' or 'lon'
         '''
@@ -300,23 +300,29 @@ class LATLON:
         self.ndim = 2
         self.X = np.linspace(Xmin, Xmax, width)
         self.Y = np.linspace(Ymin, Ymax, height)
-        self.dtype = np.dtype('float64')
+        self.dtype = np.dtype(dtype)
 
 
     def __getitem__(self, keys):
         x = self.X[keys[1]]
         y = self.Y[keys[0]]
+
+        sx = (len(x),) if hasattr(x, '__len__') else ()
+        sy = (len(y),) if hasattr(y, '__len__') else ()
+
         XY = np.array(np.meshgrid(x, y))
         XY = np.moveaxis(XY, 0, -1)
 
         # get the coordinates in lat long
-        latlon = np.array(self.transform.TransformPoints(XY.reshape((-1, 2))))
+        latlon = np.array(
+            self.transform.TransformPoints(XY.reshape((-1, 2))),
+            dtype=self.dtype)
         assert latlon.dtype == self.dtype
         if self.kind == 'lat':
-            return latlon[:, 1].reshape((len(y), len(x)))
+            return latlon[:, 1].reshape(sy+sx)
         else:
             assert self.kind == 'lon'
-            return latlon[:, 0].reshape((len(y), len(x)))
+            return latlon[:, 0].reshape(sy+sx)
 
 class TOA_READ:
     '''
@@ -328,7 +334,12 @@ class TOA_READ:
         b: band identifier (440, 480, 560, 655, 865)
         kind: 'radiance' or 'reflectance'
     '''
-    def __init__(self, b, dirname, radiometry='reflectance', data_mtl=None):
+    def __init__(self,
+                 b,
+                 dirname,
+                 radiometry='reflectance',
+                 data_mtl=None,
+                 dtype='float32'):
         if data_mtl is None:
             data_mtl = read_metadata(dirname)
 
@@ -351,7 +362,7 @@ class TOA_READ:
         assert os.path.exists(self.filename)
         dset = gdal.Open(self.filename)
         band = dset.GetRasterBand(1)
-        self.dtype = np.dtype('float64')
+        self.dtype = np.dtype(dtype)
         self.width = band.XSize
         self.height = band.YSize
         self.shape = (self.height, self.width)
@@ -370,7 +381,7 @@ class TOA_READ:
             yoff=ystart,
             win_xsize=xstop - xstart,
             win_ysize=ystop - ystart,
-            )[::keys[0].step, ::keys[1].step]
+            )[::keys[0].step, ::keys[1].step].astype(self.dtype)
         assert data is not None
         r = self.M*data + self.A
         assert r.dtype == self.dtype
