@@ -15,8 +15,9 @@ from .generic import indices, param
 
 
 @pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
-def test_instantiation(meris_product):
-    Level1_MERIS(meris_product)
+@pytest.mark.parametrize('split', [True, False])
+def test_instantiation(meris_product, split):
+    Level1_MERIS(meris_product, split=split)
 
 
 @pytest.mark.parametrize('product', [p.prod_meris_L1_20060822])
