@@ -222,7 +222,7 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
 
 
 def to_netcdf(ds,
-              dirname='.',
+              dirname=None,
               product_name=None,
               ext='.nc',
               product_name_attr='product_name',
@@ -243,8 +243,8 @@ def to_netcdf(ds,
     Arguments:
     ----------
 
-    dirname: str
-        directory for output file (default '.')
+    dirname: str or None
+        directory for output file (default None: uses the attribute input_directory of ds)
     product_name: str
         base name for the output file. If None (default), use the attribute named attr_name
     product_name_attr: str
@@ -270,6 +270,8 @@ def to_netcdf(ds,
     if product_name is None:
         product_name = ds.attrs[product_name_attr]
     assert product_name, 'Empty product name'
+    if dirname is None:
+        dirname = ds.attrs[naming.input_directory]
     fname = os.path.join(dirname, product_name+ext)
 
     encoding = {}
