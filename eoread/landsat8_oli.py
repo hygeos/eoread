@@ -42,6 +42,19 @@ band_index = { # Bands - wavelength (um) - resolution (m)
                # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
     }
 
+# Central wavelength
+# from Ball_BA_RSR.v1.2.xlsx
+center_wavelengths = {
+    440: 442.96,
+    480: 482.04,
+    560: 561.41,
+    655: 654.59,
+    865: 864.67,
+    1610: 1608.86,
+    2200: 2200.73,
+    1375: 1373.43,
+}
+
 
 def Level1_L8_OLI(dirname,
                   l8_angles=None,
@@ -85,12 +98,33 @@ def Level1_L8_OLI(dirname,
     t = datetime.datetime.strptime(
         data_mtl['PRODUCT_METADATA']['SCENE_CENTER_TIME'][:8],
         '%H:%M:%S')
-    ds.attrs[naming.datetime] = datetime.datetime.combine(d, datetime.time(t.hour, t.minute, t.second))
+    ds.attrs[naming.datetime] = datetime.datetime.combine(
+        d,
+        datetime.time(t.hour, t.minute, t.second)
+    ).isoformat()
 
     read_coordinates(ds, dirname, chunks)
     read_geometry(ds, dirname, l8_angles)
     ds = read_radiometry(
         ds, dirname, split, data_mtl, radiometry, chunks)
+
+    # add center wavelengths
+    ds[naming.wav] = xr.DataArray(
+        da.from_array(np.array([center_wavelengths[b] for b in bands_oli],
+                               dtype='float32')),
+        dims=(naming.bands),
+    )
+
+    # add flags
+    ds[naming.flags] = xr.zeros_like(ds[naming.lat],
+                                     dtype=naming.flags_dtype)
+
+    # other attributes
+    ds.attrs[naming.platform] = 'Landsat8'
+    ds.attrs[naming.sensor] = 'OLI'
+    ds.attrs[naming.product_name] = os.path.basename(os.path.abspath(dirname))
+    ds.attrs[naming.input_directory] = os.path.dirname(os.path.abspath(dirname))
+
 
     return ds
 
