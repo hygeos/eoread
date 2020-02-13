@@ -250,7 +250,7 @@ def to_netcdf(ds,
         name of the attribute to use for product_name in `ds`
     ext: str
         extension (default: '.nc')
-    overwrite: bool
+    overwrite: bool or 'skip'
         whether to overwrite existing file (default: False ; raises an error).
     compress: bool
         activate output file compression
@@ -279,7 +279,10 @@ def to_netcdf(ds,
         encoding = {var: comp for var in ds.data_vars}
 
     if os.path.exists(fname):
-        if overwrite:
+        if overwrite == 'skip':
+            print(f'File {fname} exists, skipping...')
+            return
+        elif overwrite:
             os.remove(fname)
         else:
             raise IOError(f'Output file "{fname}" exists.')
