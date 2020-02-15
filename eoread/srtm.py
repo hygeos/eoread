@@ -2,13 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import print_function, division, absolute_import
 import zipfile
-try:
-    from urllib.request import urlopen
-    from urllib.error import HTTPError
-except ImportError:  # python2
-    from urllib2 import urlopen, HTTPError
+from urllib.request import urlopen
+from urllib.error import HTTPError
 import numpy as np
 import io
 from os.path import exists, join
