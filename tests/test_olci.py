@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from tests import products as p
-from tests.products import sentinel_product, sample_data_path
+from tests.test_products import products as p, get_path
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
@@ -11,9 +10,9 @@ from . import generic
 from .generic import param, indices
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_olci_level1(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_olci_level1(product):
+    ds = Level1_OLCI(get_path(product))
 
     # test method contains
     lat = ds.latitude[100, 100]
@@ -26,9 +25,9 @@ def test_olci_level1(sentinel_product):
     assert 'total_columnar_water_vapour' in ds
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_split_merge(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_split_merge(product):
+    ds = Level1_OLCI(get_path(product))
     print(ds)
     ds = eo.sub_rect(ds, 55, 56, 18, 19)
     split = eo.split(ds, 'bands')
@@ -37,42 +36,42 @@ def test_split_merge(sentinel_product):
     print(merge)
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_sub_pt(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_sub_pt(product):
+    ds = Level1_OLCI(get_path(product))
     lat0 = ds.latitude[500, 500]
     lon0 = ds.longitude[500, 500]
     eo.sub_pt(ds, lat0, lon0, 3)
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L2_20190612])
-def test_olci_level2(sentinel_product):
-    l2 = Level2_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
+def test_olci_level2(product):
+    l2 = Level2_OLCI(get_path(product))
     print(l2)
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L2_20190612])
-def test_olci_level2_flags(sentinel_product):
-    l2 = Level2_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
+def test_olci_level2_flags(product):
+    l2 = Level2_OLCI(get_path(product))
 
     eo.getflags(l2.wqsf)
     get_valid_l2_pixels(l2.wqsf)
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_main(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_main(product):
+    ds = Level1_OLCI(get_path(product))
     eo.init_Rtoa(ds)
     generic.test_main(ds)
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_read(sentinel_product, param, indices):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_read(product, param, indices):
+    ds = Level1_OLCI(get_path(product))
     eo.init_Rtoa(ds)
     generic.test_read(ds, param, indices)
 
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_subset(sentinel_product):
-    ds = Level1_OLCI(sentinel_product)
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_subset(product):
+    ds = Level1_OLCI(get_path(product))
     generic.test_subset(ds)

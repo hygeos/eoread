@@ -139,7 +139,8 @@ def read_OLCI(dirname,
                 }[manifest['textinfo']]
     except KeyError:
         raise Exception('Invalid textinfo in manifest: "{}"'.format(manifest['textinfo']))
-    assert (level is None) or (level == level_from_manifest), ('expected', level, 'encountered', level_from_manifest)
+    assert (level is None) or (level == level_from_manifest), \
+        f'expected {level} encountered {level_from_manifest}'
 
     # Read main product
     prod_list = []

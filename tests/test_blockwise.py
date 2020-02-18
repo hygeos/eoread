@@ -10,8 +10,6 @@ import numpy as np
 from eoread.process import Blockwise
 from eoread.olci import Level1_OLCI
 from eoread.process import coerce_dtype, blockwise_method, blockwise_function
-from tests import products as p
-from tests.products import sentinel_product, sample_data_path
 dask.config.set(scheduler='single-threaded')
 
 

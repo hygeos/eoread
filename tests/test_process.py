@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 from eoread.olci import Level1_OLCI
 from eoread.msi import Level1_MSI
-from tests import products as p
-from tests.products import sentinel_product, sample_data_path
+from tests.test_products import products as p, get_path
 from eoread.process import blockwise_method
 from dask.diagnostics import ProgressBar
 
@@ -36,12 +35,12 @@ class Calib:
     def calc(self, Rtoa):
         return Rtoa * self.coeff, Rtoa[0,:,:] > 0
 
-@pytest.mark.parametrize('product', [p.prod_S3_L1_20190430])
-def test_processing(sentinel_product):
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_processing(product):
     '''
     Try processing a Sentinel file
     '''
-    ds = Level1_OLCI(sentinel_product, init_reflectance=True)
+    ds = Level1_OLCI(get_path(product), init_reflectance=True)
 
     ds = ds.chunk({'bands': -1})
 
@@ -53,3 +52,20 @@ def test_processing(sentinel_product):
     )
     with tempfile.NamedTemporaryFile(suffix='.nc') as tmpf, ProgressBar():
         sub.to_netcdf(tmpf.name)
+
+
+class FakeModule:
+    def __init__(self):
+        pass
+
+    def run():
+        pass
+
+
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_processing2(product):
+    '''
+    Try processing a Sentinel file
+    '''
+    ds = Level1_OLCI(get_path(product), init_reflectance=True)
+    print(ds)
