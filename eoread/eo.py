@@ -396,7 +396,7 @@ def merge(ds,
 
 def merge2(ds,
            dim=None,
-           pattern=r'(\D+)_(\d+)',
+           pattern=r'(.+)_(\d+)',
            dtype=int):
     """
     Merge DataArrays in `ds` along dimension `dim`.
@@ -411,7 +411,7 @@ def merge2(ds,
         Regular expression for matching variable names - must consist of two groups.
         First group represents the new variable name.
         Second group represents the coordinate value
-        Ex: r'(\D+)_(\d+)'
+        Ex: r'(.+)_(\d+)'
             First group matches non-digit.
             Second group matches digits.
 

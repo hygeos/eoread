@@ -30,20 +30,6 @@ def make_dataset():
     return l1
 
 
-def test_merge():
-    # TODO: deprecate merge
-    # create a dataset
-    l1 = xr.Dataset()
-    bands = [412, 443, 490, 510, 560]
-    bnames = [f'Rtoa_{b}' for b in bands]
-    for b in bnames:
-        l1[b] = xr.DataArray(np.eye(10), dims=('x', 'y'))
-    print(l1)
-
-    l1m = eo.merge(l1, bnames, 'Rtoa', 'bands', coords=bands)
-    print(l1m)
-
-
 def test_split():
     l1 = make_dataset()
     print(l1)

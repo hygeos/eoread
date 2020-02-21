@@ -118,12 +118,7 @@ def init_toa(ds, imdata, split):
         ds[naming.Rtoa+f'_{b}'] = Rtoa
 
     if not split:
-        ds = eo.merge(
-            ds,
-            [naming.Rtoa+f'_{b}' for b in sgli_bands],
-            naming.Rtoa,
-            naming.bands,
-            )
+        ds = eo.merge2(ds, dim=naming.bands)
 
     return ds
 

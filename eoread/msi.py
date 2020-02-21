@@ -192,8 +192,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunks):
         ds[naming.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = eo.merge(ds, [a for a in ds if a.startswith(naming.Rtoa+'_')],
-                      naming.Rtoa, naming.bands, coords=list(msi_band_names.keys()))
+        ds = eo.merge2(ds, dim=naming.bands)
 
     return ds
 
