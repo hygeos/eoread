@@ -9,6 +9,7 @@ import os
 import shutil
 import tempfile
 from collections import OrderedDict
+import re
 
 import dask.array as da
 from dask.diagnostics import ProgressBar
@@ -316,29 +317,32 @@ def to_netcdf(ds,
     return fname
 
 
-def split(d, dim, sep=''):
+def split(d, dim, sep='_'):
     '''
     Returns a Dataset where a given dimension is split into as many variables
 
     d: Dataset or DataArray
     '''
     assert dim in d.dims
+    assert dim in d.coords, f'The split dimension "{dim}" must have coordinates.'
 
     if isinstance(d, xr.DataArray):
-        return xr.merge([
+        m = xr.merge([
             d.isel(**{dim: i}).rename(f'{d.name}{sep}{d[dim].data[i]}').drop(dim)
             for i in range(len(d[dim]))
             ])
     elif isinstance(d, xr.Dataset):
-        merged = xr.merge(
+        m = xr.merge(
             [split(d[x], dim)
              if dim in d[x].dims
              else d[x]
              for x in d])
-        merged.attrs = d.attrs
-        return merged
     else:
         raise Exception('`split` expects Dataset or DataArray.')
+
+    m.attrs.update(d.attrs)
+    m.attrs['split_dimension'] = dim
+    return m
 
 
 def merge(ds,
@@ -387,6 +391,65 @@ def merge(ds,
         copy = copy.drop([var for var in var_names])
 
     return copy.assign({out_var: data})
+
+
+def merge2(ds,
+           dim=None,
+           pattern=r'(\D+)_(\d+)',
+           dtype=int):
+    """
+    Merge DataArrays in `ds` along dimension `dim`.
+
+    ds: xr.Dataset
+
+    dim: str or None
+        name of the new or existing dimension
+        if None, use the attribute `split_dimension`
+
+    pattern: str
+        Regular expression for matching variable names - must consist of two groups.
+        First group represents the new variable name.
+        Second group represents the coordinate value
+        Ex: r'(\D+)_(\d+)'
+            First group matches non-digit.
+            Second group matches digits.
+
+    dtype: data type
+        data type of the coordinate items
+    """
+    copy = ds.copy()
+
+    if dim is None:
+        dim = copy.attrs['split_dimension']
+
+    mapping = {}
+    for x in copy:
+        m = re.findall(pattern, x)
+        if not m:
+            continue  # does not match
+        assert len(m) == 1, 'Expecting a single match'
+        assert len(m[0]) == 2, 'Expecting two groups in regular expression'
+        var, coord = m[0]
+        c = dtype(coord)
+
+        if var not in mapping:
+            mapping[var] = []
+
+        mapping[var].append((x, c))
+
+    for var in mapping:
+        data = xr.concat([copy[x] for x, c in mapping[var]], dim)
+        coords = [c for x, c in mapping[var]]
+        if dim in copy.coords:
+            # check that the coordinates are matching
+            existing_coords = list(copy.coords['bands'].data)
+            assert existing_coords == coords
+        else:
+            copy = copy.assign_coords(**{dim: coords})
+        copy[var] = data
+        copy = copy.drop([x for x, c in mapping[var]])
+
+    return copy
 
 
 def broadcast(A, B):
