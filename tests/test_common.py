@@ -51,9 +51,10 @@ def test_split():
     assert 'rho_toa_412' in l1s
     assert 'rho_w_412' in l1s
     assert 'rho_toa' not in l1s
-    print(l1s)
     assert 'sensor' in l1s.attrs
     assert 'unit' in l1s.rho_w_412.attrs
+    assert 'bands' in l1s.coords   # split should preserve coords
+    print(l1s)
 
 
 def test_split_dataarray():

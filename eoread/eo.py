@@ -342,6 +342,7 @@ def split(d, dim, sep='_'):
 
     m.attrs.update(d.attrs)
     m.attrs['split_dimension'] = dim
+    m = m.assign_coords(**d.coords)
     return m
 
 
