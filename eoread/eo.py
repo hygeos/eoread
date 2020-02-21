@@ -347,57 +347,9 @@ def split(d, dim, sep='_'):
 
 
 def merge(ds,
-          var_names,
-          out_var,
-          new_dim_name,
-          coords=None,
-          dim_index=0,
-          drop=True):
-    """
-    Returns a DataSet where all the variables included in the 'var_names' list are merged into a
-    new variable named 'out_var'.
-    If the 'new_dim' dimension already exists, the variables are concatenated along the dimension,
-    otherwise it creates this dimension in the new variable
-
-    Args:
-    -----
-    var_names: list of str
-        names of variables to concatenate
-    out_var: str
-        the output variable name created
-    new_dim_name: str
-        name of the dimension along which the variables are concatenated
-    coords:
-        coordinates along the new dimension
-    dim_index: int
-        index where to put the new dimension
-    drop: bool
-        if True, variables in var_names are deleted in the returned DataSet
-    """
-    copy = ds.copy()
-    if out_var in list(copy.variables):
-        raise Exception("variable '{}' already exists in the dataset".format(out_var))
-    
-    data = xr.concat([copy[var] for var in var_names], new_dim_name)
-
-    dims = [dim for dim in copy[var_names[0]].dims]
-    if dim_index < 0:
-        dim_index = len(dims)+1+dim_index
-    dims.insert(dim_index, new_dim_name)
-    data = data.transpose(*dims)
-    if coords is not None:
-        data = data.assign_coords(**{new_dim_name: coords})
-
-    if drop:
-        copy = copy.drop([var for var in var_names])
-
-    return copy.assign({out_var: data})
-
-
-def merge2(ds,
-           dim=None,
-           pattern=r'(.+)_(\d+)',
-           dtype=int):
+          dim=None,
+          pattern=r'(.+)_(\d+)',
+          dtype=int):
     """
     Merge DataArrays in `ds` along dimension `dim`.
 

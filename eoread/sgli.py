@@ -118,7 +118,7 @@ def init_toa(ds, imdata, split):
         ds[naming.Rtoa+f'_{b}'] = Rtoa
 
     if not split:
-        ds = eo.merge2(ds, dim=naming.bands)
+        ds = eo.merge(ds, dim=naming.bands)
 
     return ds
 

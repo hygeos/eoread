@@ -127,7 +127,7 @@ def Level1_MERIS(filename,
         )
 
     if not split:
-        ds = eo.merge2(ds, dim=naming.bands)
+        ds = eo.merge(ds, dim=naming.bands)
 
     ds = ds.assign_coords(bands=BANDS_MERIS)
 

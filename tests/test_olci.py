@@ -32,7 +32,7 @@ def test_split_merge(product):
     ds = eo.sub_rect(ds, 55, 56, 18, 19)
     split = eo.split(ds, 'bands')
     print(split)
-    merge = eo.merge2(split)
+    merge = eo.merge(split)
     print(merge)
 
 

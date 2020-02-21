@@ -228,7 +228,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
             ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
-        ds = eo.merge2(ds, dim=naming.bands)
+        ds = eo.merge(ds, dim=naming.bands)
 
     return ds
 

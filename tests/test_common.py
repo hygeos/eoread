@@ -60,23 +60,23 @@ def test_split_without_coords():
         eo.split(l1.rho_w, 'bands')
 
 
-def test_merge2():
+def test_merge():
     # create a dataset
     l1 = make_dataset()
     l1s = eo.split(l1, 'bands')
-    l1m = eo.merge2(l1s)
+    l1m = eo.merge(l1s)
     print('Original:', l1)
     print('Merged:', l1m)
     assert l1m.equals(l1)
 
 
-def test_merge2_inconsistent_dimension():
+def test_merge_inconsistent_dimension():
     l1 = make_dataset()
     l1s = eo.split(l1, 'bands')
-    eo.merge2(l1s, 'bands')
+    eo.merge(l1s, 'bands')
     l1s = l1s.rename({'rho_w_412': 'rho_w_413'})
     with pytest.raises(AssertionError):
-        eo.merge2(l1s, 'bands')
+        eo.merge(l1s, 'bands')
 
 
 @pytest.mark.parametrize('A', [
