@@ -17,6 +17,12 @@ Allows to insert images in pytest html reports
         plt.savefig(fp)
         add_image_to_report(request, fp)
 
+    or:
+    def test_with_image(request):
+        plt.plot(...)
+        conftest.savefig(request)
+
+
 - Run pytest with the following options (can be added to pytest.ini):
     --html=tests/test_report.html --self-contained-html
 
@@ -40,6 +46,19 @@ def add_image_to_report(request, fp):
     fp.seek(0)
     data = fp.read()
     request.session.images.append(data)
+
+
+def savefig(request, **kwargs):
+    """
+    Wraps matplotlib's savefig to ass image data to request.session.images
+
+    `kwargs` are passed to `plt.savefig`
+    """
+    from matplotlib import pyplot as plt
+    import io
+    fp = io.BytesIO()
+    plt.savefig(fp, **kwargs)
+    add_image_to_report(request, fp)
 
 
 @pytest.hookimpl(hookwrapper=True)
