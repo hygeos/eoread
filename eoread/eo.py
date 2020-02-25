@@ -227,7 +227,6 @@ def to_netcdf(ds,
               ext='.nc',
               product_name_attr='product_name',
               overwrite=False,
-              compress=True,
               tmpdir=None,
               create_out_dir=True,
               verbose=True,
@@ -247,14 +246,12 @@ def to_netcdf(ds,
         directory for output file (default None: uses the attribute input_directory of ds)
     product_name: str
         base name for the output file. If None (default), use the attribute named attr_name
-    product_name_attr: str
-        name of the attribute to use for product_name in `ds`
     ext: str
         extension (default: '.nc')
+    product_name_attr: str
+        name of the attribute to use for product_name in `ds`
     overwrite: bool or 'skip'
         whether to overwrite existing file (default: False ; raises an error).
-    compress: bool
-        activate output file compression
     tmpdir: str
         use a given temporary directory instead of the output directory
     create_out_dir: str
@@ -262,9 +259,15 @@ def to_netcdf(ds,
 
     Other kwargs are passed to `to_netcdf`
 
+    About engine and compression:
+        - Use default engine='h5netcdf' (much faster than 'netcdf4' when activating compression)
+        - Use compression by default: encoding={'zlib':True, 'complevel':9}.
+          Compression can be disactivated by passing encoding={}
+
+
     Returns:
     -------
-    
+
     output file name (str)
     '''
     if product_name is None:
@@ -274,10 +277,12 @@ def to_netcdf(ds,
         dirname = ds.attrs[naming.input_directory]
     fname = os.path.join(dirname, product_name+ext)
 
-    encoding = {}
-    if compress:
-        comp = dict(zlib=True, complevel=9)
-        encoding = {var: comp for var in ds.data_vars}
+    defaults = {
+        'engine': 'h5netcdf',
+        'encoding': {var: dict(zlib=True, complevel=9)
+                     for var in ds.data_vars}
+    }
+    defaults.update(kwargs)
 
     if os.path.exists(fname):
         if overwrite == 'skip':
@@ -306,8 +311,7 @@ def to_netcdf(ds,
             print('Using temporary file:', fname_tmp)
 
         ds.to_netcdf(path=fname_tmp,
-                     encoding=encoding,
-                     **kwargs)
+                     **defaults)
 
         # use intermediary move
         # (both files may be on different devices)
