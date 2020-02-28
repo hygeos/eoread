@@ -78,7 +78,7 @@ def test_available(product):
     if not os.path.exists(path):
         raise Exception(
             f'{path} is missing. '
-            'You may run tests/test_products.py to download.')
+            'You may run `python -m tests.test_products` to download.')
 
 
 def safe_move(src, dst, makedirs=True):
@@ -93,11 +93,13 @@ def safe_move(src, dst, makedirs=True):
         else:
             raise IOError(f'Error, directory {dst} does not exist')
     assert os.path.isdir(dst)
-    print(f'Moving {src} to {dst}...')
-    target = os.path.join(dst, os.path.basename(src))
-    tmp = target+'.tmp'
-    shutil.move(src, tmp)
-    shutil.move(tmp, target)
+    print(f'Moving "{src}" to "{dst}"...')
+    basename = os.path.basename(src)
+    target = os.path.join(dst, basename)
+    with TemporaryDirectory(prefix='copying_'+basename+'_', dir=dst) as tmpdir:
+        tmp = os.path.join(tmpdir, basename)
+        shutil.move(src, tmp)
+        shutil.move(tmp, target)
 
 
 def download_url(product, dirname):
