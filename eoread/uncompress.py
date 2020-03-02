@@ -23,7 +23,7 @@ class Uncompress:
                  filename,
                  dirname=None,
                  verbose=True):
-        self.filename = filename
+        self.filename = str(filename)
         self.tmpdir = None
         self.dirname = dirname
         self.verbose = verbose

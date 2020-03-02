@@ -12,7 +12,6 @@ from datetime import datetime
 from os.path import basename, dirname, exists, join
 from threading import Lock
 
-import dask.array as da
 import epr
 import numpy as np
 import pandas as pd
@@ -66,7 +65,7 @@ def Level1_MERIS(filename,
     # we have to use a lock for safe file access
     lock = Lock()
 
-    prod = epr.Product(filename)
+    prod = epr.Product(str(filename))
     ds.attrs[naming.totalwidth] = prod.get_scene_width()
     ds.attrs[naming.totalheight] = prod.get_scene_height()
 

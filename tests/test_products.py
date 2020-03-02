@@ -5,7 +5,7 @@
 Define and download test products defined in products.py
 """
 
-import os
+from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
 from glob import glob
@@ -15,7 +15,8 @@ import pytest
 from eoread.uncompress import Uncompress
 
 
-dir_samples = 'SAMPLE_DATA'
+dir_base = Path(__file__).resolve().parent.parent
+dir_samples = dir_base/'SAMPLE_DATA'
 
 # definition of test products
 # - name, product: path to the product
@@ -64,18 +65,18 @@ products = {
 
 def get_path(product):
     """ Returns the path to the product """
-    return os.path.join(dir_samples, product['folder'], product['name'])
+    return get_dir(product)/product['name']
 
 def get_dir(product):
     """ Returns the directory containing the product """
-    return os.path.join(dir_samples, product['folder'])
+    return dir_samples/product['folder']
 
 
 @pytest.mark.parametrize('product', products.values(),
                          ids=list(products.keys()))
 def test_available(product):
     path = get_path(product)
-    if not os.path.exists(path):
+    if not path.exists():
         raise Exception(
             f'{path} is missing. '
             'You may run `python -m tests.test_products` to download.')
@@ -87,18 +88,20 @@ def safe_move(src, dst, makedirs=True):
 
     if `makedirs`: create directory if necessary
     """
-    if not os.path.exists(dst):
+    pdst = Path(dst)
+    if not pdst.exists():
         if makedirs:
-            os.makedirs(dst)
+            pdst.mkdir(parents=True)
         else:
             raise IOError(f'Error, directory {dst} does not exist')
-    assert os.path.isdir(dst)
+    assert pdst.is_dir()
+    psrc = Path(src)
     print(f'Moving "{src}" to "{dst}"...')
-    basename = os.path.basename(src)
-    target = os.path.join(dst, basename)
-    with TemporaryDirectory(prefix='copying_'+basename+'_', dir=dst) as tmpdir:
-        tmp = os.path.join(tmpdir, basename)
-        shutil.move(src, tmp)
+    target = pdst/psrc.name
+    assert not target.exists()
+    with TemporaryDirectory(prefix='copying_'+psrc.name+'_', dir=dst) as tmpdir:
+        tmp = Path(tmpdir)/psrc.name
+        shutil.move(psrc, tmp)
         shutil.move(tmp, target)
 
 
@@ -116,15 +119,13 @@ def download_url(product, dirname):
         if 'archive' in product:
             name = product['archive']
         else:
-            name = os.path.basename(url)
-        target = os.path.join(
-            tmpdir,
-            name)
+            name = Path(url).name
+        target = Path(tmpdir)/name
 
         cmd = f'wget {url} -O {target}'
         if subprocess.call(cmd.split()):
             raise Exception(f'Error running command "{cmd}"')
-        assert os.path.exists(target)
+        assert target.exists()
         if Uncompress(target).is_archive():
             with Uncompress(target) as uncompressed:
                 safe_move(uncompressed, dirname)
@@ -165,7 +166,7 @@ def download_sentinel(product, dirname):
     with TemporaryDirectory() as tmpdir:
         api.download(pid, directory_path=tmpdir)
 
-        zipfs = glob(os.path.join(tmpdir, '*'))
+        zipfs = list(Path(tmpdir).iterdir())
         assert len(zipfs) == 1
         zipf = zipfs[0]
 
@@ -181,10 +182,10 @@ def download_sentinel(product, dirname):
 def download(product):
     name = product['name']
     print(f'Getting {name}')
-    assert os.path.exists(dir_samples), \
+    assert Path(dir_samples).exists(), \
         f'{dir_samples} does not exist. Please create it or link it before proceeding.'
 
-    if os.path.exists(get_path(product)):
+    if get_path(product).exists():
         print(f'Skipping existing product {name}')
         return
 
