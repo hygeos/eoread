@@ -35,6 +35,7 @@ products = {
         'folder': 'OLCI',
         'scihub_id': '6271ae12-0e00-47d1-9a08-b0658d2262ad',
         'url': 'http://download.hygeos.com/EOREAD_TESTDATA/OLCI/S3A_OL_1_EFR____20190430T094655_20190430T094955_20190501T131540_0179_044_136_2160_LN1_O_NT_002.zip',
+        'ROI': {'sline': 3100, 'eline': 3300, 'scol': 3000, 'ecol': 3300}, # Corsica
     },
     'prod_S3_L2_20190612': {
         'name': 'S3B_OL_2_WFR____20190612T085520_20190612T085820_20190613T175523_0179_026_221_2340_MAR_O_NT_002.SEN3',
