@@ -3,7 +3,6 @@
 
 from datetime import datetime
 from functools import wraps
-from time import time
 
 import dask.array as da
 import numpy as np
@@ -24,7 +23,8 @@ class AtIndex:
         # dimensions to be indexed by this object
         self.dims = tuple(sum([[x] if not x == idx_name else list(idx.dims) for x in A.dims], []))
         # ... and their shape
-        shape = tuple(sum([[A.shape[i]] if not x == idx_name else list(idx.shape) for i, x in enumerate(A.dims)], []))
+        shape = tuple(sum([[A.shape[i]] if not x == idx_name else list(idx.shape)
+                           for i, x in enumerate(A.dims)], []))
         self.shape = shape
         self.dtype = A.dtype
         self.A = A
@@ -38,7 +38,7 @@ class AtIndex:
 
         # then index A using the remaining dimensions
         return self.A.values[tuple([key[i] if k != self.idx_name else idx
-                             for i, k in enumerate(self.A.dims)])]
+                                    for i, k in enumerate(self.A.dims)])]
 
 
 class Interpolator:
@@ -70,14 +70,14 @@ class Interpolator:
 
 
 class Repeat:
-    def __init__(self, A, repeats):
-        '''
-        Repeat elements of `A`
+    '''
+    Repeat elements of `A`
 
-        Parameters:
-        A: DataArray to repeat
-        repeats: tuple of int (number of repeats along each dimension)
-        '''
+    Parameters:
+    A: DataArray to repeat
+    repeats: tuple of int (number of repeats along each dimension)
+    '''
+    def __init__(self, A, repeats):
         self.shape = tuple([s*r for (s, r) in zip(A.shape, repeats)])
         self.ndim = len(self.shape)
         self.repeats = repeats
@@ -170,3 +170,30 @@ def timeit(func):
             t = datetime.now() - start
             print(f"Total execution time of {func}: {t}")
     return timed
+
+
+def floor_dt(dt, delta):
+    """
+    Round `dt` to the previous time period `delta`
+
+    Args:
+    -----
+    dt: datetime
+
+    delta: timedelta
+    """
+    # https://stackoverflow.com/questions/13071384/python-ceil-a-datetime-to-next-quarter-of-an-hour
+    return dt - (dt - datetime.min) % delta
+
+
+def ceil_dt(dt, delta):
+    """
+    Round `dt` to the next time period `delta`
+
+    Args:
+    -----
+    dt: datetime
+
+    delta: timedelta
+    """
+    return dt + (datetime.min - dt) % delta

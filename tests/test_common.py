@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 
+from datetime import datetime, timedelta
 import pytest
 import xarray as xr
 import numpy as np
 import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
+from eoread.common import floor_dt, ceil_dt
 from eoread import eo
 
 
@@ -206,3 +208,9 @@ def test_raiseflag():
         eo.raiseflag(flags, 'FLAG_2', 2, A > 0.1)
 
     eo.raiseflag(flags, 'FLAG_2', 4, A > 0.1)
+
+def test_floor_ceil_dt():
+    dt = datetime(2020, 3, 3, 14, 26, 48)
+    delta = timedelta(minutes=15)
+    assert floor_dt(dt, delta) == datetime(2020, 3, 3, 14, 15, 00)
+    assert ceil_dt(dt, delta) == datetime(2020, 3, 3, 14, 30, 00)
