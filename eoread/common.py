@@ -197,3 +197,10 @@ def ceil_dt(dt, delta):
     delta: timedelta
     """
     return dt + (datetime.min - dt) % delta
+
+
+def bin_centers(N, vmin=0, vmax=0):
+    """
+    Returns the center of N bins equally spaced in [vmin, vmax]
+    """
+    return np.linspace(vmin, vmax, 2*N+1)[1::2]
