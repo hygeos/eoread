@@ -5,10 +5,11 @@
 Various utility functions for exploiting eoread objects
 '''
 
-import os
 import shutil
 import tempfile
+from pathlib import Path
 from collections import OrderedDict
+from contextlib import contextmanager
 import re
 
 import dask.array as da
@@ -209,9 +210,12 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
 
     rad : radius of the circle in km
 
-    drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+    drop_invalid, bool
+        if True invalid pixels will be replace by nan for floats
+        and int_default_value for other types
 
-    int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
+    int_default_value, int
+        for DataArrays of type int, this value is assigned on non-valid pixels
     '''
     lat = ds[naming.lat].compute()
     lon = ds[naming.lon].compute()
@@ -221,7 +225,17 @@ def sub_pt(ds, pt_lat, pt_lon, rad, drop_invalid=True, int_default_value=0):
     return sub(ds, cond, drop_invalid, int_default_value)
 
 
-def to_netcdf(ds,
+def none_context(a=None):
+    """
+    Returns a context manager that does nothing.
+
+    In python 3.7, this is equivalent to `contextlib.nullcontext`.
+    """
+    return contextmanager(lambda: (x for x in [a]))()
+
+
+def to_netcdf(ds, *,
+              filename=None,
               dirname=None,
               product_name=None,
               ext='.nc',
@@ -234,6 +248,7 @@ def to_netcdf(ds,
     '''
     Write an xarray Dataset `ds` using `.to_netcdf` with several additional features:
     - construct file name using  `dirname`, `product_name` and `ext`
+      (optionnally - otherwise with `filename`)
     - check that the output file does not exist already
     - Use file compression
     - Use temporary file
@@ -242,6 +257,9 @@ def to_netcdf(ds,
     Arguments:
     ----------
 
+    filename: str or None
+        Output file path.
+        if None, build filename from `dirname`, `product_name` and `ext`.
     dirname: str or None
         directory for output file (default None: uses the attribute input_directory of ds)
     product_name: str
@@ -270,12 +288,33 @@ def to_netcdf(ds,
 
     output file name (str)
     '''
-    if product_name is None:
-        product_name = ds.attrs[product_name_attr]
-    assert product_name, 'Empty product name'
-    if dirname is None:
-        dirname = ds.attrs[naming.input_directory]
-    fname = os.path.join(dirname, product_name+ext)
+    if filename is None:
+        # construct filename from dirname, product_name and ext
+
+        if product_name is None:
+            product_name = ds.attrs[product_name_attr]
+        assert product_name, 'Empty product name'
+        if dirname is None:
+            dirname = ds.attrs[naming.input_directory]
+        fname = Path(dirname).resolve()/product_name+ext
+
+    else:
+        fname = Path(filename).resolve()
+
+    if fname.exists():
+        if overwrite == 'skip':
+            print(f'File {fname} exists, skipping...')
+            return
+        elif overwrite:
+            fname.unlink()
+        else:
+            raise IOError(f'Output file "{fname}" exists.')
+
+    if not Path(dirname).exists():
+        if create_out_dir:
+            Path(dirname).mkdir(parents=True)
+        else:
+            raise IOError(f'Directory "{dirname}" does not exist.')
 
     defaults = {
         'engine': 'h5netcdf',
@@ -284,27 +323,14 @@ def to_netcdf(ds,
     }
     defaults.update(kwargs)
 
-    if os.path.exists(fname):
-        if overwrite == 'skip':
-            print(f'File {fname} exists, skipping...')
-            return
-        elif overwrite:
-            os.remove(fname)
-        else:
-            raise IOError(f'Output file "{fname}" exists.')
+    PBar = {
+        True: ProgressBar,
+        False: none_context
+    }[verbose]
 
-    if not os.path.exists(dirname):
-        if create_out_dir:
-            os.makedirs(dirname)
-        else:
-            raise IOError(f'Directory "{dirname}" does not exist.')
+    with PBar(), tempfile.TemporaryDirectory(dir=tmpdir) as tmp:
 
-    with tempfile.TemporaryDirectory(dir=tmpdir) as tmp, \
-            open(os.devnull, 'w') as devnull, \
-            ProgressBar(out={True: None,
-                             False: devnull}[verbose]):
-
-        fname_tmp = os.path.join(tmp, product_name+ext+'.tmp')
+        fname_tmp = Path(tmp)/product_name+ext+'.tmp'
 
         if verbose:
             print('Writing:', fname)
