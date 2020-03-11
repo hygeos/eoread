@@ -288,6 +288,7 @@ def to_netcdf(ds, *,
 
     output file name (str)
     '''
+    assert isinstance(ds, xr.Dataset), 'eo.to_netcdf expects an xarray Dataset'
     if filename is None:
         # construct filename from dirname, product_name and ext
 
@@ -310,11 +311,11 @@ def to_netcdf(ds, *,
         else:
             raise IOError(f'Output file "{fname}" exists.')
 
-    if not Path(dirname).exists():
+    if not fname.parent.exists():
         if create_out_dir:
-            Path(dirname).mkdir(parents=True)
+            fname.parent.mkdir(parents=True)
         else:
-            raise IOError(f'Directory "{dirname}" does not exist.')
+            raise IOError(f'Directory "{fname.parent}" does not exist.')
 
     defaults = {
         'engine': 'h5netcdf',
@@ -330,7 +331,7 @@ def to_netcdf(ds, *,
 
     with PBar(), tempfile.TemporaryDirectory(dir=tmpdir) as tmp:
 
-        fname_tmp = Path(tmp)/product_name+ext+'.tmp'
+        fname_tmp = Path(tmp)/fname.name
 
         if verbose:
             print('Writing:', fname)
@@ -341,8 +342,8 @@ def to_netcdf(ds, *,
 
         # use intermediary move
         # (both files may be on different devices)
-        shutil.move(fname_tmp, fname+'.tmp')
-        shutil.move(fname+'.tmp', fname)
+        shutil.move(fname_tmp, str(fname)+'.tmp')
+        shutil.move(str(fname)+'.tmp', fname)
 
     return fname
 
