@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from eoread.olci import Level1_OLCI
 from eoread.msi import Level1_MSI
-from tests.test_products import products as p, get_path
+from tests.products import products as p, get_path
 from eoread.process import blockwise_method
 from dask.diagnostics import ProgressBar
 

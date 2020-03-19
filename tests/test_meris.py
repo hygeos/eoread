@@ -4,7 +4,7 @@
 
 import numpy as np
 import pytest
-from tests.test_products import products as p, get_path
+from tests.products import products as p, get_path
 
 from eoread import eo
 from eoread.meris import Level1_MERIS

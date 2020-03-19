@@ -8,7 +8,7 @@ import dask
 import pytest
 import xarray as xr
 from osgeo import gdal
-from tests.test_products import products as p, get_path
+from tests.products import products as p, get_path
 
 from eoread import eo
 from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI

@@ -7,7 +7,7 @@ import pytest
 from eoread import eo
 from eoread.era5 import ERA5
 from eoread.olci import Level1_OLCI
-from .test_products import products as p, get_path
+from tests.products import products as p, get_path
 from . import conftest
 
 
@@ -52,10 +52,3 @@ def test_interp(request, method):
         method=method,
     ).plot()
     conftest.savefig(request)
-
-
-def test_intl_date_line():
-    """
-    Test interpolation across the International Date Line
-    """
-    raise NotImplementedError

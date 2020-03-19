@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from tests.test_products import products as p, get_path
+from tests.products import products as p, get_path
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
