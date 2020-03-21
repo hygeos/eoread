@@ -70,6 +70,9 @@ def download_url(product, dirname):
         else:
             safe_move(target, target_dir)
 
+        assert get_path(product, dirname).exists(), \
+            f'{get_path(product, dirname)} does not exist'
+
     return 1
 
 
@@ -114,7 +117,8 @@ def download_sentinel(product, dirname):
             safe_move(uncompressed,
                       get_path(product, dirname).parent)
 
-        # safe_move(zipf, dir_samples)
+        assert get_path(product, dirname).exists(), \
+            f'{get_path(product, dirname)} does not exist'
 
     return 1
 
