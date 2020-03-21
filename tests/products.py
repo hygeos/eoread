@@ -57,9 +57,4 @@ products = {
 
 def get_path(product):
     """ Returns the path to the product """
-    return get_dir(product)/product['name']
-
-def get_dir(product):
-    """ Returns the directory containing the product """
-    return dir_samples/product['folder']
-
+    return dir_samples/product['folder']/product['name']

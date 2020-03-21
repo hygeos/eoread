@@ -1,7 +1,7 @@
 samples:
 	python -m tests.test_products
 
-test:
+tests:
 	pytest tests
 
 .PHONY: samples test
