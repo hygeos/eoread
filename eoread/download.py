@@ -52,7 +52,7 @@ def download_url(product, dirname):
         return
 
     url = product['url']
-    target_dir = get_path(product, dirname).parent
+    product_path = get_path(product, dirname)
     with TemporaryDirectory() as tmpdir:
         if 'archive' in product:
             name = product['archive']
@@ -66,14 +66,14 @@ def download_url(product, dirname):
         assert target.exists()
         if Uncompress(target).is_archive():
             with Uncompress(target) as uncompressed:
-                safe_move(uncompressed, target_dir)
+                safe_move(uncompressed, product_path.parent)
         else:
-            safe_move(target, target_dir)
+            safe_move(target, product_path.parent)
 
-        assert get_path(product, dirname).exists(), \
-            f'{get_path(product, dirname)} does not exist'
+        assert product_path.exists(), \
+            f'{product_path} does not exist'
 
-    return 1
+    return product_path
 
 
 def download_sentinel(product, dirname):
@@ -104,6 +104,8 @@ def download_sentinel(product, dirname):
     else:
         return None
 
+    product_path = get_path(product, dirname)
+
     api = SentinelAPI(**cred)
     with TemporaryDirectory() as tmpdir:
         api.download(pid, directory_path=tmpdir)
@@ -115,12 +117,12 @@ def download_sentinel(product, dirname):
         # uncompress
         with Uncompress(zipf) as uncompressed:
             safe_move(uncompressed,
-                      get_path(product, dirname).parent)
+                      product_path.parent)
 
-        assert get_path(product, dirname).exists(), \
-            f'{get_path(product, dirname)} does not exist'
+        assert product_path.exists(), \
+            f'{product_path} does not exist'
 
-    return 1
+    return product_path
 
 
 def download(product, dirname):
@@ -143,19 +145,24 @@ def download(product, dirname):
 
     dirname: str
         base directory for download
+
+    Returns: the path to the product
     """
     name = product['name']
     print(f'Getting {name}')
     assert Path(dirname).exists(), \
         f'{dirname} does not exist. Please create it or link it before proceeding.'
 
-    if get_path(product, dirname).exists():
-        print('Skipping existing product', get_path(product, dirname))
-        return 1
+    product_path = get_path(product, dirname)
+    if product_path.exists():
+        print('Skipping existing product', product_path)
+        return product_path
 
-    if download_url(product, dirname):
-        return
-    if download_sentinel(product, dirname):
-        return
+    p = download_url(product, dirname)
+    if p:
+        return p
+    p = download_sentinel(product, dirname)
+    if p:
+        return p
 
     raise Exception(f'No valid method for retrieving product {name}')
