@@ -297,7 +297,7 @@ def to_netcdf(ds, *,
         assert product_name, 'Empty product name'
         if dirname is None:
             dirname = ds.attrs[naming.input_directory]
-        fname = Path(dirname).resolve()/product_name+ext
+        fname = Path(dirname).resolve()/(product_name+ext)
 
     else:
         fname = Path(filename).resolve()
