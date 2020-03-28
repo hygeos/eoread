@@ -8,7 +8,7 @@ import dask
 import pytest
 import xarray as xr
 from osgeo import gdal
-from tests.products import products as p, get_path
+from tests.products import products as p
 
 from eoread import eo
 from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
@@ -16,8 +16,8 @@ from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
 from . import generic
 from .generic import indices, param
 
-sample_landsat8_oli = get_path(p['prod_oli_L1'])
 
+sample_landsat8_oli = p['prod_oli_L1']['path']
 
 @pytest.mark.parametrize('lat_or_lon', ['lat', 'lon'])
 def test_latlon(lat_or_lon):

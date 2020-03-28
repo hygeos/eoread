@@ -7,12 +7,12 @@ Define and download test products defined in products.py
 
 import pytest
 from eoread.download import download
-from tests.products import products, get_path, dir_samples
+from tests.products import products, dir_samples
 
 @pytest.mark.parametrize('product', products.values(),
                          ids=list(products.keys()))
 def test_available(product):
-    path = get_path(product)
+    path = product['path']
     if not path.exists():
         raise Exception(
             f'{path} is missing. '
@@ -21,5 +21,5 @@ def test_available(product):
 
 if __name__ == "__main__":
     print('Downloading sample products...')
-    for k, v in products.items():
-        download(v, dir_samples)
+    for _, p in products.items():
+        download(p)

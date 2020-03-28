@@ -13,12 +13,6 @@ import shutil
 from .uncompress import Uncompress
 
 
-def get_path(product, dirname):
-    if 'folder' in product:
-        return Path(dirname)/product['folder']/product['name']
-    else:
-        return Path(dirname)/product['name']
-
 def safe_move(src, dst, makedirs=True):
     """
     Move `src` file to `dst` directory
@@ -42,7 +36,7 @@ def safe_move(src, dst, makedirs=True):
         shutil.move(tmp, target)
 
 
-def download_url(product, dirname):
+def download_url(product):
     """
     Download `product` from `url` to `dirname`
 
@@ -52,7 +46,7 @@ def download_url(product, dirname):
         return
 
     url = product['url']
-    product_path = get_path(product, dirname)
+    product_path = product['path']
     with TemporaryDirectory() as tmpdir:
         if 'archive' in product:
             name = product['archive']
@@ -76,7 +70,7 @@ def download_url(product, dirname):
     return product_path
 
 
-def download_sentinel(product, dirname):
+def download_sentinel(product):
     """
     Download a sentinel product
     """
@@ -104,7 +98,7 @@ def download_sentinel(product, dirname):
     else:
         return None
 
-    product_path = get_path(product, dirname)
+    product_path = product['path']
 
     api = SentinelAPI(**cred)
     with TemporaryDirectory() as tmpdir:
@@ -125,7 +119,7 @@ def download_sentinel(product, dirname):
     return product_path
 
 
-def download(product, dirname):
+def download(product):
     """
     Download a product from various sources
         - direct url
@@ -135,9 +129,10 @@ def download(product, dirname):
     ----------
 
     product: dict with following keys:
-        - 'name' (ex: 'S2A_MSIL1C_2019[...].SAFE',
-                      'S3A_OL_1_EFR____2019[...].SEN3')
-        - 'folder' (optional)
+        - 'path' local path (pathlib object)
+          Example:
+            - Path()/'S2A_MSIL1C_2019[...].SAFE',
+            - 'S3A_OL_1_EFR____2019[...].SEN3'
         Download source (one or several)
         - 'scihub_id': '6271ae12-0e00-47d1-9a08-b0658d2262ad',
         - 'coda_id': 'a8c346c8-7752-4720-82b8-e5dea5fccf22',
@@ -148,21 +143,18 @@ def download(product, dirname):
 
     Returns: the path to the product
     """
-    name = product['name']
-    print(f'Getting {name}')
-    assert Path(dirname).exists(), \
-        f'{dirname} does not exist. Please create it or link it before proceeding.'
+    path = product['path']
+    print(f'Getting {path}')
 
-    product_path = get_path(product, dirname)
-    if product_path.exists():
-        print('Skipping existing product', product_path)
-        return product_path
+    if path.exists():
+        print('Skipping existing product', path)
+        return path
 
-    p = download_url(product, dirname)
+    p = download_url(product)
     if p:
         return p
-    p = download_sentinel(product, dirname)
+    p = download_sentinel(product)
     if p:
         return p
 
-    raise Exception(f'No valid method for retrieving product {name}')
+    raise Exception(f'No valid method for retrieving product {path.name}')

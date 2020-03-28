@@ -7,7 +7,7 @@ import pytest
 from eoread import eo
 from eoread.era5 import ERA5
 from eoread.olci import Level1_OLCI
-from tests.products import products as p, get_path
+from tests.products import products as p
 from . import conftest
 
 
@@ -38,7 +38,7 @@ def test_interp(request, method):
     """
     Fetch and interpolate ancillary data for an OLCI product
     """
-    l1 = Level1_OLCI(get_path(p['prod_S3_L1_20190430'])).sel(
+    l1 = Level1_OLCI(p['prod_S3_L1_20190430']['path']).sel(
         rows=slice(None, None, 10),
         columns=slice(None, None, 10))
     anc = ERA5().get(eo.datetime(l1))

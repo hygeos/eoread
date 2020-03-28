@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from eoread.olci import Level1_OLCI
 from eoread.msi import Level1_MSI
-from tests.products import products as p, get_path
+from tests.products import products as p
 from eoread.process import blockwise_method
 from dask.diagnostics import ProgressBar
 
@@ -40,7 +40,7 @@ def test_processing(product):
     '''
     Try processing a Sentinel file
     '''
-    ds = Level1_OLCI(get_path(product), init_reflectance=True)
+    ds = Level1_OLCI(product['path'], init_reflectance=True)
 
     ds = ds.chunk({'bands': -1})
 
@@ -67,5 +67,5 @@ def test_processing2(product):
     '''
     Try processing a Sentinel file
     '''
-    ds = Level1_OLCI(get_path(product), init_reflectance=True)
+    ds = Level1_OLCI(product['path'], init_reflectance=True)
     print(ds)

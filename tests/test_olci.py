@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from tests.products import products as p, get_path
+from tests.products import products as p
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
@@ -12,7 +12,7 @@ from .generic import param, indices
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_olci_level1(product):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
 
     # test method contains
     lat = ds.latitude[100, 100]
@@ -27,7 +27,7 @@ def test_olci_level1(product):
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_split_merge(product):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
     print(ds)
     ds = eo.sub_rect(ds, 55, 56, 18, 19)
     split = eo.split(ds, 'bands')
@@ -38,7 +38,7 @@ def test_split_merge(product):
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_sub_pt(product):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
     lat0 = ds.latitude[500, 500]
     lon0 = ds.longitude[500, 500]
     eo.sub_pt(ds, lat0, lon0, 3)
@@ -46,13 +46,13 @@ def test_sub_pt(product):
 
 @pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
 def test_olci_level2(product):
-    l2 = Level2_OLCI(get_path(product))
+    l2 = Level2_OLCI(product['path'])
     print(l2)
 
 
 @pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
 def test_olci_level2_flags(product):
-    l2 = Level2_OLCI(get_path(product))
+    l2 = Level2_OLCI(product['path'])
 
     eo.getflags(l2.wqsf)
     get_valid_l2_pixels(l2.wqsf)
@@ -60,18 +60,18 @@ def test_olci_level2_flags(product):
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_main(product):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
     eo.init_Rtoa(ds)
     generic.test_main(ds)
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_read(product, param, indices):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
     eo.init_Rtoa(ds)
     generic.test_read(ds, param, indices)
 
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_subset(product):
-    ds = Level1_OLCI(get_path(product))
+    ds = Level1_OLCI(product['path'])
     generic.test_subset(ds)

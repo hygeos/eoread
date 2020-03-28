@@ -5,7 +5,7 @@
 import pytest
 import xarray as xr
 from eoread.msi import Level1_MSI
-from tests.products import products as p, get_path
+from tests.products import products as p
 from .generic import indices, param
 from . import generic
 from eoread import eo
@@ -27,12 +27,12 @@ def chunks(request):
 
 @pytest.fixture
 def S2_product(product, resolution, chunks):
-    return Level1_MSI(get_path(product), resolution, chunks=chunks)
+    return Level1_MSI(product['path'], resolution, chunks=chunks)
 
 
 @pytest.mark.parametrize('split', [True, False])
 def test_instantiation(product, resolution, split, chunks):
-    Level1_MSI(get_path(product), resolution, split=split, chunks=chunks)
+    Level1_MSI(product['path'], resolution, split=split, chunks=chunks)
 
 
 @pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
@@ -63,7 +63,7 @@ def test_msi_merged(S2_product, param):
 
 @pytest.mark.parametrize('band', ['Rtoa_443', 'Rtoa_490', 'Rtoa_865'])
 def test_msi_split(product, band, resolution):
-    l1 = Level1_MSI(get_path(product), resolution, split=True)
+    l1 = Level1_MSI(product['path'], resolution, split=True)
     print(l1)
     assert 'Rtoa_443' in l1
     assert 'Rtoa' not in l1
