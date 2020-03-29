@@ -30,10 +30,10 @@ def param(request):
     return request.param
 
 @pytest.fixture(params=[
-    (slice(120, 130), slice(122, 135)),
-    (slice(100, 130, 3), slice(122, 135, 2)),
-    (20, slice(120, 130)),
-    (20, 20),
+    (20, 20),   # two ints
+    (slice(120, 130), slice(122, 135)),  # two slices
+    (20, slice(120, 130)),   # int and slice
+    (slice(510, 530, 3), slice(-25, -20, 3)),  # two slices with steps
 ])
 def indices(request):
     return request.param
@@ -85,6 +85,16 @@ def test_read(ds, param, indices):
             f'Dtype error: expected {expected_dtype}, found {ds[param].dtype}'
         assert res.dtype == expected_dtype,\
             f'Dtype error: expected {expected_dtype}, found {res.dtype} (after compute)'
+        
+        # for the "stepped" indices, check that result is consistent with "non-stepped"
+        # (also with an offset)
+        if (isinstance(idx1, slice) and isinstance(idx2, slice) and idx1.step and idx2.step):
+            A = ds[param].sel(rows=idx1, columns=idx2).compute()
+            B = ds[param].sel(
+                    rows=slice(idx1.start-1, idx1.stop),
+                    columns=slice(idx2.start-1, idx2.stop),
+                ).compute()[..., 1::idx1.step, 1::idx2.step]
+            np.testing.assert_allclose(A, B)
 
 
 def test_subset(ds):
