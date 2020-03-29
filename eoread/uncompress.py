@@ -2,72 +2,76 @@
 # -*- coding: utf-8 -*-
 
 
-import tempfile
 from zipfile import ZipFile
-from glob import glob
+import gzip
+import shutil
 import tarfile
-import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-class Uncompress:
+
+def uncompress(filename,
+               dirname,
+               allow_uncompressed=True,
+               create_out_dir=True):
     """
-    Uncompresses a file in a temporary location
+    Uncompress `filename` to `dirname`
 
-    Used as a context manager, it returns the path to the uncompressed file.
-    If there is a single directory in the archive, this path is to that directory.
+    Arguments:
+    ----------
 
-    Example:
-        with Uncompress('file.zip') as unzipped:
-            unzipped  # the path to the uncompressed data
+    allow_uncompressed: bool
+        if `filename` is not compressed, just move it to `dirname`
+    create_out_dir: bool
+        create output directory if it does not exist
+
+    Returns the path to the uncompressed file
     """
-    def __init__(self,
-                 filename,
-                 dirname=None,
-                 verbose=True):
-        self.filename = str(filename)
-        self.tmpdir = None
-        self.dirname = dirname
-        self.verbose = verbose
-        self.zip_extensions = ['.zip']
-        self.tar_extensions = ['.tar.gz', '.tgz', '.tar.bz2', '.tar']
-
-    def __enter__(self):
-        self.tmpdir = tempfile.TemporaryDirectory(dir=self.dirname)
-        return self.uncompress(self.tmpdir.name)
-
-    def is_archive(self):
-        return True in [self.filename.endswith(fmt)
-                        for fmt in self.zip_extensions + self.tar_extensions]
-
-    def uncompress(self, dest):
-        """
-        Uncompresses the archive to dest, returns the path to the uncompressed file
-        """
-        if self.verbose:
-            print(f'Uncompressing "{self.filename}" to {dest}')
-
-        if True in [self.filename.endswith(fmt)
-                    for fmt in self.zip_extensions]:
-            # zip file
-            with ZipFile(self.filename) as zipf:
-                zipf.extractall(dest)
-
-        elif True in [self.filename.endswith(fmt)
-                      for fmt in self.tar_extensions]:
-            # tar file
-            with tarfile.open(self.filename) as tarf:
-                tarf.extractall(path=dest)
+    print(f'Uncompressing {filename}')
+    if not Path(dirname).exists():
+        if allow_uncompressed:
+            Path(dirname).mkdir(parents=True)
         else:
-            fname = os.path.basename(self.filename)
-            raise Exception(f'Error handling extension for "{fname}"')
+            raise IOError(f'Directory {dirname} does not exist.')
 
-        glb = glob(os.path.join(dest, '*'))
-        if len(glb) == 1:
-            path = glb[0]
+    fname = str(filename)
+    with TemporaryDirectory(prefix='tmp_uncompress',
+                            dir=dirname) as tmpdir:
+
+        # uncompress to temporary directory
+        target_tmp = None
+        if fname.endswith('.zip'):
+            with ZipFile(fname) as zipf:
+                zipf.extractall(tmpdir)
+
+        elif True in [fname.endswith(x)
+                      for x in ['.tar.gz', '.tgz', '.tar.bz2', '.tar']]:
+            with tarfile.open(fname) as tarf:
+                tarf.extractall(path=tmpdir)
+        elif fname.endswith('.gz'):
+            target_tmp = Path(tmpdir)/filename.stem
+            with gzip.open(fname, 'rb') as f_in, open(target_tmp, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
         else:
-            path = dest
+            if allow_uncompressed:
+                target_tmp = Path(filename)
+            else:
+                raise Exception(
+                    'Could not determine format of file '
+                    f'{Path(filename).name} and `allow_uncompressed` is not set.')
 
-        return path
+        # determine path to uncompressed temporary directory
+        if target_tmp is None:
+            lst = list(Path(tmpdir).glob('*'))
+            assert len(lst) == 1
+            target_tmp = lst[0]
 
+        # determine target
+        target = Path(dirname)/target_tmp.name
+        assert not target.exists(), f'Error, {target} exists.'
 
-    def __exit__(self, typ, value, traceback):
-        self.tmpdir.cleanup()
+        # move temporary to destination
+        print(f'Moving uncompressed file to {target}')
+        shutil.move(target_tmp, target)
+
+    assert target.exists()

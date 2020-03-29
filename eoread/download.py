@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import subprocess
 from textwrap import dedent
 import shutil
-from .uncompress import Uncompress
+from .uncompress import uncompress
 
 
 def safe_move(src, dst, makedirs=True):
@@ -36,43 +36,25 @@ def safe_move(src, dst, makedirs=True):
         shutil.move(tmp, target)
 
 
-def download_url(product):
+def download_url(url, dirname):
     """
-    Download `product` from `url` to `dirname`
+    Download `url` to `dirname`
 
-    If this is a zip file, uncompress it.
+    Returns the path to the downloaded file
     """
-    if 'url' not in product:
-        return
+    target = Path(dirname)/(Path(url).name)
 
-    url = product['url']
-    product_path = product['path']
-    with TemporaryDirectory() as tmpdir:
-        if 'archive' in product:
-            name = product['archive']
-        else:
-            name = Path(url).name
-        target = Path(tmpdir)/name
+    cmd = f'wget {url} -O {target}'
+    if subprocess.call(cmd.split()):
+        raise Exception(f'Error running command "{cmd}"')
+    assert target.exists()
 
-        cmd = f'wget {url} -O {target}'
-        if subprocess.call(cmd.split()):
-            raise Exception(f'Error running command "{cmd}"')
-        assert target.exists()
-        if Uncompress(target).is_archive():
-            with Uncompress(target) as uncompressed:
-                safe_move(uncompressed, product_path.parent)
-        else:
-            safe_move(target, product_path.parent)
-
-        assert product_path.exists(), \
-            f'{product_path} does not exist'
-
-    return product_path
+    return target
 
 
-def download_sentinel(product):
+def download_sentinel(product, dirname):
     """
-    Download a sentinel product
+    Download a sentinel product to `dirname`
     """
     from sentinelsat import SentinelAPI
     try:
@@ -98,25 +80,8 @@ def download_sentinel(product):
     else:
         return None
 
-    product_path = product['path']
-
     api = SentinelAPI(**cred)
-    with TemporaryDirectory() as tmpdir:
-        api.download(pid, directory_path=tmpdir)
-
-        zipfs = list(Path(tmpdir).iterdir())
-        assert len(zipfs) == 1
-        zipf = zipfs[0]
-
-        # uncompress
-        with Uncompress(zipf) as uncompressed:
-            safe_move(uncompressed,
-                      product_path.parent)
-
-        assert product_path.exists(), \
-            f'{product_path} does not exist'
-
-    return product_path
+    api.download(pid, directory_path=dirname)
 
 
 def download(product):
@@ -129,7 +94,7 @@ def download(product):
     ----------
 
     product: dict with following keys:
-        - 'path' local path (pathlib object)
+        - 'path' local target path (pathlib object)
           Example:
             - Path()/'S2A_MSIL1C_2019[...].SAFE',
             - 'S3A_OL_1_EFR____2019[...].SEN3'
@@ -137,9 +102,8 @@ def download(product):
         - 'scihub_id': '6271ae12-0e00-47d1-9a08-b0658d2262ad',
         - 'coda_id': 'a8c346c8-7752-4720-82b8-e5dea5fccf22',
         - 'url': 'https://earth.esa.int/[...]DLFE-451.zip',
-
-    dirname: str
-        base directory for download
+    
+    Uncompresses the downloaded product if necessary
 
     Returns: the path to the product
     """
@@ -150,11 +114,19 @@ def download(product):
         print('Skipping existing product', path)
         return path
 
-    p = download_url(product)
-    if p:
-        return p
-    p = download_sentinel(product)
-    if p:
-        return p
+    with TemporaryDirectory() as tmpdir:
+        if 'url' in product:
+            download_url(product['url'], tmpdir)
+        elif ('scihub_id' in product) or ('coda_id' in product):
+            download_sentinel(product, tmpdir)
+        else:
+            raise Exception(
+                f'No valid method for retrieving product {path.name}')
 
-    raise Exception(f'No valid method for retrieving product {path.name}')
+        compressed = next(Path(tmpdir).glob('*'))
+
+        uncompress(compressed, path.parent)
+
+    assert path.exists(), f'{path} does not exist.'
+
+    return path
