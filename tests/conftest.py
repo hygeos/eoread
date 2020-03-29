@@ -35,22 +35,22 @@ import pytest
 
 def add_image_to_report(request, fp):
     """
-    Appends image data to request.session.images
+    Appends image data to request.node.images
 
     request: pytest `request` fixture
 
     fp: BytesIO
     """
-    if not hasattr(request.session, 'images'):
-        request.session.images = []
+    if not hasattr(request.node, 'images'):
+        request.node.images = []
     fp.seek(0)
     data = fp.read()
-    request.session.images.append(data)
+    request.node.images.insert(0, data)
 
 
 def savefig(request, **kwargs):
     """
-    Wraps matplotlib's savefig to ass image data to request.session.images
+    Wraps matplotlib's savefig to add image data to request.node.images
 
     `kwargs` are passed to `plt.savefig`
     """
@@ -75,8 +75,7 @@ def pytest_runtest_makereport(item):
             extra.append(pytest_html.extras.html(f'<pre>{doc}</pre>'))
 
         # add images
-        if hasattr(item.session, 'images'):
-            for image in item.session.images:
-                b64data = base64.b64encode(image).decode('ascii')
-                extra.append(pytest_html.extras.image(b64data))
+        for image in getattr(item, 'images', []):
+            b64data = base64.b64encode(image).decode('ascii')
+            extra.append(pytest_html.extras.image(b64data))
         report.extra = extra
