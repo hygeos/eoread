@@ -231,14 +231,22 @@ class READ_MERIS:
                 sel.append(0)
 
         with self.lock:
-            r = self.band.read_as_array(
-                yoffset=start[0],
-                xoffset=start[1],
-                height=sizes[0],
-                width=sizes[1],
-                ystep=steps[0],
-                xstep=steps[1],
-            )
+            if (sizes[0] > steps[0]) and (sizes[1] > steps[1]):
+                r = self.band.read_as_array(
+                    yoffset=start[0],
+                    xoffset=start[1],
+                    height=sizes[0],
+                    width=sizes[1],
+                    ystep=steps[0],
+                    xstep=steps[1],
+                )
+            else:
+                r = self.band.read_as_array(
+                    yoffset=start[0],
+                    xoffset=start[1],
+                    height=sizes[0],
+                    width=sizes[1],
+                )[::steps[0], ::steps[1]]
         assert r.dtype == self.dtype
         return r[sel[0], sel[1]]
 
@@ -258,15 +266,19 @@ class READ_BITMASK:
         self.dtype = np.bool
 
     def __getitem__(self, keys):
-        width = len_slice(keys[0], self.width)
-        height = len_slice(keys[1], self.height)
-        raster = epr.create_bitmask_raster(height, width)
+        width = len_slice(keys[1], self.width)
+        height = len_slice(keys[0], self.height)
+        raster = epr.create_bitmask_raster(
+            width, height,
+            xstep=keys[1].step or 1,
+            ystep=keys[0].step or 1,
+            )
         with self.lock:
             self.prod.read_bitmask_raster(
                 self.bmexpr,
-                keys[1].start,
-                keys[0].start,
-                raster)
+                xoffset=keys[1].start or 0,
+                yoffset=keys[0].start or 0,
+                raster=raster)
 
         return raster.data
 
