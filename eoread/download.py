@@ -114,7 +114,7 @@ def download(product):
         print('Skipping existing product', path)
         return path
 
-    with TemporaryDirectory() as tmpdir:
+    with TemporaryDirectory(prefix='tmp_eoread_download_') as tmpdir:
         if 'url' in product:
             download_url(product['url'], tmpdir)
         elif ('scihub_id' in product) or ('coda_id' in product):

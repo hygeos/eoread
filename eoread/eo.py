@@ -381,7 +381,7 @@ def merge(ds,
           dim=None,
           pattern=r'(.+)_(\d+)',
           dtype=int):
-    """
+    r"""
     Merge DataArrays in `ds` along dimension `dim`.
 
     ds: xr.Dataset
@@ -431,7 +431,7 @@ def merge(ds,
         else:
             copy = copy.assign_coords(**{dim: coords})
         copy[var] = data
-        copy = copy.drop([x for x, c in mapping[var]])
+        copy = copy.drop_vars([x for x, c in mapping[var]])
 
     return copy
 
