@@ -3,6 +3,7 @@
 
 
 from zipfile import ZipFile
+import bz2
 import gzip
 import shutil
 import tarfile
@@ -52,6 +53,11 @@ def uncompress(filename,
             target_tmp = Path(tmpdir)/filename.stem
             with gzip.open(fname, 'rb') as f_in, open(target_tmp, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
+        elif fname.endswith('.bz2'):
+            target_tmp = Path(tmpdir)/filename.stem
+            with bz2.BZ2File(fname) as f_in, open(target_tmp, 'wb') as f_out:
+                data = f_in.read()
+                f_out.write(data)
         else:
             if allow_uncompressed:
                 target_tmp = Path(filename)
