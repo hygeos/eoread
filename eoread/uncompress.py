@@ -7,6 +7,7 @@ import bz2
 import gzip
 import shutil
 import tarfile
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -58,6 +59,13 @@ def uncompress(filename,
             with bz2.BZ2File(fname) as f_in, open(target_tmp, 'wb') as f_out:
                 data = f_in.read()
                 f_out.write(data)
+        elif fname.endswith('.Z'):
+            cmd = f'gunzip {fname}'
+            print('Executing:', cmd)
+            if subprocess.call(cmd.split()):
+                raise Exception(f'Error executing command {cmd}')
+            target_tmp = filename.parent/filename.stem
+            assert target_tmp.exists()
         else:
             if allow_uncompressed:
                 target_tmp = Path(filename)
@@ -81,3 +89,5 @@ def uncompress(filename,
         shutil.move(target_tmp, target)
 
     assert target.exists()
+
+    return target
