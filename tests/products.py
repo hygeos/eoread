@@ -50,6 +50,34 @@ products = {
         'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MERIS/MER_RR__1PRACR20080701_014028_000026402070_00003_33123_0000.N1.gz',
     },
 
+    # MODIS Aqua
+    'prod_A2008106_L1A_LAC': {
+        # https://oceandata.sci.gsfc.nasa.gov/ob/getfile/A2008106124500.L1A_LAC.bz2
+        'path': dir_samples/'MODIS'/'A2008106124500.L1A_LAC',
+        'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MODIS/A2008106124500.L1A_LAC.bz2',
+    },
+
+    # MODIS Terra
+    'prod_MODIST_L1A_2010100_L1A_LAC': {
+        # https://oceandata.sci.gsfc.nasa.gov/ob/getfile/T2010100112000.L1A_LAC.bz2
+        'path': dir_samples/'MODIS'/'T2010100112000.L1A_LAC',
+        'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MODIS/T2010100112000.L1A_LAC.bz2',
+    },
+
+    # VIIRS
+    'prod_V2019086_L1A_SNPP': {
+        # https://oceandata.sci.gsfc.nasa.gov/ob/getfile/V2019086125400.L1A_SNPP.nc
+        'path': dir_samples/'VIIRS'/'V2019086125400.L1A_SNPP.nc',
+        'url': 'http://download.hygeos.com/EOREAD_TESTDATA/VIIRS/V2019086125400.L1A_SNPP.nc',
+    },
+
+    # SeaWiFS
+    'prod_S2004115_L1A_GAC': {
+        # https://oceandata.sci.gsfc.nasa.gov/ob/getfile/S2004115125135.L1A_GAC.Z
+        'path': dir_samples/'SeaWiFS'/'S2004115125135.L1A_GAC',
+        'url': 'http://download.hygeos.com/EOREAD_TESTDATA/SeaWiFS/S2004115125135.L1A_GAC.Z',
+    },
+
     # Landsat-8 OLI
     'prod_oli_L1': {
         'path': dir_samples/'LANDSAT8_OLI'/'LC80140282017275LGN00',
