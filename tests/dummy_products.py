@@ -19,18 +19,18 @@ class ArrayLike:
                                 for i, k in enumerate(key)]).astype(self.dtype)
         return res
 
-def dummy_level1():
+def dummy_level1(size=200, chunksize=100):
     l1 = xr.Dataset()
     l1['Rtoa'] = (
         ('band', 'width', 'height'),
         dask.array.from_array(
-            np.random.randn(5, 200, 200).astype('float32'),
-            chunks=(-1, 100, 100)))
+            np.random.randn(5, size, size).astype('float32'),
+            chunks=(-1, chunksize, chunksize)))
     l1['sza'] = (
         ('width', 'height'),
         dask.array.from_array(
-            np.random.randn(200, 200).astype('float64'),
-            chunks=(100, 100)))
+            np.random.randn(size, size).astype('float64'),
+            chunks=(chunksize, chunksize)))
     l1['sensor'] = 'OLCI'
 
     return l1

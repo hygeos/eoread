@@ -32,7 +32,7 @@ def test_coerce_dtype(A, dtype):
 def test_blockwise_basic():
     '''
     test using dask array blockwise function
-    
+
     Note: dimensions in blockwise can also be specified
     with tuples of  ints, unrelated to the dims sizes.
     '''
@@ -108,14 +108,15 @@ def test_blockwise_1(n):
 
 
 @pytest.mark.parametrize('i', [0, 1, 2])
-def test_blockwise_2(i):
+@pytest.mark.parametrize('size,chunksize', [(200, 100), (1, 1)])
+def test_blockwise_2(i, size, chunksize):
     '''
     Multiple inputs, multiple outputs
     '''
     def f(Rtoa, sza):
         return Rtoa, sza, (sza > 0).astype('uint8')
 
-    l1 = dummy_level1()
+    l1 = dummy_level1(size, chunksize)
     dims2 = ('width', 'height')
     dims3 = ('band', 'width', 'height')
     blk = Blockwise(
