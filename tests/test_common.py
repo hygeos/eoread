@@ -15,18 +15,21 @@ import dask
 dask.config.set(scheduler='single-threaded')
 
 
-def make_dataset():
+#TODO: should replace dummy_product
+
+def make_dataset(shp=(10, 12), chunks=6):
     l1 = xr.Dataset()
-    bands = [412, 443, 490, 510, 560]
-    shp2 = (10, 12)
-    shp3 = (len(bands), 10, 12)
+    bands = [412, 443, 490, 510, 560, 620, 865]
+    shp2 = shp
+    shp3 = (len(bands),) + shp
     dims2 = ('x', 'y')
     dims3 = ('bands', 'x', 'y')
-    l1['rho_toa'] = xr.DataArray(np.random.randn(*shp3), dims=dims3)
-    l1['rho_w'] = xr.DataArray(np.random.randn(*shp3), dims=dims3)
-    l1['lat'] = xr.DataArray(np.random.randn(*shp2), dims=dims2)
-    l1['lon'] = xr.DataArray(np.random.randn(*shp2), dims=dims2)
+    l1['rho_toa'] = xr.DataArray(da.random.random(shp3, chunks=chunks), dims=dims3)
+    l1['rho_w'] = xr.DataArray(da.random.random(shp3, chunks=chunks), dims=dims3)
+    l1['lat'] = xr.DataArray(da.random.random(shp2, chunks=chunks), dims=dims2)
+    l1['lon'] = xr.DataArray(da.random.random(shp2, chunks=chunks), dims=dims2)
     l1 = l1.assign_coords(bands=bands)
+    l1 = l1.chunk({'bands': -1})
 
     # set some attributes
     l1.attrs['sensor'] = 'OLCI'

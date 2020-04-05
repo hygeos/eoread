@@ -7,6 +7,7 @@ Blockwise process wrapper using dask array's `blockwise` function
 '''
 
 from functools import wraps
+from inspect import signature
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -62,10 +63,10 @@ class Blockwise:
         self.dtypes = dtypes
 
         assert len(dims_out) == len(dtypes)
-        for i, dims in enumerate(dims_out):
+        for x, dims in enumerate(dims_out):
             assert dims[-len(dims_blockwise):] == dims_blockwise, \
                 f'The last dimensions of all output arrays (output ' \
-                f'#{i+1}/{len(dims_out)} has dimensions {dims}) should be the ' \
+                f'#{x+1}/{len(dims_out)} has dimensions {dims}) should be the ' \
                 f'blockwise ones {dims_blockwise}.'
         # coerce all outputs to the largest dtype
         if self.dtypes:
@@ -270,3 +271,148 @@ def blockwise_method(dims_blockwise, dims_out, dtypes):
             return Blockwise(run, dims_blockwise, dims_out, dtypes)(*args)
         return wrapper
     return decorator
+
+
+def map_blocks(
+        func,
+        ds=None,
+        args=None,
+        outputs=None,
+    ):
+    """
+    Apply a ufunc `func` by blocks to dataset `ds`.
+
+    Arguments:
+    ----------
+    func: user provided universal function
+
+    ds: xr.Dataset or None.
+        Dataset containing the input variables, and which will store the results.
+        if None, use an empty Dataset (in which case, the input variables are
+        expected to be provided as kwargs).
+        The variable names to be provided to `func` are inferred from the function signature.
+        To provide other variables, pass them as kwargs.
+
+    outputs: iterable of tuples (name, dims)
+        where dims is a string: name of the input variable with the same dimensions
+        Example: (('C', 'A'), ('D', 'B'))  # `func` creates a new variable C with
+        same dimensions as A, and D with same dimensions as B
+
+    args: dict or None
+        dictionary containing the explicit variables.
+
+    About dask
+    ----------
+
+    if any of the input variables is backed by dask, `func` is applied block
+    by block, using xr.map_blocks
+    otherwise (if no input variable uses dask array), `func` is applied directly.
+
+    Returns:
+    -------
+
+    The xr.Dataset containing the results.
+
+    Example:
+    --------
+
+    `ds` is the input dataset containing the variables `A` and `B`.
+    Define the function:
+    >>> def process(A, B):
+    ...     [...]
+    ...     return C, D
+
+    Apply it to `ds`, using variables from defined in the function signature (`A` and `B`).
+    Stores the results (`C` and `D`) back in ds.
+    >>> result = map_blocks(
+    ...     process,
+    ...     ds,
+    ...     outputs=[
+    ...         ('C', 'A'),  # output variable 'C' has same dimensions as 'A'
+    ...         ('D', 'B'),  # output variable 'D' has same dimensions as 'B'
+    ...         ])
+
+    The output dimensions can be provided explicitly:
+    >>> result = map_blocks(process, ds,
+    ...     outputs=[
+    ...         ('C', ('lambda', 'x', 'y')),
+    ...         ('D', ('x', 'y')),
+    ...         ])
+
+    Apply process by passing explicitly the relevant DataArrays `ds.A` and `ds.B`.
+    By not passing ds, only the variables `C` and `D` are provided in results.
+    >>> result = map_blocks(
+    ...     process,
+    ...     args={
+    ...         'A': ds.A,
+    ...         'B': ds.B
+    ...     },
+    ...     outputs=[
+    ...         ('C', 'A'),  # output variable 'C' has same dimensions as 'A'
+    ...         ('D', 'B'),  # output variable 'D' has same dimensions as 'B'
+    ...         ])
+    """
+    # get the input variable names from the function signature
+    sig = signature(func)
+    list_inputs = list(sig.parameters)
+
+    # initialize input dataset ds_in
+    if ds is None:
+        ds_in = xr.Dataset()
+    else:
+        assert isinstance(ds, xr.Dataset)
+        ds_in = ds.copy()  # do not alter the input dataset
+    reset = ds is None
+
+    # Add other variables to ds_in from keywords
+    if args is not None:
+        for k, v in args.items():
+            assert k in list_inputs
+            ds_in[k] = v
+
+    # check that all input variables are in ds_in
+    for x in list_inputs:
+        assert x in ds_in, f'{x} is missing'
+
+    # determine the output dimensions
+    out_dims = []
+    for _, d in outputs:
+        if isinstance(d, tuple):
+            out_dims.append(d)
+        elif isinstance(d, str):
+            assert d in ds_in
+            out_dims.append(ds_in[d].dims)
+        else:
+            raise Exception(f'map_blocks: invalid variable descriptor "{d}"')
+
+    @wraps(func)
+    def wrapper(block):
+        """
+        Apply func to the relevant variables of the dataset, and store the
+        resulting variables back in the dataset
+        """
+        args = (block[x].data for x in list_inputs)
+        res = func(*args)
+
+        if not isinstance(res, tuple):
+            res = (res,)
+        assert len(res) == len(outputs), \
+            f'function has {len(res)} outputs, but {len(outputs)} were expected.'
+
+        for i, r in enumerate(res):
+            varname = outputs[i][0]
+            block[varname] = (out_dims[i], r)
+
+        if reset:
+            # return only the output variables
+            return block[[x[0] for x in outputs]]
+        else:
+            # return all variables
+            return block
+
+    if True in [isinstance(ds_in[x].data, da.Array) for x in ds_in]:
+        # if any of the input DataArrays is a dask array, use xr.map_blocks
+        return xr.map_blocks(wrapper, ds_in)
+    else:
+        # none of the input DataArray is a dask Array: run the wrapper directly
+        return wrapper(ds_in)

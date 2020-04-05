@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from tests.dummy_products import dummy_level1
 import dask.array as da
 import dask
 import xarray as xr
 import numpy as np
+from tests.test_common import make_dataset
 from eoread.process import Blockwise
 from eoread.olci import Level1_OLCI
 from eoread.process import coerce_dtype, blockwise_method, blockwise_function
+import eoread
 dask.config.set(scheduler='single-threaded')
 
 
@@ -44,12 +45,12 @@ def test_blockwise_basic():
                                  # this dimensions disappears from the output.
         print('Applying f to', Rtoa.shape, sza.shape)
         return (Rtoa*1.01+sza)[:2, :, :]
-    l1 = dummy_level1()
+    l1 = make_dataset()
 
     res = da.blockwise(
         f, [0, 1, 2,],
-        l1.Rtoa.data, [3, 1, 2],
-        l1.sza.data, [1, 2],
+        l1.rho_toa.data, [3, 1, 2],
+        l1.lat.data, [1, 2],
         # dtype='float32',
         new_axes={0: 2},
         meta=np.array([], dtype='float32'), # otherwise f is called
@@ -71,17 +72,17 @@ def test_blockwise_class():
             print('Apply', Rtoa.shape)
             self.nrun += 1
             return Rtoa**2
-    l1 = dummy_level1()
+    l1 = make_dataset()
 
     proc = Processor()
     res = da.blockwise(
         proc.run, [1, 2, 3],
-        l1.Rtoa.data, [1, 2, 3],
+        l1.rho_toa.data, [1, 2, 3],
         )
     print(res.shape)
     print(res.compute().shape)
     assert res.compute().shape == res.shape
-    np.testing.assert_allclose(res, l1.Rtoa**2)
+    np.testing.assert_allclose(res, l1.rho_toa**2)
 
 
 @pytest.mark.parametrize('n', [50, None])
@@ -92,24 +93,25 @@ def test_blockwise_1(n):
     def f(sza):
         return sza
 
-    l1 = dummy_level1().isel(
-        width=slice(0, n),
-        height=slice(0, n))
+    l1 = make_dataset().isel(
+        x=slice(0, n),
+        y=slice(0, n))
 
     blk = Blockwise(
         f,
-        dims_blockwise=('width', 'height'),
-        dims_out=[('width', 'height')],
+        dims_blockwise=('x', 'y'),
+        dims_out=[('x', 'y')],
         dtypes=['float64'])
-    res = blk(l1.sza)
+    res = blk(l1.lat)
 
     assert not isinstance(res.data, np.ndarray) # output should be a dask array
-    assert res.shape == l1.sza.shape
-    np.testing.assert_allclose(res, l1.sza)
+    assert res.shape == l1.lat.shape
+    np.testing.assert_allclose(res, l1.lat)
 
 
 @pytest.mark.parametrize('i', [0, 1, 2])
-@pytest.mark.parametrize('size,chunksize', [(200, 100), (1, 1)])
+@pytest.mark.parametrize('size,chunksize', [(200, 100),
+                                            (1, 1)])
 def test_blockwise_2(i, size, chunksize):
     '''
     Multiple inputs, multiple outputs
@@ -117,19 +119,19 @@ def test_blockwise_2(i, size, chunksize):
     def f(Rtoa, sza):
         return Rtoa, sza, (sza > 0).astype('uint8')
 
-    l1 = dummy_level1(size, chunksize)
-    dims2 = ('width', 'height')
-    dims3 = ('band', 'width', 'height')
+    l1 = make_dataset((size, size), chunks=chunksize)
+    dims2 = ('x', 'y')
+    dims3 = ('bands', 'x', 'y')
     blk = Blockwise(
         f,
-        dims_blockwise=('width', 'height'),
+        dims_blockwise=('x', 'y'),
         dims_out=[dims3, dims2, dims2],
-        dtypes=['float32', 'float64', 'uint8'])
-    res1 = blk(l1.Rtoa, l1.sza)
+        dtypes=['float64', 'float64', 'uint8'])
+    res1 = blk(l1.rho_toa, l1.lat)
 
     assert blk.dtype_coerce == np.dtype('float64')
 
-    res2 = f(l1.Rtoa.compute(), l1.sza.compute())
+    res2 = f(l1.rho_toa.compute(), l1.lat.compute())
     np.testing.assert_allclose(res1[i], res2[i])
 
 
@@ -137,20 +139,20 @@ def test_blockwise_3():
     '''
     Multiple inputs, no output
     '''
-    def f(Rtoa, sza):
-        assert Rtoa.ndims == 3
-        assert sza.ndims == 2
+    def f(rho_toa, lat):
+        assert rho_toa.ndims == 3
+        assert lat.ndims == 2
         return None
 
-    l1 = dummy_level1()
+    l1 = make_dataset()
 
     blk = Blockwise(
         f,
-        dims_blockwise=('width', 'height'),
+        dims_blockwise=('x', 'y'),
         dims_out=[],
         dtypes=[])
 
-    blk(l1.Rtoa, l1.sza)
+    blk(l1.rho_toa, l1.lat)
 
 
 @pytest.mark.parametrize('i', [0, 1, 2])
@@ -187,21 +189,21 @@ def test_showcase(i):
 
 
 def test_decorator_1():
-    dims2 = ('width', 'height')
-    dims3 = ('band', 'width', 'height')
+    dims2 = ('x', 'y')
+    dims3 = ('bands', 'x', 'y')
     @blockwise_function(
         dims_blockwise=dims2,
         dims_out=[dims3, dims2, dims2],
         dtypes=['float32', 'float64', 'uint8'])
-    def f(sza, Rtoa):
-        return Rtoa, sza, (sza > 0).astype('uint8')
+    def f(lat, rho_toa):
+        return rho_toa.astype('float32'), lat, (lat > 0).astype('uint8')
     
-    l1 = dummy_level1()
-    res = f(l1.sza, l1.Rtoa)
+    l1 = make_dataset()
+    res = f(l1.lat, l1.rho_toa)
 
-    np.testing.assert_allclose(res[0], l1.Rtoa.compute())
-    np.testing.assert_allclose(res[1], l1.sza.compute())
-    np.testing.assert_allclose(res[2], (l1.sza > 0).compute())
+    np.testing.assert_allclose(res[0], l1.rho_toa.compute())
+    np.testing.assert_allclose(res[1], l1.lat.compute())
+    np.testing.assert_allclose(res[2], (l1.lat > 0).compute())
 
 
 def test_with_a_processing_class():
@@ -212,18 +214,18 @@ def test_with_a_processing_class():
         def __init__(self):
             pass
 
-        def run(self, Rtoa, sza):
-            return Rtoa+sza, sza**2
+        def run(self, rho_toa, lat):
+            return rho_toa+lat, lat**2
 
-    l1 = dummy_level1()
+    l1 = make_dataset()
     proc = Process()
     res0 = Blockwise(
         proc.run,
-        dims_blockwise=('width', 'height'),
-        dims_out=[('band', 'width', 'height'),
-                  ('width', 'height')],
-        dtypes=['float64', 'float64'])(l1.Rtoa, l1.sza)
-    res1 = proc.run(l1.Rtoa, l1.sza)
+        dims_blockwise=('x', 'y'),
+        dims_out=[('bands', 'x', 'y'),
+                  ('x', 'y')],
+        dtypes=['float64', 'float64'])(l1.rho_toa, l1.lat)
+    res1 = proc.run(l1.rho_toa, l1.lat)
 
     np.testing.assert_allclose(res0[0], res1[0])
     np.testing.assert_allclose(res0[1], res1[1])
@@ -242,17 +244,17 @@ def test_with_a_processing_class_decorator_1():
             return Rtoa+sza, sza**2
 
         @blockwise_method(
-            dims_blockwise=('width', 'height'),
-            dims_out=[('band', 'width', 'height'),
-                      ('width', 'height')],
+            dims_blockwise=('x', 'y'),
+            dims_out=[('bands', 'x', 'y'),
+                      ('x', 'y')],
             dtypes=['float64', 'float64'])
-        def run_blockwise(self, Rtoa, sza):
-            return self.run(Rtoa, sza)
+        def run_blockwise(self, rho_toa, lat):
+            return self.run(rho_toa, lat)
 
-    l1 = dummy_level1()
+    l1 = make_dataset()
     proc = Process()
-    res0 = proc.run_blockwise(l1.Rtoa, l1.sza)
-    res1 = proc.run(l1.Rtoa, l1.sza)
+    res0 = proc.run_blockwise(l1.rho_toa, l1.lat)
+    res1 = proc.run(l1.rho_toa, l1.lat)
 
     np.testing.assert_allclose(res0[0], res1[0])
     np.testing.assert_allclose(res0[1], res1[1])
@@ -275,15 +277,102 @@ def test_with_a_processing_class_decorator_2():
             return Rtoa+sza, sza**2
 
         @blockwise_method(
-            dims_blockwise=('width', 'height'),
+            dims_blockwise=('x', 'y'),
             dims_out=[],
             dtypes=[])
         def run_blockwise(self, Rtoa, sza):
             return None
 
-    l1 = dummy_level1()
+    l1 = make_dataset()
     proc = Process()
-    proc.run_blockwise(l1.Rtoa, l1.sza)
-    proc.run(l1.Rtoa, l1.sza)
+    proc.run_blockwise(l1.rho_toa, l1.lat)
+    proc.run(l1.rho_toa, l1.lat)
 
     assert proc.nexec > 0
+
+
+@pytest.mark.parametrize('kind', ['function', 'method'])
+@pytest.mark.parametrize('use_dask', [False, True])
+@pytest.mark.parametrize('expand_dims', [False, True])
+@pytest.mark.parametrize('outputs', [
+    # first way to provide the description of the output dimensions:
+    # provide the dimensions directly
+    (('test1', ('bands', 'x', 'y')),
+     ('test2', ('x', 'y')),
+     ('flags', ('x', 'y'))),
+    # second way to provide the description of the output dimensions:
+    # use the same as another variable
+    (('test1', 'rho_toa'),
+     ('test2', 'lat'),
+     ('flags', 'lat')),
+])
+def test_map_blocks(use_dask, outputs, kind, expand_dims):
+    """
+    Main test of eoread.map_blocks
+    """
+    def run(rho_toa, lat, flags):
+        test1 = rho_toa+lat
+        test2 = lat**2
+        flags = flags + (lat > 0)
+        return test1, test2, flags
+
+    class Processor:
+        def __init__(self):
+            self.a = 0
+        def run(self, rho_toa, lat, flags):
+            test1 = rho_toa+lat
+            test2 = lat**self.a
+            flags = flags + (lat > self.a)
+            return test1, test2, flags
+
+    func = {'function': run,
+            'method': Processor().run,
+            }[kind]
+
+    l1 = make_dataset()
+    l1['flags'] = xr.zeros_like(l1.lat, dtype='int')
+    if expand_dims:
+        l1 = l1.sel(x=0, y=0).expand_dims(dim='x', axis=-1).expand_dims(dim='y', axis=-1)
+    if not use_dask:
+        l1 = l1.compute()
+
+    # First method: keep input variables
+    r1 = eoread.map_blocks(
+        func,
+        l1,
+        outputs=outputs,
+    )
+    assert 'lat' in r1
+    assert 'test1' in r1
+    print(r1)
+    r1.compute()
+    assert (r1.flags > 0).any()
+
+    # Second method: pass arguments explicitly
+    r2 = eoread.map_blocks(
+        func,
+        args={
+            'rho_toa': l1.rho_toa,
+            'lat': l1.lat,
+            'flags': l1.flags,
+        },
+        outputs=outputs,
+    )
+    assert 'lat' not in r2
+    assert 'test1' in r2
+    r2.compute()
+    assert (r2.flags > 0).any()
+
+def test_map_blocks_single_output():
+    """
+    Test eoread.map_blocks with a single output
+    """
+    l1 = make_dataset()
+    def process(rho_toa):
+        return rho_toa*1.01
+    eoread.map_blocks(
+        process,
+        l1,
+        outputs=[('rho_toa_modif', 'rho_toa')],
+    )
+
