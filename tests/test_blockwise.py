@@ -103,6 +103,7 @@ def test_blockwise_1(n):
         dtypes=['float64'])
     res = blk(l1.sza)
 
+    assert not isinstance(res.data, np.ndarray) # output should be a dask array
     assert res.shape == l1.sza.shape
     np.testing.assert_allclose(res, l1.sza)
 
