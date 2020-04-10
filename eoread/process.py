@@ -102,7 +102,7 @@ class Blockwise:
         # stack all results
         res_stacked = []
         for i, r in enumerate(res):
-            assert np.array(r).dtype == self.dtypes[i], \
+            assert r.dtype == self.dtypes[i], \
                 f'output {i+1}/{len(res)}: expected dtype {self.dtypes[i]} ' + \
                 f'but received {r.dtype} (in blockwise call to {self.ufunc})'
 
@@ -197,8 +197,6 @@ def coerce_dtype(A, dtype):
     returns the original array
     '''
     dtype = np.dtype(dtype)
-    if not isinstance(A, np.ndarray):
-        A = np.array(A)
 
     if dtype.itemsize > A.dtype.itemsize:
         # coercing to a larger dtype: pad with zeros
