@@ -102,9 +102,14 @@ class Blockwise:
         # stack all results
         res_stacked = []
         for i, r in enumerate(res):
-            assert r.dtype == self.dtypes[i], \
+            if hasattr(r, 'dtype'):
+                rdtype = r.dtype
+            else: # in case of memoryview
+                rdtype = r.base.dtype
+
+            assert rdtype == self.dtypes[i], \
                 f'output {i+1}/{len(res)}: expected dtype {self.dtypes[i]} ' + \
-                f'but received {r.dtype} (in blockwise call to {self.ufunc})'
+                f'but received {rdtype} (in blockwise call to {self.ufunc})'
 
             new_shp = r.shape[-len(self.dims_blockwise):]
             new_shp = (r.size // np.prod(new_shp),) + new_shp
@@ -198,20 +203,25 @@ def coerce_dtype(A, dtype):
     '''
     dtype = np.dtype(dtype)
 
-    if dtype.itemsize > A.dtype.itemsize:
-        # coercing to a larger dtype: pad with zeros
-        n = dtype.itemsize // A.dtype.itemsize
-        assert dtype.itemsize == n * A.dtype.itemsize
+    if hasattr(A, 'dtype'):
+        Adtype = A.dtype
+    else: # in case of memoryview
+        Adtype = A.base.dtype
 
-        B = np.zeros(A.shape + (n,), dtype=A.dtype)
+    if dtype.itemsize > Adtype.itemsize:
+        # coercing to a larger dtype: pad with zeros
+        n = dtype.itemsize // Adtype.itemsize
+        assert dtype.itemsize == n * Adtype.itemsize
+
+        B = np.zeros(A.shape + (n,), dtype=Adtype)
         B[..., 0] = A[...]
         return B.view(dtype)[..., 0]
 
-    elif dtype.itemsize < A.dtype.itemsize:
+    elif dtype.itemsize < Adtype.itemsize:
         # coercing to a smaller dtype: assume it is padded with zeros
         # extract the memory elements corresponding to dtype
-        n = A.dtype.itemsize // dtype.itemsize
-        assert A.dtype.itemsize == n * dtype.itemsize
+        n = Adtype.itemsize // dtype.itemsize
+        assert Adtype.itemsize == n * dtype.itemsize
         return A.view(dtype).reshape(A.shape + (n,))[..., 0]
 
     else:
