@@ -395,8 +395,11 @@ def merge(ds,
         First group represents the new variable name.
         Second group represents the coordinate value
         Ex: r'(.+)_(\d+)'
-            First group matches non-digit.
-            Second group matches digits.
+                First group matches all characters.
+                Second group matches digits.
+            r'(\D+)(\d+)'
+                First group matches non-digit.
+                Second group matches digits.
 
     dtype: data type
         data type of the coordinate items
@@ -406,7 +409,7 @@ def merge(ds,
     if dim is None:
         dim = copy.attrs['split_dimension']
 
-    mapping = {}
+    mapping = {}   # {new_name: [(old_name, value), ...], ...}
     for x in copy:
         m = re.findall(pattern, x)
         if not m:
@@ -426,7 +429,7 @@ def merge(ds,
         coords = [c for x, c in mapping[var]]
         if dim in copy.coords:
             # check that the coordinates are matching
-            existing_coords = list(copy.coords['bands'].data)
+            existing_coords = list(copy.coords[dim].data)
             assert existing_coords == coords
         else:
             copy = copy.assign_coords(**{dim: coords})
