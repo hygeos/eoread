@@ -16,6 +16,7 @@ import xarray as xr
 import cdsapi
 
 from .common import floor_dt, ceil_dt
+from . import eo
 
 
 class ERA5:
@@ -78,11 +79,15 @@ class ERA5:
         else:
             (d0, d1) = (floor_dt(dt, delta), ceil_dt(dt, delta))
 
-        assert d1 > d0
-
         dates = [d0 + i*delta for i in range((d1-d0)//delta + 1)]
 
-        return xr.concat([self.download(d) for d in dates], dim='time')
+        concatenated = xr.concat([self.download(d) for d in dates], dim='time')
+
+        wrapped = eo.wrap(concatenated,
+                          'longitude',
+                          -180, 180)
+
+        return wrapped
 
 
     def download(self, dt):
