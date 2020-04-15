@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import pytest
+from matplotlib import pyplot as plt
 from tests.products import products as p
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
 from . import generic
 from .generic import param, indices
+from .conftest import savefig
 
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
@@ -75,3 +77,18 @@ def test_read(product, param, indices):
 def test_subset(product):
     ds = Level1_OLCI(product['path'])
     generic.test_subset(ds)
+
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_preview(product, param, request):
+    """
+    Generate browses of various products
+    """
+    plt.figure()
+    l1 = Level1_OLCI(product['path'])
+    eo.init_Rtoa(l1)
+    if l1[param].ndim == 2:
+        plt.imshow(l1[param][::10, ::10])
+    elif l1[param].ndim == 3:
+        plt.imshow(l1[param][-1, ::10, ::10])
+    plt.colorbar()
+    savefig(request)
