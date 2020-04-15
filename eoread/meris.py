@@ -155,6 +155,27 @@ def Level1_MERIS(filename,
     ds.attrs[naming.datetime] = d.isoformat()
 
     #
+    # Ancillary data
+    #
+    aux = {}
+    for name in ['zonal_wind',
+                 'merid_wind',
+                 'ozone',
+                 'atm_press']:
+        aux[name] = DataArray_from_array(
+            READ_MERIS(prod.get_band(name), lock),
+            naming.dim2,
+            chunks=chunks,
+        )
+        aux[name].attrs['unit'] = prod.get_band(name).unit
+        aux[name].attrs['description'] = prod.get_band(name).description
+
+    ds[naming.horizontal_wind] = np.sqrt(
+        aux['zonal_wind']**2 + aux['merid_wind']**2)
+    ds[naming.total_ozone] = aux['ozone']
+    ds[naming.sea_level_pressure] = aux['atm_press']
+
+    #
     # Flags
     #
     ds[naming.flags] = xr.zeros_like(ds[naming.lat],
