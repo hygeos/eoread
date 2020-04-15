@@ -214,3 +214,27 @@ def test_floor_ceil_dt():
     delta = timedelta(minutes=15)
     assert floor_dt(dt, delta) == datetime(2020, 3, 3, 14, 15, 00)
     assert ceil_dt(dt, delta) == datetime(2020, 3, 3, 14, 30, 00)
+
+
+@pytest.mark.parametrize('vmin2,vmax2', [
+    (-180, 180),
+    (0, 360),
+])
+@pytest.mark.parametrize('vmin1,vmax1', [
+    (0, 360),
+    (-180, 180),
+])
+def test_wrap(vmin1,vmax1,vmin2,vmax2):
+    print(f'[{vmin1},{vmax1-1}] -> [{vmin2},{vmax2}]')
+    ds = xr.Dataset()
+    ds['A'] = xr.DataArray(np.arange(vmin1, vmax1),
+                           dims=['lon'],
+                           coords=[np.arange(vmin1, vmax1)])
+    print(ds.lon)
+    res = eo.wrap(ds, 'lon', vmin2, vmax2)
+    print(res.lon)
+
+    assert (np.diff(res.lon) > 0).all()
+    assert (res.lon >= vmin2).all()
+    assert (res.lon <= vmax2).all()
+
