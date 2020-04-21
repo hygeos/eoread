@@ -36,7 +36,7 @@ def test_main(pid):
 
 
 @pytest.mark.parametrize('pid', nasa_products)
-def test_read(pid):
+def test_read(pid, param, indices):
     filename = p[pid]['path']
     l1 = Level1_NASA(makeL1C(filename))
     generic.test_read(l1, param, indices)
