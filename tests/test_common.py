@@ -10,6 +10,9 @@ import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
 from eoread.common import floor_dt, ceil_dt
 from eoread import eo
+import dask
+
+dask.config.set(scheduler='single-threaded')
 
 
 def make_dataset():
@@ -199,15 +202,35 @@ def test_broadcast(dimsA, shpA, dimsB, shpB):
 
 
 def test_raiseflag():
+    shp = (13, 7)
     flags = xr.DataArray(
-        np.zeros((15, 15), dtype='uint16')
+        da.zeros(shp,
+                 dtype='uint16',
+                 chunks=5)
     )
-    A = xr.DataArray(np.random.randn(15, 15))
-    eo.raiseflag(flags, 'FLAG_1', 2, A > 0)
-    with pytest.raises(AssertionError):
-        eo.raiseflag(flags, 'FLAG_2', 2, A > 0.1)
 
-    eo.raiseflag(flags, 'FLAG_2', 4, A > 0.1)
+    # raise a flag using binary
+    A = xr.DataArray(
+        da.random.random_integers(0, 10, size=shp, chunks=5)
+    )
+    assert (A & 3).any()
+    assert not flags.any()
+    eo.raiseflag(flags, 'FLAG_1', 1, A & 3)
+    assert flags.any()
+
+    # raising a second flag with same value raises an error
+    with pytest.raises(AssertionError):
+        eo.raiseflag(flags, 'FLAG_2', 1, A > 0)
+
+    # raising the same flag with a different value raises an error
+    with pytest.raises(AssertionError):
+        eo.raiseflag(flags, 'FLAG_1', 2, A > 0)
+
+    # raise a second flag
+    eo.raiseflag(flags, 'FLAG_2', 4, A > 1)
+
+    assert (flags > 0).any()
+
 
 def test_floor_ceil_dt():
     dt = datetime(2020, 3, 3, 14, 26, 48)
