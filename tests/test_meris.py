@@ -59,3 +59,12 @@ def test_read(product, param, indices, chunks):
 def test_subset(product):
     l1 = Level1_MERIS(product['path'])
     generic.test_subset(l1)
+
+
+@pytest.mark.parametrize('product', meris_products)
+def test_flag(product):
+    """
+    Check that flags are properly raised
+    """
+    l1 = Level1_MERIS(product['path'])
+    assert (l1.flags > 0).any()

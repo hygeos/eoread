@@ -92,3 +92,13 @@ def test_preview(product, param, request):
         plt.imshow(l1[param][-1, ::10, ::10])
     plt.colorbar()
     savefig(request)
+
+
+@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
+def test_flag(product):
+    """
+    Check that flags are properly raised
+    """
+    l1 = Level1_OLCI(product['path'])
+    assert (l1.quality_flags > 0).any()
+    assert (l1.flags > 0).any()
