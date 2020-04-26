@@ -529,7 +529,7 @@ def raiseflag(A, flag_name, flag_value, condition):
             f'Flag {flag_name} already exists with a different value'
     else:
         assert flag_value not in flags.values(), \
-            f'Flag value {flag_value} is already assigned to a different flags'
+            f'Flag value {flag_value} is already assigned to a different flags (assigned flags are {flags.values()})'
 
         flags[flag_name] = flag_value
 
@@ -540,7 +540,7 @@ def raiseflag(A, flag_name, flag_value, condition):
         A.attrs[naming.flags_masks] = np.array(values, dtype=dtype_flag_masks)
 
     notraised = (A & flag_value) == 0
-    A += flag_value * (condition & notraised).astype(naming.flags_dtype)
+    A += flag_value * ((condition != 0) & notraised).astype(naming.flags_dtype)
 
 
 def wrap(ds, dim, vmin, vmax):
