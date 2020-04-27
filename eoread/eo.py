@@ -67,13 +67,14 @@ def init_Rtoa(ds):
 
 def scattering_angle(mu_s, mu_v, phi):
     """
-    Scattering angle
+    Scattering angle in degrees
 
     mu_s: cos of the sun zenith angle
     mu_v: cos of the view zenith angle
     phi: relative azimuth angle in degrees
     """
-    return -mu_s*mu_v - sqrt((1.-mu_s*mu_s)*(1.-mu_v*mu_v)) * cos(radians(phi))
+    sa = -mu_s*mu_v - sqrt((1.-mu_s*mu_s)*(1.-mu_v*mu_v)) * cos(radians(phi))
+    return np.arccos(sa)*180./np.pi
 
 
 def init_geometry(ds, scat_angle=False):
