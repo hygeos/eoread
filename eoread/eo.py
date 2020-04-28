@@ -360,7 +360,7 @@ def split(d, dim, sep='_'):
 
     if isinstance(d, xr.DataArray):
         m = xr.merge([
-            d.isel(**{dim: i}).rename(f'{d.name}{sep}{d[dim].data[i]}').drop(dim)
+            d.isel(**{dim: i}).rename(f'{d.name}{sep}{d[dim].data[i]}').drop_vars(dim)
             for i in range(len(d[dim]))
             ])
     elif isinstance(d, xr.Dataset):
