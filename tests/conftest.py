@@ -92,6 +92,7 @@ def savefig(request, **kwargs):
     fp = io.BytesIO()
     plt.savefig(fp, **kwargs)
     add_image_to_report(request, fp)
+    plt.close('all')
 
 
 @pytest.hookimpl(hookwrapper=True)
