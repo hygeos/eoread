@@ -148,9 +148,12 @@ def sub(ds, cond, drop_invalid=True, int_default_value=0):
 
     cond : a DataArray of booleans that defines which pixels are kept
 
-    drop_invalid, bool : if True invalid pixels will be replace by nan for floats and int_default_value for other types
+    drop_invalid, bool
+        if True invalid pixels will be replace by nan for floats and
+        int_default_value for other types
 
-    int_default_value, int : for DataArrays of type int, this value is assigned on non-valid pixels
+    int_default_value, int
+        for DataArrays of type int, this value is assigned on non-valid pixels
     '''
     res = xr.Dataset()
 
@@ -380,6 +383,7 @@ def split(d, dim, sep='_'):
 
 def merge(ds,
           dim=None,
+          varname=None,
           pattern=r'(.+)_(\d+)',
           dtype=int):
     r"""
@@ -390,17 +394,24 @@ def merge(ds,
     dim: str or None
         name of the new or existing dimension
         if None, use the attribute `split_dimension`
+    
+    varname: str or None
+        name of the variable to create
+        if None, detect variable name from regular expression
 
     pattern: str
-        Regular expression for matching variable names - must consist of two groups.
-        First group represents the new variable name.
-        Second group represents the coordinate value
-        Ex: r'(.+)_(\d+)'
-                First group matches all characters.
-                Second group matches digits.
-            r'(\D+)(\d+)'
-                First group matches non-digit.
-                Second group matches digits.
+        Regular expression for matching variable names and coordinates
+        if varname is None:
+            First group represents the new variable name.
+            Second group represents the coordinate value
+            Ex: r'(.+)_(\d+)'
+                    First group matches all characters.
+                    Second group matches digits.
+                r'(\D+)(\d+)'
+                    First group matches non-digit.
+                    Second group matches digits.
+        if varname is not None:
+            Match a single group representing the coordinate value
 
     dtype: data type
         data type of the coordinate items
@@ -416,8 +427,14 @@ def merge(ds,
         if not m:
             continue  # does not match
         assert len(m) == 1, 'Expecting a single match'
-        assert len(m[0]) == 2, 'Expecting two groups in regular expression'
-        var, coord = m[0]
+
+        if varname is None:
+            assert len(m[0]) == 2, 'Expecting two groups in regular expression'
+            var, coord = m[0]
+        else:
+            assert not isinstance(m[0], tuple), 'Expecting a single group in regular expression'
+            coord = m[0]
+            var = varname
         c = dtype(coord)
 
         if var not in mapping:
@@ -496,7 +513,7 @@ def getflag(A, name):
 
     assert name in flags, f'Error, {name} no in {list(flags)}'
 
-    return (A & flags[name]) != 0 
+    return (A & flags[name]) != 0
 
 
 def raiseflag(A, flag_name, flag_value, condition):
@@ -569,7 +586,7 @@ def wrap(ds, dim, vmin, vmax):
 
     left = ds.sel({dim: slice(None, pivot)})
     right = ds.sel({dim: slice(pivot, None)})
-    
+
     if right[dim][-1] > vmax:
         # apply the offset at the right part
         right = right.assign_coords({dim: right[dim] - (vmax-vmin)})

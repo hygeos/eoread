@@ -66,6 +66,9 @@ def test_split_without_coords():
 
 
 def test_merge():
+    """
+    Merge many variables
+    """
     # create a dataset
     l1 = make_dataset()
     l1s = eo.split(l1, 'bands')
@@ -73,6 +76,19 @@ def test_merge():
     print('Original:', l1)
     print('Merged:', l1m)
     assert l1m.equals(l1)
+
+def test_merge2():
+    """
+    Merge a single variable
+    """
+    l1 = make_dataset()
+    l1s = eo.split(l1, 'bands')
+    l1m = eo.merge(l1s,
+        dim='bands',
+        varname='rho_w',
+        pattern=r'rho_w_(\d+)')
+    print('Original:', l1)
+    print('Merged:', l1m)
 
 
 def test_merge_inconsistent_dimension():
