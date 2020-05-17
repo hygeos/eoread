@@ -75,7 +75,10 @@ def add_link_to_report(request, path, name='Link'):
     Makes the link relative to the directory of html output
     """
     assert Path(path).exists()
-    html_output = Path(request.config.getoption("--html")).resolve()
+    htmlo = request.config.getoption("--html")
+    if htmlo is None:
+        return
+    html_output = Path(htmlo).resolve()
     try:
         url = Path(path).resolve().relative_to(html_output.parent)
     except ValueError:
