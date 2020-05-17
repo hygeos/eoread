@@ -448,7 +448,8 @@ def merge(ds,
         if dim in copy.coords:
             # check that the coordinates are matching
             existing_coords = list(copy.coords[dim].data)
-            assert existing_coords == coords
+            assert existing_coords == coords, \
+                f'Error: {existing_coords} != {coords} (in variable {var})'
         else:
             copy = copy.assign_coords(**{dim: coords})
         copy[var] = data
