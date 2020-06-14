@@ -34,11 +34,13 @@ class AtIndex:
 
     def __getitem__(self, key):
         # first index idx using the appropriate dimensions in key
-        idx = self.idx[tuple([key[i] for i in self.pos_dims_idx])].values
+        # use the sync scheduler to avoid launching tasks from tasks
+        idx = self.idx[tuple([key[i] for i in self.pos_dims_idx])].compute(scheduler='sync')
 
         # then index A using the remaining dimensions
-        return self.A.values[tuple([key[i] if k != self.idx_name else idx
-                                    for i, k in enumerate(self.A.dims)])]
+        return self.A.compute(scheduler='sync')[
+            tuple([key[i] if k != self.idx_name else idx
+            for i, k in enumerate(self.A.dims)])]
 
 
 class Interpolator:
@@ -66,7 +68,7 @@ class Interpolator:
         )
         # dtype is not preserved by interp
         # coercing to self.dtype
-        return ret.compute().astype(self.dtype)
+        return ret.compute(scheduler='sync').astype(self.dtype)
 
 
 class Repeat:
@@ -88,7 +90,7 @@ class Repeat:
         indices = [np.arange(self.shape[i], dtype='int')[k]//self.repeats[i]
                    for i, k in enumerate(key)]
         X, Y = np.meshgrid(*indices)
-        return np.array(self.A)[X, Y].transpose()
+        return self.A.data.compute(scheduler='sync')[X, Y].transpose()
 
 
 def DataArray_from_array(A, dims, chunks):
