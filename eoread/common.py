@@ -8,6 +8,8 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from scipy.ndimage import distance_transform_edt
+from itertools import product
+import math as m
 
 
 class AtIndex:
@@ -73,7 +75,7 @@ class Interpolator:
 
 class Repeat:
     '''
-    Repeat elements of `A`
+    Repeat elements of `A` (using np.repeat) as an array-like
 
     Parameters:
     A: DataArray to repeat
@@ -86,11 +88,64 @@ class Repeat:
         self.dtype = A.dtype
         self.A = A
 
-    def __getitem__(self, key):
-        indices = [np.arange(self.shape[i], dtype='int')[k]//self.repeats[i]
-                   for i, k in enumerate(key)]
-        X, Y = np.meshgrid(*indices)
-        return self.A.data.compute(scheduler='sync')[X, Y].transpose()
+    def __getitem__(self, keys):
+        '''
+        getitem implementation for a repeated array
+        '''
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        
+        rep = list(self.repeats)
+        i_src, i_trim = [], []
+        for i, (k, r, s) in enumerate(zip(keys, self.repeats, self.shape)):
+
+            if isinstance(k, slice):
+
+                # all slices shall be int
+                start = k.start or 0
+                stop = k.stop or s
+                step = k.step or 1
+
+                # stop shall be positive
+                if stop < 0:
+                    stop += s
+
+                # use the lowest possible stop to avoid further complications
+                stop -= (stop-start-1) % step
+
+                # index for extraction
+                i_src.append(
+                    slice(start//r,
+                        (stop-1)//r+1,
+                        max(step//r, 1)))
+
+                if step % r:
+                    i_trim.append(slice(
+                        start-r*(start//r),
+                        stop-r*(start//r),
+                        step))
+                else:
+                    # in case step is a multiple of repeat,
+                    # avoid repeating
+                    rep[i] = 1
+                    i_trim.append(slice(None))
+            else:
+                # int indexing
+                if k < 0:
+                    k += s
+                i_src.append(k//r)
+                rep[i] = None
+
+        # extract
+        R = self.A[tuple(i_src)]
+
+        # repeat
+        for idim, r in enumerate([r for r in rep if r is not None]):
+            if r > 1:
+                R = np.repeat(R, r, axis=idim)
+
+        # trim and return
+        return R[tuple(i_trim)]
 
 
 def DataArray_from_array(A, dims, chunks):
@@ -138,7 +193,7 @@ def rectBivariateSpline(A, shp):
 
 def len_slice(s, l):
     '''
-    returns the length of slice `s` applied to an iterable of lenght `l`
+    returns the length of slice `s` applied to an iterable of length `l`
 
     (thus, `len(range(l)[s])`)
     '''

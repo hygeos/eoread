@@ -100,23 +100,66 @@ def test_merge_inconsistent_dimension():
         eo.merge(l1s, 'bands')
 
 
-@pytest.mark.parametrize('A', [
-            np.eye(5),
-            da.eye(5, chunks=2),
-            np.random.rand(5, 10),
-            ])
-def test_repeat(A):
-    rep = (2, 2)
+@pytest.mark.parametrize('A,rep', [
+    (np.random.rand(5), (3,)),
+    (np.random.rand(10, 15), (3, 4)),
+    (da.eye(5, chunks=2), (3, 3)),
+], ids=[
+    'rand.1D',
+    'rand.2D',
+    'dask.eye.2D',
+    ])
+@pytest.mark.parametrize('idx1', [
+    slice(None),
+    slice(None, None, 2),
+    slice(None, None, 3),
+    slice(None, None, 5),
+    slice(4, 11, 3),
+    slice(4, 11),
+    slice(4, 11, 2),
+    slice(None, None, 6),
+    slice(None, 2),
+    slice(1, 2),
+    slice(2, -2),
+    slice(2, None),
+    slice(2, None, 3),
+    slice(2, -2, 3),
+    slice(4, -2, 3),
+    slice(2, -2, 6),
+    slice(4, -2, 6),
+    0,
+    1,
+    -1,
+    -2,
+    -3,
+])
+@pytest.mark.parametrize('idx2', [0, slice(None)])
+def test_repeat(A, rep, idx1, idx2):
     B = Repeat(A, rep)
-    np.testing.assert_allclose(
-        B[0, 0],
-        A[0, 0])
-    for i in range(rep[0]):
-        for j in range(rep[1]):
-            np.testing.assert_allclose(
-                B[i::rep[0], j::rep[1]],
-                A
-                )
+    BB = A.copy()
+    for i, r in enumerate(rep):
+        BB = BB.repeat(r, axis=i)
+
+    if A.ndim == 1:
+        idx = idx1
+    else:
+        idx = (idx1, idx2)
+
+    np.testing.assert_allclose(B[idx], BB[idx])
+
+
+def test_interpolator():
+    A = xr.DataArray(
+        np.eye(5),
+        dims=('x', 'y'),
+        coords={
+            'x': np.arange(5)*2,
+            'y': np.arange(5)*2,
+        })
+    I = Interpolator((10, 10), A)
+    assert I[0, 0] == 1.
+    assert I[1, 0] == 0.5
+
 
 def test_da_from_array_meta():
     """
