@@ -28,7 +28,7 @@ def datetime(ds):
     '''
     Parse datetime (in isoformat) from `ds` attributes
     '''
-    return parse(ds.datetime)
+    return parse(ds.datetime).replace(tzinfo=None)
 
 
 def haversine(lat1, lon1, lat2, lon2, radius=6371):
