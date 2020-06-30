@@ -597,3 +597,30 @@ def wrap(ds, dim, vmin, vmax):
 
     # swaps the two parts
     return xr.concat([right, left], dim=dim)
+
+
+def convert(A, unit_to, unit_from=None):
+    """
+    Unit conversion
+
+    Arguments:
+    ---------
+
+    A: DataArray to convert
+
+    unit_from: str or None
+        unit to convert from. If not provided, uses da.units
+
+    unit_to: str
+        unit to convert to
+    """
+    if unit_from is None:
+        unit_from = A.units
+    
+    if (unit_from in ['kg/m2', 'kg m**-2']) and (unit_to == 'DU'):
+        converted = A/2.1415e-5  # convert kg/m2 to DU
+    else:
+        raise ValueError(f'Unknown conversion from {unit_from} to {unit_to}')
+
+    converted.attrs['units'] = unit_to
+    return converted
