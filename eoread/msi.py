@@ -174,7 +174,7 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunks):
                     arr_resampled += arr.isel(x=slice(i, None, int(xrat)),
                                               y=slice(j, None, int(yrat)))
             arr_resampled /= int(xrat)*int(yrat)
-            arr_resampled = arr_resampled.drop('band')
+            arr_resampled = arr_resampled.drop('band').chunk(chunks)
         else:
             # over-sample
             arr_resampled = DataArray_from_array(
@@ -223,7 +223,7 @@ def msi_read_spectral(ds):
     ds['wav'] = xr.DataArray(
         da.from_array(wav_data),
         dims=(naming.bands),
-    )
+    ).chunk({naming.bands: 1})
 
 
 def msi_read_geometry(ds, tileangles, chunks):

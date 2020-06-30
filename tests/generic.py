@@ -41,6 +41,10 @@ def indices(request):
 
 def test_main(ds):
 
+    # test chunks consistency
+    ds.chunks
+
+
     # check dimensions
     assert n.rows in ds.dims
     assert n.columns in ds.dims
