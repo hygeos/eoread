@@ -64,7 +64,7 @@ def Level1_OLCI(dirname,
     if init_reflectance:
         eo.init_Rtoa(ds)
 
-    return ds
+    return ds.unify_chunks()
 
 
 
