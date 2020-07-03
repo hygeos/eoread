@@ -49,10 +49,17 @@ def test_main(product):
 
 @pytest.mark.parametrize('product', meris_products)
 @pytest.mark.parametrize('chunks', [500, (300, 500)])
-def test_read(product, param, indices, chunks):
+@pytest.mark.parametrize('scheduler', [
+    'single-threaded',
+    'threads',
+    # 'processes',
+    # epr_api does not work with processes
+    # (TypeError: no default __reduce__ due to non-trivial __cinit__)
+])
+def test_read(product, param, indices, chunks, scheduler):
     l1 = Level1_MERIS(product['path'], chunks=chunks)
     eo.init_Rtoa(l1)
-    generic.test_read(l1, param, indices)
+    generic.test_read(l1, param, indices, scheduler)
 
 
 @pytest.mark.parametrize('product', meris_products)
@@ -68,3 +75,4 @@ def test_flag(product):
     """
     l1 = Level1_MERIS(product['path'])
     assert (l1.flags > 0).any()
+

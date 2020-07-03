@@ -8,7 +8,7 @@ from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
 from . import generic
-from .generic import param, indices
+from .generic import param, indices, scheduler
 from .conftest import savefig
 
 
@@ -67,10 +67,10 @@ def test_main(product):
     generic.test_main(ds)
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
-def test_read(product, param, indices):
+def test_read(product, param, indices, scheduler):
     ds = Level1_OLCI(product['path'])
     eo.init_Rtoa(ds)
-    generic.test_read(ds, param, indices)
+    generic.test_read(ds, param, indices, scheduler)
 
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])

@@ -14,7 +14,7 @@ from eoread import eo
 from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
 
 from . import generic
-from .generic import indices, param
+from .generic import indices, param, scheduler
 
 
 sample_landsat8_oli = p['prod_oli_L1']['path']
@@ -68,10 +68,10 @@ def test_main():
     generic.test_main(l1)
 
 
-def test_read(param, indices):
+def test_read(param, indices, scheduler):
     l1 = Level1_L8_OLI(sample_landsat8_oli)
     eo.init_geometry(l1)
-    generic.test_read(l1, param, indices)
+    generic.test_read(l1, param, indices, scheduler)
 
 
 def test_subset():

@@ -81,9 +81,13 @@ def test_main(S2_product):
     generic.test_main(S2_product)
 
 
-def test_read(S2_product, param, indices):
+@pytest.mark.parametrize('scheduler', [
+    'single-threaded',
+    'threads',
+])
+def test_read(S2_product, param, indices, scheduler):
     eo.init_geometry(S2_product)
-    generic.test_read(S2_product, param, indices)
+    generic.test_read(S2_product, param, indices, scheduler)
 
 
 def test_subset(S2_product):

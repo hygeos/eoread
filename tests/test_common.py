@@ -8,14 +8,26 @@ import xarray as xr
 import numpy as np
 import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
-from eoread.common import floor_dt, ceil_dt
+from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread import eo
 import dask
 
 dask.config.set(scheduler='single-threaded')
 
+class VerboseArray:
+    def __init__(self, A, name=None, verbose=False):
+        self.A = A
+        self.shape = A.shape
+        self.dtype = A.dtype
+        self.ndim = A.ndim
+        self.name = name
+        self.verbose = verbose
 
-#TODO: should replace dummy_product
+    def __getitem__(self, keys):
+        if self.verbose:
+            print('Reading', self.name, keys)
+        return self.A[keys]
+
 
 def make_dataset(shp=(10, 12), chunks=6):
     l1 = xr.Dataset()
@@ -24,12 +36,22 @@ def make_dataset(shp=(10, 12), chunks=6):
     shp3 = (len(bands),) + shp
     dims2 = ('x', 'y')
     dims3 = ('bands', 'x', 'y')
-    l1['rho_toa'] = xr.DataArray(da.random.random(shp3, chunks=chunks), dims=dims3)
-    l1['rho_w'] = xr.DataArray(da.random.random(shp3, chunks=chunks), dims=dims3)
-    l1['lat'] = xr.DataArray(da.random.random(shp2, chunks=chunks), dims=dims2)
-    l1['lon'] = xr.DataArray(da.random.random(shp2, chunks=chunks), dims=dims2)
+
+    for (name, s, dims, chk) in [
+            ('rho_toa', shp3, dims3, (-1, chunks, chunks)),
+            ('rho_w', shp3, dims3, (-1, chunks, chunks)),
+            ('lat', shp2, dims2, (chunks, chunks)),
+            ('lon', shp2, dims2, (chunks, chunks)),
+        ]:
+        l1[name] = xr.DataArray(
+            da.from_array(VerboseArray(np.random.random(s),
+                                       name=name,
+                                       verbose=True),
+                          chunks=chk,
+                          name=name,
+                          ),
+            dims=dims)
     l1 = l1.assign_coords(bands=bands)
-    l1 = l1.chunk({'bands': -1})
 
     # set some attributes
     l1.attrs['sensor'] = 'OLCI'

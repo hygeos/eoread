@@ -18,6 +18,14 @@ from eoread.naming import naming as n
 
 
 @pytest.fixture(params=[
+    'single-threaded',
+    'threads',
+    # 'processes',
+])
+def scheduler(request):
+    return request.param
+
+@pytest.fixture(params=[
     n.Rtoa,
     n.lat,
     n.lon,
@@ -76,11 +84,11 @@ def test_main(ds):
     # TODO: test footprint
 
 
-def test_read(ds, param, indices):
+def test_read(ds, param, indices, scheduler):
     idx1, idx2 = indices
     assert param in ds
 
-    with dask.config.set(scheduler='single-threaded'):
+    with dask.config.set(scheduler=scheduler):
         # v = da.compute()
         expected_dtype = np.dtype(n.expected_dtypes[param])
 
