@@ -101,7 +101,7 @@ def init_geometry(ds, scat_angle=False):
     # scattering angle
     if scat_angle:
         ds['scat_angle'] = scattering_angle(ds.mus, ds.muv, ds.raa)
-        ds['scat_angle'].attrs = 'scattering angle'
+        ds['scat_angle'].attrs['description'] = 'scattering angle'
 
     return ds
 
