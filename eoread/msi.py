@@ -309,8 +309,9 @@ class LATLON:
                 XDIM = int(e.find('XDIM').text)
                 YDIM = int(e.find('YDIM').text)
 
-        self.x = ULX + XDIM*np.arange(ds.totalheight)
-        self.y = ULY + YDIM*np.arange(ds.totalwidth)
+        assert (XDIM%2 == 0) and (YDIM%2 == 0)
+        self.x = ULX + XDIM//2 + XDIM*np.arange(ds.totalheight)
+        self.y = ULY + YDIM//2 + YDIM*np.arange(ds.totalwidth)
 
         self.shape = (ds.totalheight, ds.totalwidth)
         self.ndim = 2
