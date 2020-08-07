@@ -624,3 +624,18 @@ def convert(A, unit_to, unit_from=None):
 
     converted.attrs['units'] = unit_to
     return converted
+
+
+def chunk(ds, **kwargs):
+    """
+    Apply rechunking to a xr.Dataset `ds` along dimensions provided as kwargs
+
+    Works like `ds.chunk` but works also for Datasets with repeated dimensions.
+    """
+
+    for var in ds:
+        chks = [kwargs[d] if d in kwargs else None for d in ds[var].dims]
+        if hasattr(ds[var].data, 'chunks') and len([c for c in chks if c is not None]):
+            ds[var].data = ds[var].data.rechunk(chks)
+            
+    return ds

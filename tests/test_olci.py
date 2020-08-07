@@ -18,6 +18,9 @@ p = get_sample_products()
 def test_olci_level1(product):
     ds = Level1_OLCI(product['path'])
 
+    ds = eo.chunk(ds, bands=-1)
+    ds.chunks    # check that it returned valid chunks
+
     # test method contains
     lat = ds.latitude[100, 100]
     lon = ds.longitude[100, 100]
