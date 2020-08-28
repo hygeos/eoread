@@ -19,6 +19,7 @@ import tempfile
 import numpy as np
 import xarray as xr
 import dask.array as da
+import pyproj
 from osgeo import gdal
 import osr
 from . import common
@@ -61,6 +62,7 @@ def Level1_L8_OLI(dirname,
                   radiometry='reflectance',
                   split=False,
                   chunks=500,
+                  use_gdal=False,
                   ):
     '''
     Landsat-8 OLI reader.
@@ -103,7 +105,7 @@ def Level1_L8_OLI(dirname,
         datetime.time(t.hour, t.minute, t.second)
     ).isoformat()
 
-    read_coordinates(ds, dirname, chunks)
+    read_coordinates(ds, dirname, chunks, use_gdal)
     read_geometry(ds, dirname, l8_angles)
     ds = read_radiometry(
         ds, dirname, split, data_mtl, radiometry, chunks)
@@ -138,17 +140,17 @@ def read_metadata(dirname):
     return data_mtl
 
 
-def read_coordinates(ds, dirname, chunks):
+def read_coordinates(ds, dirname, chunks, use_gdal):
     '''
     read lat/lon
     '''
     ds[naming.lat] = common.DataArray_from_array(
-        LATLON(dirname, 'lat'),
+        LATLON(use_gdal=use_gdal)(dirname, 'lat'),
         naming.dim2,
         chunks=chunks,
     )
     ds[naming.lon] = common.DataArray_from_array(
-        LATLON(dirname, 'lon'),
+        LATLON(use_gdal=use_gdal)(dirname, 'lon'),
         naming.dim2,
         chunks=chunks,
     )
@@ -233,7 +235,14 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
     return ds
 
 
-class LATLON:
+def LATLON(use_gdal=False):
+    if use_gdal:
+        return LATLON_GDAL
+    else:
+        return LATLON_NOGDAL
+
+
+class LATLON_GDAL:
     def __init__(self, dirname, kind, dtype='float32'):
         '''
         kind: 'lat' or 'lon'
@@ -320,6 +329,57 @@ class LATLON:
         else:
             assert self.kind == 'lon'
             return latlon[:, 0].reshape(sy+sx)
+
+
+class LATLON_NOGDAL:
+    def __init__(self, dirname, kind, dtype='float32'):
+        self.kind = kind
+
+        files_B1 = glob(os.path.join(dirname, 'LC*_B1.TIF'))
+        if len(files_B1) != 1:
+            raise Exception('Invalid directory content ({})'.format(files_B1))
+        file_B1 = files_B1[0]
+
+        data = xr.open_rasterio(file_B1)
+
+        height = data.y.size
+        width = data.x.size
+        self.shape = (height, width)
+
+        gt = data.attrs['transform']
+        X0, X1 = (0, width-1)
+        Y0, Y1 = (0, height-1)
+        assert gt[1] == 0
+        assert gt[3] == 0
+        Xmin = gt[2] + X0*gt[0]
+        Xmax = gt[2] + X1*gt[0]
+        Ymin = gt[5] + Y0*gt[4]
+        Ymax = gt[5] + Y1*gt[4]
+
+        self.X = np.linspace(Xmin, Xmax, width)
+        self.Y = np.linspace(Ymin, Ymax, height)
+        self.dtype = np.dtype(dtype)
+        
+        self.latlon = pyproj.Proj("+init=EPSG:4326")   # WGS84
+        self.utm = pyproj.Proj(data.crs)
+
+    def __getitem__(self, keys):
+        x = self.X[keys[1]]
+        y = self.Y[keys[0]]
+        sx = (len(x),) if hasattr(x, '__len__') else ()
+        sy = (len(y),) if hasattr(y, '__len__') else ()
+
+
+        X, Y = np.meshgrid(x, y)
+
+        # lon, lat = self.proj(X, Y, inverse=True)
+        lon, lat = pyproj.transform(self.utm, self.latlon, X, Y)
+
+        if self.kind == 'lat':
+            return lat.astype(self.dtype).reshape(sy+sx)
+        else:
+            return lon.astype(self.dtype).reshape(sy+sx)
+
 
 class TOA_READ:
     '''

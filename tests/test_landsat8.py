@@ -4,6 +4,7 @@
 
 import os
 
+import numpy as np
 import dask
 import pytest
 import xarray as xr
@@ -11,7 +12,7 @@ from osgeo import gdal
 from tests.products import products as p
 
 from eoread import eo
-from eoread.landsat8_oli import LATLON, TOA_READ, Level1_L8_OLI
+from eoread.landsat8_oli import LATLON_GDAL, LATLON_NOGDAL, TOA_READ, Level1_L8_OLI
 
 from . import generic
 from .generic import indices, param, scheduler
@@ -21,9 +22,18 @@ sample_landsat8_oli = p['prod_oli_L1']['path']
 
 @pytest.mark.parametrize('lat_or_lon', ['lat', 'lon'])
 def test_latlon(lat_or_lon):
-    latlon = LATLON(sample_landsat8_oli, lat_or_lon)
-    assert latlon[:20, :10].shape == (20, 10)
-    assert latlon[:20:2, :10:2].shape == (10, 5)
+    latlon_gdal = LATLON_GDAL(sample_landsat8_oli, lat_or_lon)
+    assert latlon_gdal[:20, :10].shape == (20, 10)
+    assert latlon_gdal[:20:2, :10:2].shape == (10, 5)
+
+    latlon_nogdal = LATLON_NOGDAL(sample_landsat8_oli, lat_or_lon)
+    assert latlon_nogdal[:20, :10].shape == (20, 10)
+    assert latlon_nogdal[:20:2, :10:2].shape == (10, 5)
+
+    assert latlon_gdal.shape == latlon_nogdal.shape
+    np.testing.assert_allclose(
+        latlon_gdal[::100, ::100],
+        latlon_nogdal[::100, ::100])
 
 
 @pytest.mark.parametrize('i', range(1, 12))
