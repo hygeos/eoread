@@ -20,11 +20,16 @@ import numpy as np
 import xarray as xr
 import dask.array as da
 import pyproj
-from osgeo import gdal
-import osr
+try:
+    import osr
+    from osgeo import gdal
+except ModuleNotFoundError:
+    osr = None
+    gdal = None
 from . import common
 from .naming import naming
 from . import eo
+from eoread.raster import ArrayLike_GDAL
 
 
 
@@ -108,7 +113,7 @@ def Level1_L8_OLI(dirname,
     read_coordinates(ds, dirname, chunks, use_gdal)
     read_geometry(ds, dirname, l8_angles)
     ds = read_radiometry(
-        ds, dirname, split, data_mtl, radiometry, chunks)
+        ds, dirname, split, data_mtl, radiometry, chunks, use_gdal)
 
     # add center wavelengths
     ds[naming.wav] = xr.DataArray(
@@ -214,7 +219,7 @@ def read_geometry(ds, dirname, l8_angles):
     ds[naming.saa] = (naming.dim2, (data_solar[0, :, :]/100.).astype('float32'))
 
 
-def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
+def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks, use_gdal):
     param = {'reflectance': naming.Rtoa,
              'radiance': naming.Ltoa}[radiometry]
     bnames = []
@@ -222,7 +227,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks):
         bname = (param+'_{}').format(b)
         bnames.append(bname)
         ds[bname] = common.DataArray_from_array(
-            TOA_READ(b, dirname, radiometry, data_mtl),
+            TOA_READ(b, dirname, radiometry, data_mtl, use_gdal=use_gdal),
             naming.dim2,
             chunks=chunks,
         )
@@ -248,6 +253,9 @@ class LATLON_GDAL:
         kind: 'lat' or 'lon'
         '''
         self.kind = kind
+
+        if osr is None:
+            raise Exception('Error, gdal is not available')
 
         files_B1 = glob(os.path.join(dirname, 'LC*_B1.TIF'))
         if len(files_B1) != 1:
@@ -396,6 +404,7 @@ class TOA_READ:
                  dirname,
                  radiometry='reflectance',
                  data_mtl=None,
+                 use_gdal=False,
                  dtype='float32'):
         if data_mtl is None:
             data_mtl = read_metadata(dirname)
@@ -416,33 +425,20 @@ class TOA_READ:
             dirname,
             data_mtl['PRODUCT_METADATA']['FILE_NAME_BAND_{}'.format(band_index[b])])
 
-        assert os.path.exists(self.filename)
-        dset = gdal.Open(self.filename)
-        band = dset.GetRasterBand(1)
+        if use_gdal:
+            self.data = ArrayLike_GDAL(self.filename)
+        else:
+            self.data = xr.open_rasterio(self.filename).isel(band=0)
+
         self.dtype = np.dtype(dtype)
-        self.width = band.XSize
-        self.height = band.YSize
-        self.shape = (self.height, self.width)
+        self.shape = self.data.shape
         self.ndim = 2
 
     def __getitem__(self, keys):
-        ystart = int(keys[0].start) if keys[0].start is not None else 0
-        xstart = int(keys[1].start) if keys[1].start is not None else 0
-        ystop = int(keys[0].stop) if keys[0].stop is not None else self.shape[0]
-        xstop = int(keys[1].stop) if keys[1].stop is not None else self.shape[1]
+        data = self.data[keys]
 
-        dset = gdal.Open(self.filename)   # NOTE: we have to re-open the file each time to avoid a segfault
-        band = dset.GetRasterBand(1)
-        data = band.ReadAsArray(  # NOTE: step is not supported by gdal, have to apply a posteriori
-            xoff=xstart,
-            yoff=ystart,
-            win_xsize=xstop - xstart,
-            win_ysize=ystop - ystart,
-            )[::keys[0].step, ::keys[1].step].astype(self.dtype)
-        assert data is not None
         r = self.M*data + self.A
-        assert r.dtype == self.dtype
-        return r
+        return r.astype(self.dtype)
 
 
 def node(raw, data):

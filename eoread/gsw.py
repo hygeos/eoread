@@ -16,7 +16,6 @@ Create water mask
 
 import argparse
 import xarray as xr
-from osgeo import gdal
 import tempfile
 import numpy as np
 from pathlib import Path
@@ -26,6 +25,7 @@ from urllib.error import HTTPError
 from threading import Lock
 from . import eo
 from .common import bin_centers
+from .raster import ArrayLike_GDAL
 
 lock = Lock()
 
@@ -137,7 +137,7 @@ def fetch_gsw_tile(tile_name, verbose=True):
             fp.write(raw_data)
 
         # read geotiff data
-        data = gdal.Open(t.name).ReadAsArray()
+        data = ArrayLike_GDAL(t.name)[:, :]
 
     data[data == 255] = 100   # fill invalid data (assume water)
 
