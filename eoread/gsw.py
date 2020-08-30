@@ -34,13 +34,14 @@ def url_tile(tile_name):
 
 
 class GSW_tile:
-    def __init__(self, tile_name, agg, directory):
+    def __init__(self, tile_name, agg, directory, use_gdal=False):
         dir_ = Path(directory).resolve()
         N = 40000/agg
         self.shape = (N, N)
         self.dtype = 'uint8'
         self.tile_name = tile_name
         self.agg = agg
+        self.use_gdal = use_gdal
 
         if not dir_.exists():
             raise IOError(
@@ -56,7 +57,9 @@ class GSW_tile:
         else:
             A = xr.DataArray(
                 aggregate(
-                    fetch_gsw_tile(self.tile_name, verbose=True),
+                    fetch_gsw_tile(self.tile_name,
+                                   verbose=True,
+                                   use_gdal=self.use_gdal),
                     agg=self.agg),
                 dims=('height', 'width'),
                 name='occurrence',
@@ -75,13 +78,14 @@ class GSW_tile:
         return A[key]
 
 
-def read_tile(tile_name, agg, directory):
+def read_tile(tile_name, agg, directory, use_gdal=False):
     '''
     Read a single tile as a dask array
 
     Data is accessed on demand
     '''
-    tile = GSW_tile(tile_name, agg, directory)
+    tile = GSW_tile(tile_name, agg,
+                    directory, use_gdal=use_gdal)
     return da.from_array(
         tile,
         meta=np.array([], tile.dtype),
@@ -119,7 +123,7 @@ def aggregate(A, agg=1):
     return (data/(agg*agg)).astype(A.dtype)
 
 
-def fetch_gsw_tile(tile_name, verbose=True):
+def fetch_gsw_tile(tile_name, verbose=True, use_gdal=False):
     """
     Read remote file and returns its content as a numpy array
     """
@@ -137,7 +141,10 @@ def fetch_gsw_tile(tile_name, verbose=True):
             fp.write(raw_data)
 
         # read geotiff data
-        data = ArrayLike_GDAL(t.name)[:, :]
+        if use_gdal:
+            data = ArrayLike_GDAL(t.name)[:, :]
+        else:
+            data = xr.open_rasterio(t.name).isel(band=0).compute(scheduler='sync').values
 
     data[data == 255] = 100   # fill invalid data (assume water)
 
@@ -145,7 +152,8 @@ def fetch_gsw_tile(tile_name, verbose=True):
 
 
 def GSW(directory='data_landmask_gsw',
-        agg=1):
+        agg=1,
+        use_gdal=False):
     """
     Global surface water reader
 
@@ -174,7 +182,10 @@ def GSW(directory='data_landmask_gsw',
 
     # concat the delayed dask objects for all tiles
     gsw = da.concatenate([
-        da.concatenate([read_tile(f'{lon}_{lat}', agg, directory)
+        da.concatenate([read_tile(f'{lon}_{lat}',
+                                  agg,
+                                  directory,
+                                  use_gdal=use_gdal)
                         for lat in lats[::-1]], axis=0)
         for lon in lons], axis=1)
 
