@@ -9,9 +9,10 @@ import pytest
 from eoread import eo
 from eoread.era5 import ERA5
 from eoread.meris import Level1_MERIS
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from . import conftest
 
+p = get_sample_products()
 
 def test_download(request):
     """

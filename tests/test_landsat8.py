@@ -8,7 +8,7 @@ import numpy as np
 import dask
 import pytest
 import xarray as xr
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 
 from eoread import eo
 from eoread.landsat8_oli import LATLON_GDAL, LATLON_NOGDAL, TOA_READ, Level1_L8_OLI
@@ -22,6 +22,7 @@ except ModuleNotFoundError:
     gdal = None
 
 
+p = get_sample_products()
 sample_landsat8_oli = p['prod_oli_L1']['path']
 
 @pytest.mark.parametrize('lat_or_lon', ['lat', 'lon'])

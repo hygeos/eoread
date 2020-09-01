@@ -4,7 +4,7 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from eoread import eo
 from eoread.meris import Level1_MERIS
 
@@ -12,6 +12,7 @@ from . import generic
 from .generic import indices, param
 from .conftest import savefig
 
+p = get_sample_products()
 meris_products = [
     p['prod_meris_L1_20060822'],
     p['prod_meris_L1_20080701'],

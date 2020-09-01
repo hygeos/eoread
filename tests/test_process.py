@@ -7,9 +7,11 @@ import numpy as np
 import pytest
 from eoread.olci import Level1_OLCI
 from eoread.msi import Level1_MSI
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from eoread.process import blockwise_method
 from dask.diagnostics import ProgressBar
+
+p = get_sample_products()
 
 class Calib:
     def __init__(self, bands):

@@ -6,11 +6,12 @@ import numpy as np
 import pytest
 
 from eoread.sgli import Level1_SGLI, calc_central_wavelength
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 
 from . import generic
 from .generic import indices, param
 
+p = get_sample_products()
 sgli_filename = p['prod_sgli']['path']
 
 def test_instantiate():

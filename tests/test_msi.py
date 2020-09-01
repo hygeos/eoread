@@ -5,13 +5,13 @@
 import pytest
 import xarray as xr
 from eoread.msi import Level1_MSI
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from .generic import indices, param
 from . import generic
 from eoread import eo
 
+p = get_sample_products()
 resolutions = ['10', '20', '60']
-
 
 @pytest.fixture
 def product():

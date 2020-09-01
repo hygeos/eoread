@@ -3,13 +3,15 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
 from . import generic
 from .generic import param, indices, scheduler
 from .conftest import savefig
+
+p = get_sample_products()
 
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])

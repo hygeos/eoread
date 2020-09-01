@@ -6,10 +6,11 @@ import xarray as xr
 from matplotlib import pyplot as plt
 from eoread.gsw import GSW, read_tile, fetch_gsw_tile
 from tempfile import TemporaryDirectory
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from eoread.olci import Level1_OLCI
 from . import conftest
 
+p = get_sample_products()
 
 @pytest.mark.parametrize('agg', [4, 8])
 def test_single_tile(request, agg):

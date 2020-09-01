@@ -7,7 +7,9 @@ Define and download test products defined in products.py
 
 import pytest
 from eoread.download import download
-from eoread.sample_products import products, dir_samples
+from eoread.sample_products import get_sample_products
+
+products = get_sample_products()
 
 @pytest.mark.parametrize('product', products.values(),
                          ids=list(products.keys()))

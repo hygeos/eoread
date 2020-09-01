@@ -6,9 +6,11 @@ import pytest
 
 from eoread.nasa import Level1_NASA
 from eoread.make_L1C import makeL1C
-from eoread.sample_products import products as p
+from eoread.sample_products import get_sample_products
 from . import generic
 from .generic import indices, param
+
+p = get_sample_products()
 
 
 nasa_products = [
