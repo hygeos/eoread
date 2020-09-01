@@ -4,7 +4,7 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from tests.products import products as p
+from eoread.sample_products import products as p
 from eoread import eo
 from eoread.meris import Level1_MERIS
 

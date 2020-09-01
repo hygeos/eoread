@@ -5,7 +5,7 @@
 import pytest
 import xarray as xr
 from eoread.msi import Level1_MSI
-from tests.products import products as p
+from eoread.sample_products import products as p
 from .generic import indices, param
 from . import generic
 from eoread import eo

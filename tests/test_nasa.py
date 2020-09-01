@@ -6,7 +6,7 @@ import pytest
 
 from eoread.nasa import Level1_NASA
 from eoread.make_L1C import makeL1C
-from tests.products import products as p
+from eoread.sample_products import products as p
 from . import generic
 from .generic import indices, param
 

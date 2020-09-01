@@ -3,7 +3,7 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from tests.products import products as p
+from eoread.sample_products import products as p
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo

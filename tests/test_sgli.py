@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from eoread.sgli import Level1_SGLI, calc_central_wavelength
-from tests.products import products as p
+from eoread.sample_products import products as p
 
 from . import generic
 from .generic import indices, param

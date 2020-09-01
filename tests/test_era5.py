@@ -9,7 +9,7 @@ import pytest
 from eoread import eo
 from eoread.era5 import ERA5
 from eoread.meris import Level1_MERIS
-from tests.products import products as p
+from eoread.sample_products import products as p
 from . import conftest
 
 

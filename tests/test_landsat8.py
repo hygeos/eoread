@@ -8,7 +8,7 @@ import numpy as np
 import dask
 import pytest
 import xarray as xr
-from tests.products import products as p
+from eoread.sample_products import products as p
 
 from eoread import eo
 from eoread.landsat8_oli import LATLON_GDAL, LATLON_NOGDAL, TOA_READ, Level1_L8_OLI

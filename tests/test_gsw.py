@@ -6,7 +6,7 @@ import xarray as xr
 from matplotlib import pyplot as plt
 from eoread.gsw import GSW, read_tile, fetch_gsw_tile
 from tempfile import TemporaryDirectory
-from tests.products import products as p
+from eoread.sample_products import products as p
 from eoread.olci import Level1_OLCI
 from . import conftest
 
