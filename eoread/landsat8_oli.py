@@ -21,11 +21,13 @@ import xarray as xr
 import dask.array as da
 import pyproj
 try:
-    import osr
-    from osgeo import gdal
+    from osgeo import gdal, osr
+    import osgeo
+    gdal_major_version = int(osgeo.__version__.split('.')[0])
 except ModuleNotFoundError:
     osr = None
     gdal = None
+    gdal_major_version = None
 from . import common
 from .naming import naming
 from . import eo
@@ -264,6 +266,9 @@ class LATLON_GDAL:
 
         b1 = gdal.Open(file_B1)
         old_cs = osr.SpatialReference()
+        if gdal_major_version >= 3:
+            # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+            old_cs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
         old_cs.ImportFromWkt(b1.GetProjectionRef())
 
         # create the new coordinate system
@@ -279,6 +284,9 @@ class LATLON_GDAL:
                 AUTHORITY["EPSG","9122"]],
             AUTHORITY["EPSG","4326"]]"""
         new_cs = osr.SpatialReference()
+        if gdal_major_version >= 3:
+            # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+            new_cs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
         new_cs.ImportFromWkt(wgs84_wkt)
 
         # create a transform object to convert between coordinate systems
