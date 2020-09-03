@@ -8,7 +8,6 @@ authors = ["François Steinmetz <fs@hygeos.com>"]
 python = "^3.6"
 numpy = "^1.19.1"
 matplotlib = "^3.3.1"
-xarray = {git = "https://github.com/pydata/xarray.git"}
 dask = {extras = ["array"], version = "^2.24.0"}
 shapely = "^1.7.1"
 scipy = "^1.5.2"
@@ -19,6 +18,7 @@ pyproj = "^2.6.1"
 lxml = "^4.5.2"
 rasterio = "^1.1.5"
 h5netcdf = "^0.8.1"
+xarray = "^0.16.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.0.1"
