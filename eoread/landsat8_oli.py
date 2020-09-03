@@ -33,6 +33,7 @@ from .naming import naming
 from . import eo
 from eoread.raster import ArrayLike_GDAL
 
+PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
 
 
 bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200]
@@ -379,6 +380,12 @@ class LATLON_NOGDAL:
         self.latlon = pyproj.Proj("+init=EPSG:4326")   # WGS84
         self.utm = pyproj.Proj(data.crs)
 
+        if PYPROJ_VERSION >= 2:
+            # see https://pyproj4.github.io/pyproj/stable/gotchas.html#upgrading-to-pyproj-2-from-pyproj-1
+            self.transformer = pyproj.Transformer.from_proj(self.utm, self.latlon)
+        else:
+            self.transformer = None
+
     def __getitem__(self, keys):
         x = self.X[keys[1]]
         y = self.Y[keys[0]]
@@ -388,8 +395,11 @@ class LATLON_NOGDAL:
 
         X, Y = np.meshgrid(x, y)
 
-        # lon, lat = self.proj(X, Y, inverse=True)
-        lon, lat = pyproj.transform(self.utm, self.latlon, X, Y)
+        if PYPROJ_VERSION >= 2:
+            lon, lat = self.transformer.transform(X, Y)
+        else:
+            lon, lat = pyproj.transform(self.utm, self.latlon, X, Y)
+
 
         if self.kind == 'lat':
             return lat.astype(self.dtype).reshape(sy+sx)
