@@ -3,6 +3,7 @@ name = "eoread"
 version = "0.1.0"
 description = "Modular and flexible implementation of satellite data input/output relying on xarray."
 authors = ["François Steinmetz <fs@hygeos.com>"]
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.6"
