@@ -39,7 +39,10 @@ def Level1_NASA(filename, chunks=500):
     geo_data = xr.open_dataset(filename, group='/geophysical_data', chunks=chunks)
     geo_data = geo_data.rename_dims({'number_of_lines':naming.rows, 'pixels_per_line':naming.columns})
     for n,r,p in [(naming.Rtoa+f'_{b}', f'rhot_{b}', f'polcor_{b}') for b in bands]:
-        ds[n] = geo_data[r]/geo_data[p]
+        try:
+            ds[n] = geo_data[r]/geo_data[p]
+        except:
+            pass
 
     for (name, param) in [(naming.sza, 'solz'),
             (naming.vza, 'senz'),
@@ -59,6 +62,5 @@ def Level1_NASA(filename, chunks=500):
         eo.raiseflag(ds[naming.flags],flag, flags[flag], DataArray_from_array((geo_data.l2_flags&flag_value!=0), naming.dim2, chunks=chunks))
 
     ds = eo.merge(ds, dim=naming.bands)
-    print("longitude : ", ds[naming.lon], ds[naming.lon].dtype)
     return ds
 
