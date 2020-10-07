@@ -9,6 +9,7 @@ import numpy as np
 import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
 from eoread.common import Interpolator, ceil_dt, floor_dt
+from eoread.common import DataArray_from_array
 from eoread import eo
 import dask
 
@@ -16,17 +17,17 @@ dask.config.set(scheduler='single-threaded')
 
 class VerboseArray:
     def __init__(self, A, name=None, verbose=False):
-        self.A = A
+        self._A = A
         self.shape = A.shape
         self.dtype = A.dtype
         self.ndim = A.ndim
-        self.name = name
-        self.verbose = verbose
+        self._name = name
+        self._verbose = verbose
 
     def __getitem__(self, keys):
-        if self.verbose:
-            print('Reading', self.name, keys)
-        return self.A[keys]
+        if self._verbose:
+            print('Reading', self._name, keys)
+        return self._A[keys]
 
 
 def make_dataset(shp=(10, 12), chunks=6):
@@ -43,14 +44,15 @@ def make_dataset(shp=(10, 12), chunks=6):
             ('lat', shp2, dims2, (chunks, chunks)),
             ('lon', shp2, dims2, (chunks, chunks)),
         ]:
-        l1[name] = xr.DataArray(
-            da.from_array(VerboseArray(np.random.random(s),
-                                       name=name,
-                                       verbose=True),
-                          chunks=chk,
-                          name=name,
-                          ),
-            dims=dims)
+        l1[name] = DataArray_from_array(
+            VerboseArray(
+                np.random.random(s),
+                name=name,
+                verbose=True,
+            ),
+            dims=dims,
+            chunks=chk,
+            )
     l1 = l1.assign_coords(bands=bands)
 
     # set some attributes
