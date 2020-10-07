@@ -287,16 +287,18 @@ def map_blocks(
     func: user provided universal function
 
     ds: xr.Dataset or None.
-        Dataset containing the input variables, and which will store the results.
+        Dataset containing the input variables, and which is also updated with the results.
         if None, use an empty Dataset (in which case, the input variables are
-        expected to be provided as kwargs).
+        expected to be provided as args).
         The variable names to be provided to `func` are inferred from the function signature.
-        To provide other variables, pass them as kwargs.
+        To provide other variables, pass them as args.
+        To avoid modifying the input variables, pass a copy of ds.
 
     outputs: iterable of tuples (name, dims)
-        where dims is a string: name of the input variable with the same dimensions
-        Example: (('C', 'A'), ('D', 'B'))  # `func` creates a new variable C with
-        same dimensions as A, and D with same dimensions as B
+        where `dims` is the dimensions of the output variable `name`
+        Example:
+            [('C', ('lambda', 'x', 'y')),  # `func` creates new variables C and D
+             ('D', ('x', 'y'))]
 
     args: dict or None
         dictionary containing the explicit variables.
@@ -311,7 +313,7 @@ def map_blocks(
     Returns:
     -------
 
-    The xr.Dataset containing the results.
+    A xr.Dataset containing only the results (they are also included in `ds`)
 
     Example:
     --------
@@ -324,16 +326,7 @@ def map_blocks(
 
     Apply it to `ds`, using variables from defined in the function signature (`A` and `B`).
     Stores the results (`C` and `D`) back in ds.
-    >>> result = map_blocks(
-    ...     process,
-    ...     ds,
-    ...     outputs=[
-    ...         ('C', 'A'),  # output variable 'C' has same dimensions as 'A'
-    ...         ('D', 'B'),  # output variable 'D' has same dimensions as 'B'
-    ...         ])
-
-    The output dimensions can be provided explicitly:
-    >>> result = map_blocks(process, ds,
+    >>> map_blocks(process, ds,
     ...     outputs=[
     ...         ('C', ('lambda', 'x', 'y')),
     ...         ('D', ('x', 'y')),
@@ -348,8 +341,8 @@ def map_blocks(
     ...         'B': ds.B
     ...     },
     ...     outputs=[
-    ...         ('C', 'A'),  # output variable 'C' has same dimensions as 'A'
-    ...         ('D', 'B'),  # output variable 'D' has same dimensions as 'B'
+    ...         ('C', ds.A.dims),  # output variable 'C' has same dimensions as 'A'
+    ...         ('D', ds.B.dims),  # output variable 'D' has same dimensions as 'B'
     ...         ])
     """
     # get the input variable names from the function signature
@@ -362,7 +355,6 @@ def map_blocks(
     else:
         assert isinstance(ds, xr.Dataset)
         ds_in = ds.copy()  # do not alter the input dataset
-    reset = ds is None
 
     # Add other variables to ds_in from keywords
     if args is not None:
@@ -376,14 +368,9 @@ def map_blocks(
 
     # determine the output dimensions
     out_dims = []
-    for _, d in outputs:
-        if isinstance(d, tuple):
-            out_dims.append(d)
-        elif isinstance(d, str):
-            assert d in ds_in
-            out_dims.append(ds_in[d].dims)
-        else:
-            raise Exception(f'map_blocks: invalid variable descriptor "{d}"')
+    for k, d in outputs:
+        assert isinstance(d, tuple)
+        out_dims.append(d)
 
     @wraps(func)
     def wrapper(block):
@@ -399,20 +386,22 @@ def map_blocks(
         assert len(res) == len(outputs), \
             f'function has {len(res)} outputs, but {len(outputs)} were expected.'
 
+        res_ds = xr.Dataset()
         for i, r in enumerate(res):
             varname = outputs[i][0]
-            block[varname] = (out_dims[i], r)
+            res_ds[varname] = (out_dims[i], r)
 
-        if reset:
-            # return only the output variables
-            return block[[x[0] for x in outputs]]
-        else:
-            # return all variables
-            return block
+        return res_ds
 
     if True in [isinstance(ds_in[x].data, da.Array) for x in ds_in]:
         # if any of the input DataArrays is a dask array, use xr.map_blocks
-        return xr.map_blocks(wrapper, ds_in)
+        ret = xr.map_blocks(wrapper, ds_in)
     else:
         # none of the input DataArray is a dask Array: run the wrapper directly
-        return wrapper(ds_in)
+        ret = wrapper(ds_in)
+    
+    if ds is not None:
+        for (k, _) in outputs:
+            ds[k] = ret[k]
+    
+    return ret

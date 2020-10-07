@@ -294,19 +294,7 @@ def test_with_a_processing_class_decorator_2():
 @pytest.mark.parametrize('kind', ['function', 'method'])
 @pytest.mark.parametrize('use_dask', [False, True])
 @pytest.mark.parametrize('expand_dims', [False, True])
-@pytest.mark.parametrize('outputs', [
-    # first way to provide the description of the output dimensions:
-    # provide the dimensions directly
-    (('test1', ('bands', 'x', 'y')),
-     ('test2', ('x', 'y')),
-     ('flags', ('x', 'y'))),
-    # second way to provide the description of the output dimensions:
-    # use the same as another variable
-    (('test1', 'rho_toa'),
-     ('test2', 'lat'),
-     ('flags', 'lat')),
-])
-def test_map_blocks(use_dask, outputs, kind, expand_dims):
+def test_map_blocks(use_dask, kind, expand_dims):
     """
     Main test of eoread.map_blocks
     """
@@ -324,6 +312,9 @@ def test_map_blocks(use_dask, outputs, kind, expand_dims):
             test2 = lat**self.a
             flags = flags + (lat > self.a)
             return test1, test2, flags
+    outputs = (('test1', ('bands', 'x', 'y')),
+               ('test2', ('x', 'y')),
+               ('flags', ('x', 'y')))
 
     func = {'function': run,
             'method': Processor().run,
@@ -342,10 +333,12 @@ def test_map_blocks(use_dask, outputs, kind, expand_dims):
         l1,
         outputs=outputs,
     )
-    assert 'lat' in r1
+    assert 'lat' not in r1
     assert 'test1' in r1
+    assert 'test1' in l1
     print(r1)
     r1.compute()
+    l1.compute()
     assert (r1.flags > 0).any()
 
     # Second method: pass arguments explicitly
@@ -373,6 +366,6 @@ def test_map_blocks_single_output():
     eoread.map_blocks(
         process,
         l1,
-        outputs=[('rho_toa_modif', 'rho_toa')],
+        outputs=[('rho_toa_modif', l1.rho_toa.dims)],
     )
 
