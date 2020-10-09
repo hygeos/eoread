@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "eoread"
-version = "0.1.0-dev"
+version = "0.1.1"
 description = "Modular and flexible implementation of satellite data input/output relying on xarray."
 authors = ["François Steinmetz <fs@hygeos.com>"]
 readme = "README.md"
