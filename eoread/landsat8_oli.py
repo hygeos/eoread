@@ -136,7 +136,7 @@ def Level1_L8_OLI(dirname,
     ds.attrs[naming.input_directory] = os.path.dirname(os.path.abspath(dirname))
 
 
-    return ds
+    return ds.unify_chunks()
 
 
 def read_metadata(dirname):

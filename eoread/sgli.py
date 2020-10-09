@@ -104,7 +104,7 @@ def Level1_SGLI(filename,
         dims=(naming.bands),
     )
 
-    return ds
+    return ds.unify_chunks()
 
 
 def init_toa(ds, imdata, split):

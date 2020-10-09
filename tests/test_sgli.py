@@ -33,7 +33,7 @@ def test_main():
 
 def test_read(param, indices):
     ds = Level1_SGLI(sgli_filename)
-    generic.test_read(ds, param, indices)
+    generic.test_read(ds, param, indices, scheduler='sync')
 
 
 def test_subset():
