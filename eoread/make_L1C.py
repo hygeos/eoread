@@ -48,7 +48,7 @@ def makeL1C_MODIS(l1a, dirname):
             print(f'Skipping existing {l1c}')
         else:
             # gen GEO
-            cmd = f'modis_GEO.py --output={l1b} {l1a}'
+            cmd = f'modis_GEO.py --output={geo} {l1a}'
             print(cmd)
             if os.system(cmd):
                 raise Exception('Error in modis_GEO')
