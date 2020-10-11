@@ -301,19 +301,18 @@ def test_map_blocks(use_dask, kind, expand_dims):
     def run(rho_toa, lat, flags):
         test1 = rho_toa+lat
         test2 = lat**2
+        test3 = np.random.rand(3, *lat.shape)
         flags = flags + (lat > 0)
-        return test1, test2, flags
+        return test1, test2, test3, flags
 
     class Processor:
         def __init__(self):
             self.a = 0
         def run(self, rho_toa, lat, flags):
-            test1 = rho_toa+lat
-            test2 = lat**self.a
-            flags = flags + (lat > self.a)
-            return test1, test2, flags
+            return run(rho_toa, lat, flags)
     outputs = (('test1', ('bands', 'x', 'y')),
                ('test2', ('x', 'y')),
+               ('test3', ('z', 'x', 'y')),
                ('flags', ('x', 'y')))
 
     func = {'function': run,
