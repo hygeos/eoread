@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
+from tempfile import TemporaryDirectory
 import pytest
-
-from eoread.nasa import Level1_NASA
+from eoread.nasa import Level1_NASA, nasa_download
 from eoread.make_L1C import makeL1C
 from eoread.sample_products import get_sample_products
 from . import generic
@@ -49,3 +49,12 @@ def test_subset(pid):
     filename = p[pid]['path']
     l1 = Level1_NASA(makeL1C(filename))
     generic.test_subset(l1)
+
+@pytest.mark.skip('requires credentials')
+def test_download():
+    with TemporaryDirectory() as tmpdir:
+        f = nasa_download(
+            'N198800600_O3_N7TOMS_24h.hdf',
+            tmpdir)
+        assert f.exists()
+        

@@ -8,7 +8,7 @@ from pathlib import Path
 import os
 from sys import argv
 from tempfile import TemporaryDirectory
-from .download import safe_move
+from .misc import safe_move
 
 
 def makeL1C(filename_l1a, dirname=None):
@@ -129,7 +129,7 @@ def run_l2gen_L1C(ifile, l1c, nbands, geofile=None):
 
         assert l1c_tmp.exists()
 
-        safe_move(l1c_tmp, l1c.parent)
+        safe_move(l1c_tmp, l1c)
     
     assert l1c.exists()
 

@@ -15,6 +15,41 @@ from . import eo
 import numpy as np
 from datetime import datetime
 from os.path import dirname
+from os import system
+from pathlib import Path
+from .download import download_url
+
+
+def check_nasa_download(filename):
+    '''
+    sanity check of file downloaded on NASA earthdata
+    check that downloaded file is not HTML
+    raise an error if it is not the case (authentication error)
+    '''
+    errormsg = 'Error authenticating to NASA EarthData for downloading ancillary data. ' \
+    'Please provide authentication through .netrc. See more information on ' \
+    'https://support.earthdata.nasa.gov/index.php?/Knowledgebase/Article/View/43/21/how-to-access-urs-gated-data-with-curl-and-wget'
+    with open(filename, 'rb') as fp:
+        assert not fp.read(100).startswith(b'<!DOCTYPE html>'), errormsg
+
+
+def nasa_download(product, dirname, tmpdir=None, verbose=True):
+    '''
+    Download a product on oceandata.sci.gsfc.nasa.gov
+
+    Example:
+        nasa_download('A2005005002500.L1A_LAC.bz2', '/data/')
+    '''
+    url = f'https://oceandata.sci.gsfc.nasa.gov/ob/getfile/{product}'
+    return download_url(
+        url,
+        dirname,
+        verbose=verbose,
+        tmpdir=tmpdir,
+        wget_opts='-nv --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies --auth-no-challenge',
+        check_function=check_nasa_download,
+        lock_timeout=3600,
+        )
 
 
 def Level1_NASA(filename, chunks=500):

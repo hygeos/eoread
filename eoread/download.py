@@ -9,45 +9,53 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
 from textwrap import dedent
-import shutil
 from .uncompress import uncompress
+from .misc import LockFile, safe_move
 
 
-def safe_move(src, dst, makedirs=True):
-    """
-    Move `src` file to `dst` directory
-
-    if `makedirs`: create directory if necessary
-    """
-    pdst = Path(dst)
-    if not pdst.exists():
-        if makedirs:
-            pdst.mkdir(parents=True)
-        else:
-            raise IOError(f'Error, directory {dst} does not exist')
-    assert pdst.is_dir()
-    psrc = Path(src)
-    print(f'Moving "{src}" to "{dst}"...')
-    target = pdst/psrc.name
-    assert not target.exists()
-    with TemporaryDirectory(prefix='copying_'+psrc.name+'_', dir=dst) as tmpdir:
-        tmp = Path(tmpdir)/psrc.name
-        shutil.move(psrc, tmp)
-        shutil.move(tmp, target)
-
-
-def download_url(url, dirname):
+def download_url(url, dirname, wget_opts='',
+                 check_function=None, tmpdir=None,
+                 overwrite=False,
+                 lock_timeout=0, verbose=True):
     """
     Download `url` to `dirname`
+
+    Uses a temporary directory `tmpdir`
+    Options `wget_opts` are added to wget
+    overwrite: True, False, or 'skip'
 
     Returns the path to the downloaded file
     """
     target = Path(dirname)/(Path(url).name)
+    lock = Path(dirname)/(Path(url).name+'.lock')
+    if verbose:
+        print('Downloading:', url)
+        print('To: ', target)
 
-    cmd = f'wget {url} -O {target}'
-    if subprocess.call(cmd.split()):
-        raise Exception(f'Error running command "{cmd}"')
-    assert target.exists()
+    with LockFile(lock, timeout=lock_timeout), TemporaryDirectory(tmpdir) as tmpdir:
+        tmpf = Path(tmpdir)/(Path(url).name+'.tmp')
+        if (not target.exists()) or (target.exists() and (overwrite == True)):
+
+            cmd = f'wget {wget_opts} {url} -O {tmpf}'
+            if subprocess.call(cmd.split()):
+                raise Exception(f'Error running command "{cmd}"')
+            assert tmpf.exists()
+
+            if check_function is not None:
+                check_function(tmpf)
+
+            safe_move(tmpf, target)
+
+            assert target.exists()
+        
+        elif overwrite == 'skip':
+            print(f'Skipping existing file "{target}"')
+        
+        elif overwrite == False:
+            raise Exception(f'Error, file {target} exists')
+
+        else:
+            raise Exception(f'Error, invalid value for overwrite: "{overwrite}"')
 
     return target
 
