@@ -22,9 +22,8 @@ B12  SWIR 2      2190nm     20m
 '''
 
 
-import os
-from datetime import datetime
 from glob import glob
+from pathlib import Path
 
 import dask.array as da
 import numpy as np
@@ -64,24 +63,24 @@ def Level1_MSI(dirname,
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds = xr.Dataset()
-    dirname = os.path.abspath(dirname)
+    dirname = Path(dirname).resolve()
 
-    if dirname.endswith('.SAFE'):
-        granules = glob(os.path.join(dirname, 'GRANULE', '*'))
+    if dirname.name.endswith('.SAFE'):
+        granules = list((dirname/'GRANULE').glob('*'))
         assert len(granules) == 1
         granule_dir = granules[0]
     else:
         granule_dir = dirname
 
     # load xml file
-    xmlfiles = glob(os.path.join(granule_dir, '*.xml'))
+    xmlfiles = list(granule_dir.glob('*.xml'))
     assert len(xmlfiles) == 1
     xmlfile = xmlfiles[0]
-    xmlgranule = objectify.parse(xmlfile).getroot()
+    xmlgranule = objectify.parse(str(xmlfile)).getroot()
 
     # load main xml file
-    xmlfile = os.path.join(os.path.dirname(os.path.dirname(granule_dir)), 'MTD_MSIL1C.xml')
-    xmlroot = objectify.parse(xmlfile).getroot()
+    xmlfile = granule_dir.parent.parent/'MTD_MSIL1C.xml'
+    xmlroot = objectify.parse(str(xmlfile)).getroot()
     quantif = float(xmlroot.General_Info.find('Product_Image_Characteristics').QUANTIFICATION_VALUE)
 
     # read date
@@ -105,8 +104,8 @@ def Level1_MSI(dirname,
     ds.attrs[naming.platform] = platform
     ds.attrs['resolution'] = resolution
     ds.attrs[naming.sensor] = 'MSI'
-    ds.attrs[naming.product_name] = os.path.basename(dirname)
-    ds.attrs[naming.input_directory] = os.path.dirname(dirname)
+    ds.attrs[naming.product_name] = dirname.name
+    ds.attrs[naming.input_directory] = str(dirname.parent)
 
     # lat-lon
     msi_read_latlon(ds, geocoding, chunks)
@@ -152,7 +151,7 @@ def msi_read_latlon(ds, geocoding, chunks):
 def msi_read_toa(ds, granule_dir, quantif, split, chunks):
 
     for k, v in msi_band_names.items():
-        filenames = glob(os.path.join(granule_dir, 'IMG_DATA', f'*_{v}.jp2'))
+        filenames = list((granule_dir/'IMG_DATA').glob(f'*_{v}.jp2'))
         assert len(filenames) == 1
         filename = filenames[0]
 
@@ -199,15 +198,11 @@ def msi_read_toa(ds, granule_dir, quantif, split, chunks):
 
 def msi_read_spectral(ds):
     # read srf
-    dir_aux_msi = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'auxdata', 'msi')
+    dir_aux_msi = Path(__file__).parent/'auxdata'/'msi'
     platform = ds.attrs['platform']
-    srf_file = os.path.join(
-        dir_aux_msi,
-        f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv')
+    srf_file = dir_aux_msi/f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv'
 
-    assert os.path.exists(srf_file)
+    assert srf_file.exists(), srf_file
 
     srf_data = pd.read_csv(srf_file)
     wav = srf_data.SR_WL

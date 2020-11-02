@@ -9,7 +9,7 @@ l1 = Level1_MERIS('MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N
 
 
 from datetime import datetime
-from os.path import basename, dirname, exists, join
+from pathlib import Path
 from threading import Lock
 
 import epr
@@ -57,7 +57,8 @@ def Level1_MERIS(filename,
     chunks: int
         chunk size for dask array
     '''
-    bname = basename(filename)
+    filename = Path(filename)
+    bname = filename.name
 
     ds = xr.Dataset()
 
@@ -87,8 +88,10 @@ def Level1_MERIS(filename,
         )
 
     if dir_smile is None:
-        dir_smile = join(dirname(dirname(__file__)), 'auxdata', 'meris')
-    assert exists(dir_smile), dir_smile
+        dir_smile = Path(__file__).parent/'auxdata'/'meris'
+    else:
+        dir_smile = Path(dir_smile)
+    assert dir_smile.exists(), dir_smile
     if bname.startswith('MER_RR'):
         res = 'rr'
     elif bname.startswith('MER_FR'):
@@ -96,8 +99,8 @@ def Level1_MERIS(filename,
     else:
         raise Exception(f'Error, could not identify whether MERIS file is RR or FR ({bname})')
 
-    file_sun_spectral_flux = join(dir_smile, f'sun_spectral_flux_{res}.txt')
-    file_detector_wavelength = join(dir_smile, f'central_wavelen_{res}.txt')
+    file_sun_spectral_flux = dir_smile/f'sun_spectral_flux_{res}.txt'
+    file_detector_wavelength = dir_smile/f'central_wavelen_{res}.txt'
     F0 = pd.read_csv(file_sun_spectral_flux,
                      dtype='float32',
                      delimiter='\t').to_xarray()
@@ -146,7 +149,7 @@ def Level1_MERIS(filename,
     ds.attrs[naming.platform] = 'ENVISAT'
     ds.attrs[naming.sensor] = 'MERIS'
     ds.attrs[naming.product_name] = ds.attrs['PRODUCT']
-    ds.attrs[naming.input_directory] = dirname(filename)
+    ds.attrs[naming.input_directory] = str(filename.parent)
 
     # Read date
     dstart = read_date(mph, 'SENSING_START')

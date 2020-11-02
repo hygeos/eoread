@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from os.path import dirname, exists, join
+from pathlib import Path
 
 import dask.array as da
 import numpy as np
@@ -48,6 +48,7 @@ def Level1_SGLI(filename,
     https://suzaku.eorc.jaxa.jp/GCOM_C/instruments/product.html
     """
     ds = xr.Dataset()
+    filename = Path(filename).resolve()
 
     # open image_data
     imdata = xr.open_dataset(
@@ -80,7 +81,7 @@ def Level1_SGLI(filename,
     ds.attrs[naming.product_name] = ga.attrs['Product_file_name']
     ds.attrs[naming.platform] = 'GCOM-C'
     ds.attrs[naming.sensor] = 'SGLI'
-    ds.attrs[naming.input_directory] = dirname(filename)
+    ds.attrs[naming.input_directory] = str(filename.parent)
 
     #
     # Flags
@@ -193,10 +194,10 @@ def calc_central_wavelength():
 
     wav_data: list of central wavelengths for each band
     """
-    dir_auxdata = join(dirname(dirname(__file__)), 'auxdata', 'sgli')
+    dir_auxdata = Path(__file__).parent/'auxdata'/'sgli'
 
-    file_rsr = join(dir_auxdata, 'sgli_rsr_f_for_algorithm_201008.txt.gz')
-    assert exists(file_rsr)
+    file_rsr = dir_auxdata/'sgli_rsr_f_for_algorithm_201008.txt.gz'
+    assert file_rsr.exists(), file_rsr
 
     rsr = pd.read_csv(
         file_rsr,
