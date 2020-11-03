@@ -599,7 +599,7 @@ def wrap(ds, dim, vmin, vmax):
     return xr.concat([right, left], dim=dim)
 
 
-def convert(A, unit_to, unit_from=None):
+def convert(A, unit_to, unit_from=None, converter=None):
     """
     Unit conversion
 
@@ -613,15 +613,33 @@ def convert(A, unit_to, unit_from=None):
 
     unit_to: str
         unit to convert to
+    
+    converter: a dictionary for unit conversion
+        example: converter={'Pa': 1, 'hPa': 1e-2}
     """
     if unit_from is None:
         unit_from = A.units
     
-    if (unit_from in ['kg/m2', 'kg m**-2']) and (unit_to == 'DU'):
-        converted = A/2.1415e-5  # convert kg/m2 to DU
-    else:
+    default_converters = [
+        # pressure
+        {'Pa': 1, 'hPa': 1e-2},
+
+        # ozone
+        {'kg/m2': 1,
+         'kg m**-2': 1,
+         'DU': 1/2.1415E-05}
+    ]
+
+    conversion_factor = None
+    for c in (default_converters if converter is None else [converter]):
+        if (unit_from in c) and (unit_to in c):
+            conversion_factor = c[unit_to]/c[unit_from]
+            break
+
+    if conversion_factor is None:
         raise ValueError(f'Unknown conversion from {unit_from} to {unit_to}')
 
+    converted = A*conversion_factor
     converted.attrs['units'] = unit_to
     return converted
 

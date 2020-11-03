@@ -347,3 +347,14 @@ def test_wrap(vmin1,vmax1,vmin2,vmax2):
     assert (res.lon >= vmin2).all()
     assert (res.lon <= vmax2).all()
 
+
+def test_convert():
+    A = xr.DataArray(300., attrs={'units': 'DU'})
+    eo.convert(A, unit_to='kg/m2')
+
+    A = xr.DataArray(1., attrs={'units': 'kg'})
+    assert eo.convert(A, unit_to='g', converter={'g': 1000, 'kg': 1}) == 1000.
+
+    with pytest.raises(ValueError):
+        eo.convert(A, unit_to='g', converter={})
+
