@@ -481,7 +481,7 @@ def broadcast(A, B):
     return xr.DataArray(
         AA,
         dims=B.dims,
-    )
+    ).chunk(B.chunks)
 
 
 def getflags(A):
