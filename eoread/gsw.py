@@ -195,7 +195,7 @@ def GSW(directory='data_landmask_gsw',
         name='occurrence',
         dims=('lat', 'lon'),
         coords={
-            'lat': bin_centers(gsw.shape[0], 90, -90),
+            'lat': bin_centers(gsw.shape[0], 80, -60),
             'lon': bin_centers(gsw.shape[1], -180, 180),
         }
     )
