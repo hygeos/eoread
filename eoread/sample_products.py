@@ -70,6 +70,13 @@ def get_sample_products(dir_samples=None):
             'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MODIS/T2010100112000.L1A_LAC.bz2',
         },
 
+        # MODIS binned
+        'prod_MODIS_binned_chl': {
+            # https://oceandata.sci.gsfc.nasa.gov/cgi/getfile/A20142732014280.L3b_8D_CHL.nc
+            'path': dir_samples/'MODIS'/'A20142732014280.L3b_8D_CHL.nc',
+            'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MODIS/A20142732014280.L3b_8D_CHL.nc',
+        },
+
         # VIIRS
         'prod_V2019086_L1A_SNPP': {
             # https://oceandata.sci.gsfc.nasa.gov/ob/getfile/V2019086125400.L1A_SNPP.nc
