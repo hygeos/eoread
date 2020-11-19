@@ -31,7 +31,7 @@ def uncompress(filename,
     """
     print(f'Uncompressing {filename}')
     if not Path(dirname).exists():
-        if allow_uncompressed:
+        if create_out_dir:
             Path(dirname).mkdir(parents=True)
         else:
             raise IOError(f'Directory {dirname} does not exist.')
