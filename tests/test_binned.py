@@ -31,7 +31,7 @@ def test_read_binned(product, varname, request):
     conftest.savefig(request)
 
 
-@pytest.mark.parametrize('product', products)
+@pytest.mark.parametrize('product', [p[0] for p in products])
 def test_check_ncols(product):
     ds = xr.open_dataset(
         product['path'],
