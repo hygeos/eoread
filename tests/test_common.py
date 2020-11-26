@@ -287,7 +287,8 @@ def test_broadcast(dimsA, shpA, dimsB, shpB):
     np.testing.assert_allclose(BB, B)
 
 
-def test_raiseflag():
+@pytest.mark.parametrize('use_dask', [True, False])
+def test_raiseflag(use_dask):
     shp = (13, 7)
     flags = xr.DataArray(
         da.zeros(shp,
@@ -299,6 +300,10 @@ def test_raiseflag():
     A = xr.DataArray(
         da.random.random_integers(0, 10, size=shp, chunks=5)
     )
+    if not use_dask:
+        A = A.compute()
+        flags = flags.compute()
+
     assert (A & 3).any()
     assert not flags.any()
     eo.raiseflag(flags, 'FLAG_1', 1, A & 3)
