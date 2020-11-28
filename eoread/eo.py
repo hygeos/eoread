@@ -458,32 +458,6 @@ def merge(ds,
     return copy
 
 
-def broadcast(A, B):
-    """
-    Broadcast DataArray `A` to match the dimensions of DataArray `B`
-
-    Returns: the broadcasted DataArray
-    """
-    new_shp1 = tuple([
-        s
-        if d in A.dims
-        else 1
-        for (s, d) in zip(B.shape, B.dims)
-        ])
-
-    AA = A.data.reshape(new_shp1)
-    for i, s in [(i, s)
-                 for (i, (s, d)) in enumerate(zip(B.shape, B.dims))
-                 if d not in A.dims
-                 ]:
-        AA = da.repeat(AA, s, axis=i)
-
-    return xr.DataArray(
-        AA,
-        dims=B.dims,
-    ).chunk(B.chunks)
-
-
 def getflags(A):
     """
     returns the flags in attributes of `A` as a dictionary
