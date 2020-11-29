@@ -9,15 +9,14 @@ get all radiometric correction
 """
 
 import xarray as xr
-from .naming import naming, flags
-from .common import DataArray_from_array
-from . import eo
 import numpy as np
 from datetime import datetime
 from os.path import dirname
-from os import system
-from pathlib import Path
+import subprocess
 from .download import download_url
+from .naming import naming, flags
+from .common import DataArray_from_array
+from . import eo
 
 
 def check_nasa_download(filename):
@@ -50,6 +49,30 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
         check_function=check_nasa_download,
         lock_timeout=3600,
         )
+
+
+def nasa_search(**kwargs):
+    """
+    Search for files on oceancolor server
+
+    Args are passed directly to the query
+
+    Example:
+
+    nasa_search(sensor='seawifs',
+                sdate='2000-04-17',
+                edate='2000-04-17',
+                dtype='L1',
+                search='*L1A_GAC'):
+
+    See https://oceancolor.gsfc.nasa.gov/data/download_methods/#api
+    """
+    query = [f'{k}={v}' for k, v in kwargs.items()]
+    query += ['addurl=0', 'results_as_file=1']
+
+    query_str = '&'.join(query)
+    cmd = f'wget -q --post-data="{query_str}" -O - https://oceandata.sci.gsfc.nasa.gov/api/file_search'
+    return subprocess.check_output(cmd, shell=True).decode().split()
 
 
 def Level1_NASA(filename, chunks=500):
