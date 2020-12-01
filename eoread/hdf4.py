@@ -35,7 +35,6 @@ def load_hdf4(filename, chunks=1000):
     hdf = SD(filename)
     ds = xr.Dataset()
     for name, (dims, shp, dtype, index) in hdf.datasets().items():
-        print(f'Loading {name}')
         sds = hdf.select(name)
         ds[name] = DataArray_from_array(
             HDF4_ArrayLike(sds),
