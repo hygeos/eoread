@@ -45,11 +45,11 @@ class Binner:
 
     def add(self, values, lat, lon):
         ibins = latlon2bin_sinu(lat, lon, self.neq)
-        self.sums = np.bincount(
+        self.sums += np.bincount(
             ibins,
             weights=values,
             minlength=self.nbins)
-        self.counts = np.bincount(
+        self.counts += np.bincount(
             ibins,
             minlength=self.nbins)
 
