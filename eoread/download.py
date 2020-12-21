@@ -138,3 +138,23 @@ def download(product):
     assert path.exists(), f'{path} does not exist.'
 
     return path
+
+
+def get_S2_google_url(filename):
+    """
+    Get the google url for a given S2 product, like
+    'http://storage.googleapis.com/gcp-public-data-sentinel-2/tiles/32/T/QR/S2A_MSIL1C_20170111T100351_N0204_R122_T32TQR_20170111T100351.SAFE'
+
+    The result of this function can be downloaded with the fels module:
+        fels.get_sentinel2_image(url, directory)
+    Note: the filename can be obtained either with the Sentinels hub api, or with google's catalog (see fels)
+    """
+    tile = filename.split('_')[-2]
+    assert len(tile) == 6
+    utm = tile[1:3]
+    pos0 = tile[3::4]
+    pos1 = tile[4:]
+    url_base = 'http://storage.googleapis.com/gcp-public-data-sentinel-2/tiles'
+    url = f'{url_base}/{utm}/{pos0}/{pos1}/{filename}'
+
+    return url
