@@ -8,10 +8,10 @@ Use the L1C approach: L1C files are generated with SeaDAS (l2gen) to
 get all radiometric correction
 """
 
+from pathlib import Path
 import xarray as xr
 import numpy as np
 from datetime import datetime
-from os.path import dirname
 import subprocess
 from .download import download_url
 from .naming import naming, flags
@@ -38,8 +38,14 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
 
     Example:
         nasa_download('A2005005002500.L1A_LAC.bz2', '/data/')
+    
+    Note: a full URL can be provided instead of just the product name
     '''
-    url = f'https://oceandata.sci.gsfc.nasa.gov/ob/getfile/{product}'
+    if product.startswith('https://'):
+        url = product
+    else:
+        url = f'https://oceandata.sci.gsfc.nasa.gov/ob/getfile/{product}'
+
     return download_url(
         url,
         dirname,
@@ -83,7 +89,7 @@ def Level1_NASA(filename, chunks=500):
     d = dstart + (dstop - dstart)//2
     ds.attrs[naming.datetime] = d.isoformat()
     ds.attrs[naming.sensor] = ds.attrs['instrument']
-    ds.attrs[naming.input_directory] = dirname(filename)
+    ds.attrs[naming.input_directory] = str(Path(filename).parent)
 
     sensor_band = xr.open_dataset(filename, group='/sensor_band_parameters', chunks=chunks)
     bands = sensor_band['wavelength'].values[sensor_band.number_of_reflective_bands.values].astype('int32')
