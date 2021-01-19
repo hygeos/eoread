@@ -64,6 +64,7 @@ def Level1_MSI(dirname,
     '''
     ds = xr.Dataset()
     dirname = Path(dirname).resolve()
+    assert isinstance(resolution, str)
 
     if dirname.name.endswith('.SAFE'):
         granules = list((dirname/'GRANULE').glob('*'))
