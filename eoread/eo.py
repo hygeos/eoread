@@ -24,11 +24,11 @@ from shapely.geometry import Point, Polygon
 from .naming import naming
 
 
-def datetime(ds):
+def datetime(ds, attribute='datetime'):
     '''
     Parse datetime (in isoformat) from `ds` attributes
     '''
-    return parse(ds.datetime).replace(tzinfo=None)
+    return parse(ds.attrs[attribute]).replace(tzinfo=None)
 
 
 def haversine(lat1, lon1, lat2, lon2, radius=6371):
