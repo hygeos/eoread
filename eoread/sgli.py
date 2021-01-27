@@ -8,7 +8,7 @@ import dask.array as da
 import numpy as np
 import pandas as pd
 import xarray as xr
-from warnings import warn
+from datetime import datetime
 
 from .common import Interpolator, DataArray_from_array
 from .naming import naming, flags
@@ -77,7 +77,8 @@ def Level1_SGLI(filename,
                          group='Global_attributes',
                          chunks=chunks)
     ds.attrs = ga.attrs
-    ds.attrs[naming.datetime] = ga.attrs['Scene_center_time']
+    dt = datetime.strptime(ga.attrs['Scene_center_time'], r'%Y%m%d %H:%M:%S.%f')
+    ds.attrs[naming.datetime] = dt.isoformat()
     ds.attrs[naming.product_name] = ga.attrs['Product_file_name']
     ds.attrs[naming.platform] = 'GCOM-C'
     ds.attrs[naming.sensor] = 'SGLI'
