@@ -47,13 +47,15 @@ class ERA5:
                      'surface_pressure',
                      'total_column_ozone',
                      'total_column_water_vapour',
-                 ]
+                 ],
+                 verbose=False,
                  ):
         self.directory = Path(directory).resolve()
         self.pattern = pattern
         self.time_resolution = time_resolution
         self.client = cdsapi.Client()
         self.offline = offline
+        self.verbose = verbose
 
         self.variables = list(variables)
 
@@ -125,7 +127,8 @@ class ERA5:
                 shutil.move(target_tmp, str(target)+'.tmp')
                 shutil.move(str(target)+'.tmp', target)
         else:
-            print(f'Skipping {target}')
+            if self.verbose:
+                print(f'Skipping {target}')
 
         return xr.open_dataset(target, chunks={})
 
