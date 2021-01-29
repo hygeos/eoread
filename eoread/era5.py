@@ -7,10 +7,10 @@ ERA5 Ancillary data provider
 '''
 
 import argparse
+from eoread.misc import safe_move
 from pathlib import Path
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory
-import shutil
 
 import xarray as xr
 import cdsapi
@@ -53,7 +53,7 @@ class ERA5:
         self.directory = Path(directory).resolve()
         self.pattern = pattern
         self.time_resolution = time_resolution
-        self.client = cdsapi.Client()
+        self.client = None
         self.offline = offline
         self.verbose = verbose
 
@@ -106,9 +106,15 @@ class ERA5:
         target = self.directory/dt.strftime(self.pattern)
 
         if not target.exists():
+            if self.offline:
+                raise Exception(f'ERA5 error: offline mode is set and {target} does not exist.')
+
             print(f'Downloading {target}...')
             with TemporaryDirectory() as tmpdir:
                 target_tmp = Path(tmpdir)/target.name
+                if self.client is None:
+                    self.client = cdsapi.Client()
+
                 self.client.retrieve(
                     'reanalysis-era5-single-levels',
                     {
@@ -124,8 +130,7 @@ class ERA5:
 
                 target.parent.mkdir(parents=True, exist_ok=True)
 
-                shutil.move(target_tmp, str(target)+'.tmp')
-                shutil.move(str(target)+'.tmp', target)
+                safe_move(target_tmp, target)
         else:
             if self.verbose:
                 print(f'Skipping {target}')
