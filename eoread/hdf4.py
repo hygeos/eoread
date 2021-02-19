@@ -32,7 +32,7 @@ def load_hdf4(filename, chunks=1000):
     """
     Loads a hdf4 file as a lazy xarray object
     """
-    hdf = SD(filename)
+    hdf = SD(str(filename))
     ds = xr.Dataset()
     for name, (dims, shp, dtype, index) in hdf.datasets().items():
         sds = hdf.select(name)
