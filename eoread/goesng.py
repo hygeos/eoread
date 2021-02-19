@@ -3,11 +3,14 @@
 
 
 from datetime import datetime
+from eoread.process import map_blocks
+import pytz
 from pathlib import Path
 from eoread.hdf4 import load_hdf4
 import xarray as xr
 from eoread.naming import naming
 import pysolar.solar as pysol
+from dask.array import map_blocks
 
 config = {
     'auxfile': 'ANCILLARY/GOESNG-0750.1km.hdf',
@@ -64,6 +67,7 @@ def Level1_GOESNG(file_1km,
 
     # date/time
     dt = datetime.strptime(Path(file_1km).name.split('_')[2], r'%Y%m%d%H%M%S.nc')
+    dt = pytz.utc.localize(dt)
     ds.attrs[naming.datetime] = dt.isoformat()
 
     ds = ds.rename(
@@ -84,12 +88,25 @@ def Level1_GOESNG(file_1km,
     ds = ds.assign_coords(bands=[470, 640, 865, 1610])
 
     # solar angles
-    ds[naming.sza] = 90.- pysol.get_altitude(
-        ds.latitude, ds.longitude, dt,
-        pressure=0.0, elevation=0.0,
+    def calc_sza(lat, lon):
+        return 90. - pysol.get_altitude(
+            lat, lon, dt,
+            pressure=0.0,
+            elevation=0.0,
+        )
+
+    def calc_saa(lat, lon):
+        return pysol.get_azimuth(lat, lon, dt)
+
+    ds[naming.sza] = (
+        ds.latitude.dims,
+        map_blocks(calc_sza, ds.latitude.data, ds.longitude.data),
     )
-    ds[naming.saa] = pysol.get_azimuth(
-        ds.latitude, ds.longitude, dt)
+
+    ds[naming.saa] = (
+        ds.latitude.dims,
+        map_blocks(calc_saa, ds.latitude.data, ds.longitude.data),
+    )
     
     # rechunk
     ds = ds.chunk(chunksize)

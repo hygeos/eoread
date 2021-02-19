@@ -32,6 +32,8 @@ def test_instantiate():
     'longitude',
     'vza',
     'vaa',
+    'sza',
+    'saa',
 ])
 def test_goesng(request, var):
     l1 = Level1_GOESNG(local_config.goes_sample_file, chunksize=1000)
