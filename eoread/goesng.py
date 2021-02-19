@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
+from datetime import datetime
 from pathlib import Path
 from eoread.hdf4 import load_hdf4
 import xarray as xr
 from eoread.naming import naming
-from eoread.common import Repeat, DataArray_from_array
+import pysolar.solar as pysol
 
 config = {
     'auxfile': 'ANCILLARY/GOESNG-0750.1km.hdf',
@@ -15,7 +16,7 @@ config = {
 
 def Level1_GOESNG(file_1km,
                   auxfile=None,
-                  chunksize=500):
+                  chunksize=1000):
     '''
     Load GOES-NG (at 1km) product as xarray Dataset
 
@@ -61,7 +62,10 @@ def Level1_GOESNG(file_1km,
 
     ds.attrs['auxfile'] = auxfile
 
-    # rechunk
+    # date/time
+    dt = datetime.strptime(Path(file_1km).name.split('_')[2], r'%Y%m%d%H%M%S.nc')
+    ds.attrs[naming.datetime] = dt.isoformat()
+
     ds = ds.rename(
         Nlin=naming.rows,
         ny1km=naming.rows,
@@ -70,7 +74,24 @@ def Level1_GOESNG(file_1km,
         ny500m=naming.rows,
         nx500m=naming.columns,
         )
+
+    ds[naming.Rtoa] = xr.concat(
+        [ds['VIS_004'], ds['VIS_006'], ds['VIS_008'], ds['VIS_016']],
+        dim=naming.bands,
+    )/100.
+
+    # https://www.star.nesdis.noaa.gov/goesr/docs/ATBD/Imagery.pdf
+    ds = ds.assign_coords(bands=[470, 640, 865, 1610])
+
+    # solar angles
+    ds[naming.sza] = 90.- pysol.get_altitude(
+        ds.latitude, ds.longitude, dt,
+        pressure=0.0, elevation=0.0,
+    )
+    ds[naming.saa] = pysol.get_azimuth(
+        ds.latitude, ds.longitude, dt)
     
+    # rechunk
     ds = ds.chunk(chunksize)
 
     return ds
