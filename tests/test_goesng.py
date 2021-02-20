@@ -6,8 +6,11 @@ import pytest
 from matplotlib import pyplot as plt
 from eoread.goesng import Level1_GOESNG, config
 from eoread.hdf4 import load_hdf4
+from eoread import eo
 from . import conftest
 from . import local_config
+from . import generic
+from .generic import param, indices, scheduler
 
 
 # GOESNG-0750.1km.hdf
@@ -35,8 +38,8 @@ def test_instantiate():
     'sza',
     'saa',
 ])
-def test_goesng(request, var):
-    l1 = Level1_GOESNG(local_config.goes_sample_file, chunksize=1000)
+def test_preview(request, var):
+    l1 = Level1_GOESNG(local_config.goes_sample_file)
     print(l1)
     l1 = l1.isel(
         rows=slice(None, None, 100),
@@ -47,3 +50,16 @@ def test_goesng(request, var):
     plt.colorbar()
     conftest.savefig(request)
 
+def test_main():
+    ds = Level1_GOESNG(local_config.goes_sample_file)
+    eo.init_Rtoa(ds)
+    generic.test_main(ds)
+
+def test_read(param, indices, scheduler):
+    ds = Level1_GOESNG(local_config.goes_sample_file)
+    eo.init_Rtoa(ds)
+    generic.test_read(ds, param, indices, scheduler)
+
+def test_subset():
+    ds = Level1_GOESNG(local_config.goes_sample_file)
+    generic.test_subset(ds)

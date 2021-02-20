@@ -3,6 +3,8 @@
 
 
 from datetime import datetime
+from dateutil import parser
+import numpy as np
 from eoread.process import map_blocks
 import pytz
 from pathlib import Path
@@ -42,6 +44,7 @@ def Level1_GOESNG(file_1km,
     ds['VIS_004'] = ds_1km['VIS_004']
     ds['VIS_008'] = ds_1km['VIS_008']
     ds['VIS_016'] = ds_1km['VIS_016']
+    ds.attrs.update(ds_1km.attrs)
 
     # Load 500m data
     ds_500m = xr.open_dataset(file_500m, chunks=chunksize*2)
@@ -78,13 +81,6 @@ def Level1_GOESNG(file_1km,
     ds[naming.vaa] = aux['View_Azimuth']
     ds['Pixel_Area_Size'] = aux['Pixel_Area_Size']
 
-    ds.attrs['auxfile'] = auxfile
-
-    # date/time
-    dt = datetime.strptime(Path(file_1km).name.split('_')[2], r'%Y%m%d%H%M%S.nc')
-    dt = pytz.utc.localize(dt)
-    ds.attrs[naming.datetime] = dt.isoformat()
-
     ds = ds.rename(
         Nlin=naming.rows,
         ny1km=naming.rows,
@@ -100,7 +96,18 @@ def Level1_GOESNG(file_1km,
     )/100.
 
     # https://www.star.nesdis.noaa.gov/goesr/docs/ATBD/Imagery.pdf
-    ds = ds.assign_coords(bands=[470, 640, 865, 1610])
+    bands = [470, 640, 865, 1610]
+    ds = ds.assign_coords(bands=bands)
+
+    ds[naming.wav] = xr.DataArray(
+        np.array(bands, dtype='float32'),
+        dims=(naming.bands))
+
+    # date/time
+    dstart = parser.parse(ds.attrs['time_coverage_start'])
+    dend = parser.parse(ds.attrs['time_coverage_end'])
+    dt = dstart + (dend - dstart)/2
+    ds.attrs[naming.datetime] = dt.isoformat()
 
     # solar angles
     def calc_sza(lat, lon):
@@ -125,6 +132,19 @@ def Level1_GOESNG(file_1km,
     
     # rechunk
     ds = ds.chunk(chunksize)
+
+    # Attributes
+    ds.attrs['auxfile'] = str(auxfile)
+
+    # Other
+    ds.attrs[naming.platform] = 'GOES-NG'
+    ds.attrs[naming.sensor] = 'ABI'
+    ds.attrs[naming.product_name] = Path(file_1km).name.replace('.nc', '')
+    ds.attrs[naming.input_directory] = str(Path(file_1km).parent)
+
+    ds[naming.flags] = xr.zeros_like(
+        ds.vza,
+        dtype=naming.flags_dtype)
 
     return ds
     
