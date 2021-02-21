@@ -15,14 +15,14 @@ from .misc import LockFile, safe_move
 
 def download_url(url, dirname, wget_opts='',
                  check_function=None, tmpdir=None,
-                 overwrite=False,
+                 if_exists='error',
                  lock_timeout=0, verbose=True):
     """
     Download `url` to `dirname`
 
     Uses a temporary directory `tmpdir`
     Options `wget_opts` are added to wget
-    overwrite: True, False, or 'skip'
+    if_exists: 'error', 'skip' or 'overwrite'
 
     Returns the path to the downloaded file
     """
@@ -34,7 +34,7 @@ def download_url(url, dirname, wget_opts='',
 
     with LockFile(lock, timeout=lock_timeout), TemporaryDirectory(tmpdir) as tmpdir:
         tmpf = Path(tmpdir)/(Path(url).name+'.tmp')
-        if (not target.exists()) or (target.exists() and (overwrite == True)):
+        if (not target.exists()) or (target.exists() and (if_exists == 'overwrite')):
 
             cmd = f'wget {wget_opts} {url} -O {tmpf}'
             if subprocess.call(cmd.split()):
@@ -48,14 +48,14 @@ def download_url(url, dirname, wget_opts='',
 
             assert target.exists()
         
-        elif overwrite == 'skip':
+        elif if_exists == 'skip':
             print(f'Skipping existing file "{target}"')
         
-        elif overwrite == False:
+        elif if_exists == 'error':
             raise Exception(f'Error, file {target} exists')
 
         else:
-            raise Exception(f'Error, invalid value for overwrite: "{overwrite}"')
+            raise ValueError(f'Error, invalid value for if_exists: "{if_exists}"')
 
     return target
 

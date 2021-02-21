@@ -244,7 +244,7 @@ def to_netcdf(ds, *,
               product_name=None,
               ext='.nc',
               product_name_attr='product_name',
-              overwrite=False,
+              if_exists='error',
               tmpdir=None,
               create_out_dir=True,
               verbose=True,
@@ -272,8 +272,8 @@ def to_netcdf(ds, *,
         extension (default: '.nc')
     product_name_attr: str
         name of the attribute to use for product_name in `ds`
-    overwrite: bool or 'skip'
-        whether to overwrite existing file (default: False ; raises an error).
+    if_exists: 'error', 'skip' or 'overwrite'
+        what to do if output file exists
     tmpdir: str
         use a given temporary directory instead of the output directory
     create_out_dir: str
@@ -307,13 +307,15 @@ def to_netcdf(ds, *,
         fname = Path(filename).resolve()
 
     if fname.exists():
-        if overwrite == 'skip':
+        if if_exists == 'skip':
             print(f'File {fname} exists, skipping...')
             return
-        elif overwrite:
+        elif if_exists == 'overwrite':
             fname.unlink()
-        else:
+        elif if_exists == 'error':
             raise IOError(f'Output file "{fname}" exists.')
+        else:
+            raise ValueError(f'Invalid option for "if_exists": {if_exists}')
 
     if not fname.parent.exists():
         if create_out_dir:
