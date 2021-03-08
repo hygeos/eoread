@@ -50,6 +50,24 @@ def test_preview(request, var):
     plt.colorbar()
     conftest.savefig(request)
 
+
+def test_clouds(request):
+    l1 = Level1_GOESNG(local_config.goes_sample_file, cloudmask=True)
+    print(l1)
+    l1 = l1.isel(
+        rows=slice(4000, 4900),
+        columns=slice(5000, 6100),
+        )
+
+    plt.imshow(l1['VIS_004'])
+    plt.colorbar()
+    conftest.savefig(request)
+
+    plt.imshow(l1.flags)
+    plt.colorbar()
+    conftest.savefig(request)
+
+
 def test_main():
     ds = Level1_GOESNG(local_config.goes_sample_file)
     eo.init_Rtoa(ds)

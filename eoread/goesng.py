@@ -3,15 +3,15 @@
 
 
 from datetime import datetime
+from eoread.common import DataArray_from_array, Repeat
 from dateutil import parser
 import numpy as np
 from eoread.process import map_blocks
-import pytz
 from pathlib import Path
 from eoread.hdf4 import load_hdf4
 from eoread import eo
 import xarray as xr
-from eoread.naming import naming
+from eoread.naming import naming, flags
 import pysolar.solar as pysol
 from dask.array import map_blocks
 
@@ -23,6 +23,7 @@ config = {
 def Level1_GOESNG(file_1km,
                   auxfile=None,
                   convert_auxfile=True,
+                  cloudmask=False,
                   chunksize=1000):
     '''
     Load GOES-NG (at 1km) product as xarray Dataset
@@ -31,6 +32,7 @@ def Level1_GOESNG(file_1km,
         file_1km: file at 1km
             (ex: Emultic1kmNC4_goes16_201808101100.nc)
         auxfile: path to angles file (default: config['auxfile'])
+        cloudmask: whether to include the cloud mask
     '''
     ds = xr.Dataset()
 
@@ -40,7 +42,7 @@ def Level1_GOESNG(file_1km,
     assert file_500m.exists()
 
     # Load 1km data
-    ds_1km = xr.open_dataset(file_1km)
+    ds_1km = xr.open_dataset(file_1km, chunks=chunksize)
     ds['VIS_004'] = ds_1km['VIS_004']
     ds['VIS_008'] = ds_1km['VIS_008']
     ds['VIS_016'] = ds_1km['VIS_016']
@@ -145,6 +147,24 @@ def Level1_GOESNG(file_1km,
     ds[naming.flags] = xr.zeros_like(
         ds.vza,
         dtype=naming.flags_dtype)
+    
+    if cloudmask:
+        dt_ = datetime.strptime(Path(file_1km).name.split('_')[-1][:-3], '%Y%m%d%H%M')
+        cmaskfile = Path(file_1km).parent/datetime.strftime(dt_, r'S_NWC_CMA_GOES16_globeE-NR_%Y%m%dT%H%M%SZ.nc')
+        assert cmaskfile.exists(), str(cmaskfile)
+        
+        cm = xr.open_dataset(cmaskfile, chunks=chunksize)
+
+        cma = DataArray_from_array(
+            Repeat(cm.cma, (2, 2)),
+            ('ny', 'nx'),
+            chunksize,
+        ).rename(
+            ny=naming.rows,
+            nx=naming.columns,
+        )
+
+        eo.raiseflag(ds[naming.flags], 'CLOUD_BASE', flags['CLOUD_BASE'], cma)
 
     return ds
     
