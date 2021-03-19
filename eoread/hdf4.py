@@ -20,8 +20,12 @@ class HDF4_ArrayLike:
         self.dtype = {
             SDC.FLOAT32: np.dtype('float32'),
             SDC.FLOAT64: np.dtype('float64'),
+            SDC.INT8: np.dtype('int8'),
+            SDC.UINT8: np.dtype('uint8'),
             SDC.INT16: np.dtype('int16'),
+            SDC.UINT16: np.dtype('uint16'),
             SDC.INT32: np.dtype('int32'),
+            SDC.UINT32: np.dtype('uint32'),
         }[sds.info()[3]]
         self.shape = tuple(sds.info()[2])
 
