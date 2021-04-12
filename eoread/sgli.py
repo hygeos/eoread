@@ -79,7 +79,7 @@ def Level1_SGLI(filename,
     ds.attrs = ga.attrs
     dt = datetime.strptime(ga.attrs['Scene_center_time'], r'%Y%m%d %H:%M:%S.%f')
     ds.attrs[naming.datetime] = dt.isoformat()
-    ds.attrs[naming.product_name] = ga.attrs['Product_file_name']
+    ds.attrs[naming.product_name] = filename.name
     ds.attrs[naming.platform] = 'GCOM-C'
     ds.attrs[naming.sensor] = 'SGLI'
     ds.attrs[naming.input_directory] = str(filename.parent)
