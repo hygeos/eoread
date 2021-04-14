@@ -106,10 +106,13 @@ def init_geometry(ds, scat_angle=False):
     return ds
 
 
-def locate(ds, lat, lon):
-    print(f'Locating lat={lat}, lon={lon}')
+def locate(lat, lon, lat0, lon0, dist_min=None):
+    """
+    Locate `lat0`, `lon0` within `lat`, `lon`
+    """
+    print(f'Locating lat={lat0}, lon={lon0}')
     # TODO: haversine
-    dist = (ds.latitude - lat)**2 + (ds.longitude - lon) **2
+    dist = (lat - lat0)**2 + (lon - lon0) **2
     dist_min = np.amin(dist)
     # TODO: check if it is within
     return np.where(dist == dist_min)
