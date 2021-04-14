@@ -332,4 +332,9 @@ def test_locate():
         xr.DataArray(np.linspace(lon_min, lon_max, 100), dims=['lon']),
     )
     eo.locate(lat, lon, 5., 5.)
+    eo.locate(lat, lon, 15., 15.)
+
+    eo.locate(lat, lon, 5., 5., dist_min_km=10)
+    with pytest.raises(ValueError):
+        eo.locate(lat, lon, 15., 15., dist_min_km=10)
 
