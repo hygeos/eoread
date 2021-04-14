@@ -117,7 +117,7 @@ def locate(lat, lon, lat0, lon0, dist_min_km=None):
     dist_min = np.array(np.amin(dist))
 
     if (dist_min_km is not None) and (dist_min > dist_min_km):
-        raise ValueError(f'locate: minimal distance is {dist_min}, should be at least {dist_min_km}')
+        raise ValueError(f'locate: minimal distance is {dist_min}, should be at most {dist_min_km}')
 
     return np.where(dist == dist_min)
 
