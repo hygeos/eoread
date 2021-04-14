@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
 from time import sleep
+import json
 
 
 def safe_move(src, dst, makedirs=True):
@@ -64,3 +65,21 @@ class LockFile:
     def __exit__(self, type, value, traceback):
         remove(self.lock_file)
 
+
+class PersistentList(list):
+    """
+    A list that saves its content on `save`, and loads existing values on `__init__`
+    """
+    # TODO: implement autosave
+    # see https://stackoverflow.com/questions/9449674/how-to-implement-a-persistent-python-list
+    def __init__(self, filename):
+        self._filename = Path(filename)
+        assert str(filename).endswith('.json')
+
+        if self._filename.exists():
+            with open(self._filename) as fp:
+                self.extend(json.load(fp))
+
+    def save(self):
+        with open(self._filename, 'w') as fp:
+            json.dump(self, fp, indent=4)

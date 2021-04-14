@@ -10,7 +10,9 @@ import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
 from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array
-from eoread import eo
+from eoread import eo, misc
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import dask
 
 dask.config.set(scheduler='single-threaded')
@@ -337,4 +339,22 @@ def test_locate():
     eo.locate(lat, lon, 5., 5., dist_min_km=10)
     with pytest.raises(ValueError):
         eo.locate(lat, lon, 15., 15., dist_min_km=10)
+
+
+def test_persistent_list():
+    with TemporaryDirectory() as tmpdir:
+        filename = Path(tmpdir)/'list.json'
+        a = [1, 2, "three"]
+
+        A = misc.PersistentList(filename)
+        A.extend(a)
+        A.save()
+
+        B = misc.PersistentList(filename)
+        assert A == B
+        B.append('4')
+        B.save()
+
+        C = misc.PersistentList(filename)
+        assert len(C) == 4
 
