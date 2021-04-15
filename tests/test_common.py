@@ -348,12 +348,10 @@ def test_persistent_list():
 
         A = misc.PersistentList(filename)
         A.extend(a)
-        A.save()
 
         B = misc.PersistentList(filename)
         assert A == B
         B.append('4')
-        B.save()
 
         C = misc.PersistentList(filename)
         assert len(C) == 4

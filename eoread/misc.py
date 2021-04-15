@@ -8,6 +8,7 @@ import shutil
 from tempfile import TemporaryDirectory
 from time import sleep
 import json
+from functools import wraps
 
 
 def safe_move(src, dst, makedirs=True):
@@ -68,10 +69,8 @@ class LockFile:
 
 class PersistentList(list):
     """
-    A list that saves its content on `save`, and loads existing values on `__init__`
+    A list that saves its content in `filename` on each modification
     """
-    # TODO: implement autosave
-    # see https://stackoverflow.com/questions/9449674/how-to-implement-a-persistent-python-list
     def __init__(self, filename):
         self._filename = Path(filename)
         assert str(filename).endswith('.json')
@@ -80,6 +79,18 @@ class PersistentList(list):
             with open(self._filename) as fp:
                 self.extend(json.load(fp))
 
-    def save(self):
+        # trigger save on all of these methods
+        for attr in ('append', 'extend', 'insert', 'pop', 'remove', 'reverse', 'sort'):
+            setattr(self, attr, self._autosave(getattr(self, attr)))
+
+    def _autosave(self, func):
+        @wraps(func)
+        def _func(*args, **kwargs):
+            ret = func(*args, **kwargs)
+            self._save()
+            return ret
+        return _func
+
+    def _save(self):
         with open(self._filename, 'w') as fp:
             json.dump(self, fp, indent=4)
