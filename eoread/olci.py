@@ -250,6 +250,9 @@ def read_OLCI(dirname,
                                       engine=engine)
     if level == 'level2':
         instrument_data = instrument_data.rename({'bands': 'bands_full'})
+        bands_full = list(olci_band_names.values())
+        assert bands_full == sorted(bands_full)
+        instrument_data = instrument_data.assign_coords(bands_full=bands_full)
     for x in instrument_data.variables:
         ds[x] = instrument_data[x]
 
