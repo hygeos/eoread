@@ -155,6 +155,7 @@ def get_S2_google_url(filename):
     pos0 = tile[3::4]
     pos1 = tile[4:]
     url_base = 'http://storage.googleapis.com/gcp-public-data-sentinel-2/tiles'
-    url = f'{url_base}/{utm}/{pos0}/{pos1}/{filename}'
+    filename_full = filename if (filename.endswith('.SAFE')) else (filename+'.SAFE')
+    url = f'{url_base}/{utm}/{pos0}/{pos1}/{filename_full}'
 
     return url
