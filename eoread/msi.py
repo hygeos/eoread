@@ -66,7 +66,7 @@ def Level1_MSI(dirname,
     dirname = Path(dirname).resolve()
     assert isinstance(resolution, str)
 
-    if dirname.name.endswith('.SAFE'):
+    if list(dirname.glob('GRANULE')):
         granules = list((dirname/'GRANULE').glob('*'))
         assert len(granules) == 1
         granule_dir = granules[0]
