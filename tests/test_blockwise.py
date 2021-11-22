@@ -368,3 +368,26 @@ def test_map_blocks_single_output():
         outputs=[('rho_toa_modif', l1.rho_toa.dims)],
     )
 
+
+def test_apply_ufunc():
+    '''
+    xr.apply_ufunc can be used to map a numpy ufunc across blocks
+
+    have to provide core dimensions (here, 'bands'), which are moved to the last dimension
+    '''
+
+    def run(rho_toa, lat):
+        test1 = rho_toa+lat[:,:,None]
+        test2 = lat**2
+        return test1, test2, lat > 0
+
+    l1 = make_dataset()
+    l1['test1'], l1['test2'], l1['flags']= xr.apply_ufunc(
+        run,
+        l1.rho_toa, l1.lat,
+        dask='parallelized',
+        input_core_dims=[['bands'], []],
+        output_core_dims=[['bands'], [], []],
+        )
+    l1.compute()
+
