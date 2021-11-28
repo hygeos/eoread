@@ -7,6 +7,7 @@ from eoread.sample_products import get_sample_products
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
+import numpy as np
 from . import generic
 from .generic import param, indices, scheduler
 from .conftest import savefig
@@ -84,7 +85,8 @@ def test_subset(product):
     generic.test_subset(ds)
 
 @pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
-def test_preview(product, param, request):
+@pytest.mark.parametrize('s', [slice(None, 300), slice(None, None, 10)])
+def test_preview(product, param, request, s):
     """
     Generate browses of various products
     """
@@ -92,9 +94,9 @@ def test_preview(product, param, request):
     l1 = Level1_OLCI(product['path'])
     eo.init_Rtoa(l1)
     if l1[param].ndim == 2:
-        plt.imshow(l1[param][::10, ::10])
+        plt.imshow(l1[param][s, s])
     elif l1[param].ndim == 3:
-        plt.imshow(l1[param][-1, ::10, ::10])
+        plt.imshow(l1[param][-1, s, s])
     plt.colorbar()
     savefig(request)
 
