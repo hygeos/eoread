@@ -62,7 +62,7 @@ def Level1_GOESNG(file_1km,
     # load auxiliary file
     if auxfile is None:
         auxfile = Path(config['auxfile'])
-    assert auxfile.exists()
+    assert auxfile.exists(), f'{auxfile} does not exist'
 
     if convert_auxfile:
         # convert hdf4 file to netcdf
