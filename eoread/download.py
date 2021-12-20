@@ -150,11 +150,18 @@ def get_S2_google_url(filename):
     Note: the filename can be obtained either with the Sentinels hub api, or with google's catalog (see fels)
     """
     tile = filename.split('_')[-2]
+    prod_type = filename.split('_')[1]
     assert len(tile) == 6
     utm = tile[1:3]
     pos0 = tile[3::4]
     pos1 = tile[4:]
-    url_base = 'http://storage.googleapis.com/gcp-public-data-sentinel-2/tiles'
+    if prod_type == 'MSIL1C':
+        url_base = 'http://storage.googleapis.com/gcp-public-data-sentinel-2/tiles'
+    elif prod_type == 'MSIL2A':
+        url_base = 'http://storage.googleapis.com/gcp-public-data-sentinel-2/L2/tiles'
+        # gs://gcp-public-data-sentinel-2/L2/tiles/32/T/NS/S2B_MSIL2A_20210511T101559_N0300_R065_T32TNS_20210511T134528.SAFE/
+    else:
+        raise Exception(f'Unexpected product type "{prod_type}"')
     filename_full = filename if (filename.endswith('.SAFE')) else (filename+'.SAFE')
     url = f'{url_base}/{utm}/{pos0}/{pos1}/{filename_full}'
 
