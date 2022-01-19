@@ -1,6 +1,7 @@
 import pytest
 from tempfile import TemporaryDirectory
-from eoread.download import get_S2_google_url
+from eoread.download import download_url, get_S2_google_url
+from eoread.nasa import nasa_download
 
 @pytest.mark.parametrize('product_name', [
     'S2B_MSIL1C_20201217T111359_N0209_R137_T30TWT_20201217T132006',
@@ -12,3 +13,13 @@ def test_download_S2_google(product_name):
     with TemporaryDirectory() as tmpdir:
         url = get_S2_google_url(product_name)
         fels.get_sentinel2_image(url, tmpdir)
+
+
+def test_download_missing():
+    '''
+    Behaviour in case of missing file
+    '''
+    with TemporaryDirectory() as tmpdir:
+        with pytest.raises(ValueError):
+            nasa_download('ABCDEFG0123456789', tmpdir)
+

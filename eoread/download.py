@@ -38,7 +38,7 @@ def download_url(url, dirname, wget_opts='',
 
             cmd = f'wget {wget_opts} {url} -O {tmpf}'
             if subprocess.call(cmd.split()):
-                raise Exception(f'Error running command "{cmd}"')
+                raise ValueError(f'Error running command "{cmd}"')
             assert tmpf.exists()
 
             if check_function is not None:

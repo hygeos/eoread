@@ -11,12 +11,28 @@ from eoread.misc import safe_move
 from pathlib import Path
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory
+from eoread.naming import naming
+import numpy as np
 
 import xarray as xr
 import cdsapi
 
 from .common import floor_dt, ceil_dt
 from . import eo
+
+
+def open_ERA5(filename):
+    '''
+    Open an ERA5 file and format it for consistency
+    with the other ancillary data sources
+    '''
+    ds = xr.open_dataset(filename, chunks={})
+    ds[naming.horizontal_wind] = np.sqrt(np.sqrt(ds.u10**2 + ds.v10**2))
+    ds = ds.rename({
+        'sp': naming.sea_level_pressure,
+        'tco3': naming.total_ozone,
+    }).squeeze()
+    return eo.wrap(ds, 'longitude', -180, 180)
 
 
 class ERA5:
@@ -67,29 +83,22 @@ class ERA5:
 
     def get(self, dt):
         """
-        Download and initialize ERA5 date for a given date range
+        Download and initialize ERA5 (interpolated) product for a given date
 
-        dt: datetime or tuple of datetime
-            if datetime, initialize with the closest dates
-            if tuple of datetime (d0, d1), initialize with all dates
-            bracketing (d0, d1)
+        dt: datetime
         """
         delta = self.time_resolution
-        if isinstance(dt, tuple):
-            assert len(dt) == 2
-            (d0, d1) = (floor_dt(dt[0], delta), ceil_dt(dt[1], delta))
-        else:
-            (d0, d1) = (floor_dt(dt, delta), ceil_dt(dt, delta))
+
+        # search the bracketing dates
+        (d0, d1) = (floor_dt(dt, delta), ceil_dt(dt, delta))
 
         dates = [d0 + i*delta for i in range((d1-d0)//delta + 1)]
 
         concatenated = xr.concat([self.download(d) for d in dates], dim='time')
 
-        wrapped = eo.wrap(concatenated,
-                          'longitude',
-                          -180, 180)
+        interpolated = concatenated.interp(time=dt)
 
-        return wrapped
+        return interpolated
 
 
     def download(self, dt):
@@ -135,7 +144,7 @@ class ERA5:
             if self.verbose:
                 print(f'Skipping {target}')
 
-        return xr.open_dataset(target, chunks={})
+        return open_ERA5(target)
 
 
 def parse_date(dstring):
