@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from time import sleep
 import json
 from functools import wraps
+import fcntl
 
 
 def safe_move(src, dst, makedirs=True):
@@ -38,33 +39,51 @@ def safe_move(src, dst, makedirs=True):
 
 
 class LockFile:
-    '''
-    Create a context with a lock file
+    """
+    Create a blocking context with a lock file
 
-    Wait until the file is removed, to proceed.
-    Designed to avoid concurrent processes simultaneously accessing a file.
-    '''
-    def __init__(self, lock_file, timeout=3600):
-        self.lock_file = Path(lock_file)
-        self.lock_file.parent.mkdir(exist_ok=True, parents=True)
+    Ex:
+    with LockFile('/dir/to/file.txt'):
+        # create a file '/dir/to/file.txt.lock' including a filesystem lock
+        # the context will enter once the lock is released
+    """
+    def __init__(self,
+                 lock_file,
+                 ext='.lock',
+                 interval=1,
+                 timeout=3600,
+                 create_dir=True,
+                ):
+        self.lock_file = Path(str(lock_file)+ext)
+        if create_dir:
+            self.lock_file.parent.mkdir(exist_ok=True, parents=True)
+        self.fd = None
+        self.interval = interval
         self.timeout = timeout
 
     def __enter__(self):
-        if self.lock_file.exists():
-            print(f'Lock file {self.lock_file} is present, waiting...')
         i = 0
-        while self.lock_file.exists():
-            if i >= self.timeout:
-                raise Exception(f'Error, cannot acquire lock "{self.lock_file}"')
-
-            sleep(1)
-            i += 1
-
-
-        system('touch {}'.format(self.lock_file))
+        while True:
+            self.fd = open(self.lock_file, 'w')
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_EX|fcntl.LOCK_NB)
+                self.fd.flush()
+                break
+            except (BlockingIOError, FileNotFoundError):
+                self.fd.close()
+                sleep(self.interval)
+                i += 1
+                if i > self.timeout:
+                    raise IOError(f'Timeout on Lockfile "{self.lock_file}"')
 
     def __exit__(self, type, value, traceback):
-        remove(self.lock_file)
+        try:
+            fcntl.flock(self.fd, fcntl.LOCK_UN)
+            self.fd.flush()
+            self.fd.close()
+            remove(self.lock_file)
+        except FileNotFoundError:
+            pass
 
 
 class PersistentList(list):
