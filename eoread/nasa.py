@@ -54,6 +54,7 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
         wget_opts='-nv --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies --auth-no-challenge',
         check_function=check_nasa_download,
         lock_timeout=3600,
+        if_exists='skip',
         )
 
 

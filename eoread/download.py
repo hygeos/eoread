@@ -16,7 +16,7 @@ from .misc import LockFile, safe_move
 def download_url(url, dirname, wget_opts='',
                  check_function=None, tmpdir=None,
                  if_exists='error',
-                 lock_timeout=0, verbose=True):
+                 lock_timeout=600, verbose=True):
     """
     Download `url` to `dirname`
 
@@ -27,12 +27,11 @@ def download_url(url, dirname, wget_opts='',
     Returns the path to the downloaded file
     """
     target = Path(dirname)/(Path(url).name)
-    lock = Path(dirname)/(Path(url).name+'.lock')
     if verbose:
         print('Downloading:', url)
         print('To: ', target)
 
-    with LockFile(lock, timeout=lock_timeout), TemporaryDirectory(tmpdir) as tmpdir:
+    with LockFile(target, timeout=lock_timeout), TemporaryDirectory(tmpdir) as tmpdir:
         tmpf = Path(tmpdir)/(Path(url).name+'.tmp')
         if (not target.exists()) or (target.exists() and (if_exists == 'overwrite')):
 
