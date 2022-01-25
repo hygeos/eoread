@@ -10,19 +10,20 @@ from tempfile import TemporaryDirectory
 import subprocess
 from textwrap import dedent
 from .uncompress import uncompress
-from .misc import LockFile, safe_move
+from .misc import filegen
 
 
 def download_url(url, dirname, wget_opts='',
-                 check_function=None, tmpdir=None,
-                 if_exists='error',
-                 lock_timeout=600, verbose=True):
+                 check_function=None,
+                 verbose=True,
+                 **kwargs
+                 ):
     """
-    Download `url` to `dirname`
+    Download `url` to `dirname` with wget
 
-    Uses a temporary directory `tmpdir`
     Options `wget_opts` are added to wget
-    if_exists: 'error', 'skip' or 'overwrite'
+    Uses a `filegen` wrapper
+    Other kwargs are passed to `filegen` (lock_timeout, tmpdir, on_exist)
 
     Returns the path to the downloaded file
     """
@@ -30,31 +31,17 @@ def download_url(url, dirname, wget_opts='',
     if verbose:
         print('Downloading:', url)
         print('To: ', target)
+    
+    @filegen(**kwargs)
+    def download_target(path):
+        cmd = f'wget {wget_opts} {url} -O {path}'
+        if subprocess.call(cmd.split()):
+            raise ValueError(f'Error running command "{cmd}"')
 
-    with LockFile(target, timeout=lock_timeout), TemporaryDirectory(tmpdir) as tmpdir:
-        tmpf = Path(tmpdir)/(Path(url).name+'.tmp')
-        if (not target.exists()) or (target.exists() and (if_exists == 'overwrite')):
+        if check_function is not None:
+            check_function(path)
 
-            cmd = f'wget {wget_opts} {url} -O {tmpf}'
-            if subprocess.call(cmd.split()):
-                raise ValueError(f'Error running command "{cmd}"')
-            assert tmpf.exists()
-
-            if check_function is not None:
-                check_function(tmpf)
-
-            safe_move(tmpf, target)
-
-            assert target.exists()
-        
-        elif if_exists == 'skip':
-            print(f'Skipping existing file "{target}"')
-        
-        elif if_exists == 'error':
-            raise Exception(f'Error, file {target} exists')
-
-        else:
-            raise ValueError(f'Error, invalid value for if_exists: "{if_exists}"')
+    download_target(path=target)
 
     return target
 
