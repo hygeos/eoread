@@ -7,10 +7,9 @@ ERA5 Ancillary data provider
 '''
 
 import argparse
-from eoread.misc import safe_move
+from eoread.misc import filegen
 from pathlib import Path
 from datetime import datetime, timedelta
-from tempfile import TemporaryDirectory
 from eoread.naming import naming
 import numpy as np
 
@@ -101,6 +100,25 @@ class ERA5:
         return interpolated
 
 
+    @filegen(varname='target')
+    def download_file(self, target, dt):
+        if self.client is None:
+            self.client = cdsapi.Client()
+
+        print(f'Downloading {target}...')
+        self.client.retrieve(
+            'reanalysis-era5-single-levels',
+            {
+                'product_type': 'reanalysis',
+                'variable': self.variables,
+                'year':[f'{dt.year}'],
+                'month':[f'{dt.month:02}'],
+                'day':[f'{dt.day:02}'],
+                'time': f'{dt.hour:02}:00',
+                'format':'netcdf'
+            },
+            target)
+
     def download(self, dt):
         """
         Download ERA5 at a given time `dt` and returns the corresponding dataset
@@ -113,36 +131,7 @@ class ERA5:
         assert dt.second == 0
 
         target = self.directory/dt.strftime(self.pattern)
-
-        if not target.exists():
-            if self.offline:
-                raise Exception(f'ERA5 error: offline mode is set and {target} does not exist.')
-
-            print(f'Downloading {target}...')
-            with TemporaryDirectory() as tmpdir:
-                target_tmp = Path(tmpdir)/target.name
-                if self.client is None:
-                    self.client = cdsapi.Client()
-
-                self.client.retrieve(
-                    'reanalysis-era5-single-levels',
-                    {
-                        'product_type': 'reanalysis',
-                        'variable': self.variables,
-                        'year':[f'{dt.year}'],
-                        'month':[f'{dt.month:02}'],
-                        'day':[f'{dt.day:02}'],
-                        'time': f'{dt.hour:02}:00',
-                        'format':'netcdf'
-                    },
-                    target_tmp)
-
-                target.parent.mkdir(parents=True, exist_ok=True)
-
-                safe_move(target_tmp, target)
-        else:
-            if self.verbose:
-                print(f'Skipping {target}')
+        self.download_file(target=target, dt=dt)
 
         return open_ERA5(target)
 
