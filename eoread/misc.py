@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+from datetime import datetime
 from os import remove, system
 from pathlib import Path
 import shutil
@@ -51,7 +52,7 @@ class LockFile:
                  lock_file,
                  ext='.lock',
                  interval=1,
-                 timeout=3600,
+                 timeout=600,
                  create_dir=True,
                 ):
         self.lock_file = Path(str(lock_file)+ext)
@@ -74,7 +75,7 @@ class LockFile:
                 sleep(self.interval)
                 i += 1
                 if i > self.timeout:
-                    raise IOError(f'Timeout on Lockfile "{self.lock_file}"')
+                    raise TimeoutError(f'Timeout on Lockfile "{self.lock_file}"')
 
     def __exit__(self, type, value, traceback):
         try:
@@ -113,3 +114,71 @@ class PersistentList(list):
     def _save(self):
         with open(self._filename, 'w') as fp:
             json.dump(self, fp, indent=4)
+
+
+def skip(filename, on_exist='skip'):
+    """
+    Utility function to check whether a file should be skipped
+    """
+    if Path(filename).exists():
+        if on_exist == 'skip':
+            return True
+        elif on_exist == 'error':
+            raise IOError(f'File {filename} exists.')
+        else:
+            raise ValueError(f'Invalid argument on_exist={on_exist}')
+    else:
+        return False
+
+
+def filegen(lock_timeout=600,
+            tmpdir=None,
+            on_exist='skip',
+            varname='path',
+            ):
+    """
+    A decorator for functions generating an output file.
+    The path to this output file should be provided to the function under
+    named argument `path`.
+
+    This decorator adds the following features to the function:
+    - Use temporary file in a configurable directory, moved afterwards to final location
+    - Detect existing file (on_exist='skip' or 'error')
+    - Use output file lock when multiple functions may produce the same file
+      The timeout for this lock is determined by argument `lock_timeout`.
+
+    Example:
+        @filegen()
+        def f(path):
+            open(path, 'w').write('test')
+        f(path='/path/to/file.txt')
+    
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            assert varname in kwargs, \
+                f'Error, function should have keyword argument "{varname}"'
+            path = kwargs[varname]
+            ofile = Path(path)
+
+            if skip(ofile, on_exist):
+                return
+            
+            with TemporaryDirectory(tmpdir) as tmpd:
+                tfile = Path(tmpd)/ofile.name
+                with LockFile(ofile,
+                              timeout=lock_timeout,
+                              ):
+                    if skip(ofile, on_exist):
+                        return
+                    updated_kwargs = {**kwargs, varname: tfile}
+                    ret = f(*args, **updated_kwargs)
+                    assert tfile.exists()
+                    assert ret is None   # the function should not return anything,
+                                         # because it may be skipped
+                    safe_move(tfile, ofile)
+            return
+        return wrapper
+    return decorator
+
