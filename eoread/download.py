@@ -23,7 +23,7 @@ def download_url(url, dirname, wget_opts='',
 
     Options `wget_opts` are added to wget
     Uses a `filegen` wrapper
-    Other kwargs are passed to `filegen` (lock_timeout, tmpdir, on_exist)
+    Other kwargs are passed to `filegen` (lock_timeout, tmpdir, if_exists)
 
     Returns the path to the downloaded file
     """

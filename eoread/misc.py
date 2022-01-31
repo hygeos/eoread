@@ -116,24 +116,24 @@ class PersistentList(list):
             json.dump(self, fp, indent=4)
 
 
-def skip(filename, on_exist='skip'):
+def skip(filename, if_exists='skip'):
     """
     Utility function to check whether a file should be skipped
     """
     if Path(filename).exists():
-        if on_exist == 'skip':
+        if if_exists == 'skip':
             return True
-        elif on_exist == 'error':
+        elif if_exists == 'error':
             raise IOError(f'File {filename} exists.')
         else:
-            raise ValueError(f'Invalid argument on_exist={on_exist}')
+            raise ValueError(f'Invalid argument if_exists={if_exists}')
     else:
         return False
 
 
 def filegen(lock_timeout=600,
             tmpdir=None,
-            on_exist='skip',
+            if_exists='skip',
             varname='path',
             ):
     """
@@ -143,7 +143,7 @@ def filegen(lock_timeout=600,
 
     This decorator adds the following features to the function:
     - Use temporary file in a configurable directory, moved afterwards to final location
-    - Detect existing file (on_exist='skip' or 'error')
+    - Detect existing file (if_exists='skip' or 'error')
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
 
@@ -162,7 +162,7 @@ def filegen(lock_timeout=600,
             path = kwargs[varname]
             ofile = Path(path)
 
-            if skip(ofile, on_exist):
+            if skip(ofile, if_exists):
                 return
             
             with TemporaryDirectory(tmpdir) as tmpd:
@@ -170,7 +170,7 @@ def filegen(lock_timeout=600,
                 with LockFile(ofile,
                               timeout=lock_timeout,
                               ):
-                    if skip(ofile, on_exist):
+                    if skip(ofile, if_exists):
                         return
                     updated_kwargs = {**kwargs, varname: tfile}
                     ret = f(*args, **updated_kwargs)
