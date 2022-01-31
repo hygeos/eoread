@@ -36,7 +36,7 @@ def download_url(url, dirname, wget_opts='',
     def download_target(path):
         cmd = f'wget {wget_opts} {url} -O {path}'
         if subprocess.call(cmd.split()):
-            raise ValueError(f'Error running command "{cmd}"')
+            raise FileNotFoundError(f'Error running command "{cmd}"')
 
         if check_function is not None:
             check_function(path)

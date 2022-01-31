@@ -90,15 +90,18 @@ class Ancillary_NASA:
     def __init__(self,
                  directory='ANCILLARY/Meteorological/',
                  allow_forecast=True,
+                 offline=False,
                  ):
         self.directory = Path(directory)
         self.met_resources = default_met_resources
         if allow_forecast:
             self.met_resources += forecast_resources
         self.oz_resources = default_oz_resources
+        self.offline = offline
 
 
-    def download(self, dt: datetime, pattern: str):
+    def download(self, dt: datetime, pattern: str,
+                 offline: bool = False):
         '''
         Download ancillary product at a given time (where product exists)
         '''
@@ -107,15 +110,19 @@ class Ancillary_NASA:
         assert dt.hour % 3 == 0
 
         filename = dt.strftime(pattern)
-        
+
         target_dir = self.directory/dt.strftime('%Y/%j/')
         target = target_dir/filename
         if not target.exists():
-            nasa_download(filename, target_dir)
+            if offline:
+                raise FileNotFoundError(
+                    f'Error, file {target} is not available and offline mode is set.')
+            else:
+                nasa_download(filename, target_dir)
         assert target.exists()
 
         return open_NASA(target)
-    
+
     def get(self, dt: datetime, resources=None):
         '''
         Interpolate two brackting products at the given `dt`
@@ -123,21 +130,24 @@ class Ancillary_NASA:
         resources = resources or self.met_resources
 
         ds1, ds2 = None, None
-        for res in resources:
-            [(p1, d1), (p2, d2)] = res(dt)
-            try:
-                ds1 = self.download(d1, p1)
-                ds2 = self.download(d2, p2)
-            except ValueError:
-                # when either product is not available
-                pass
-            else:
-                break
-        
-        assert ds1 is not None
+        ok = False
+        for offline in ([True] if self.offline else [True, False]):
+            for res in resources:
+                if ok:
+                    break
+                [(p1, d1), (p2, d2)] = res(dt)
+                try:
+                    ds1 = self.download(d1, p1, offline)
+                    ds2 = self.download(d2, p2, offline)
+                    ok = True
+                except FileNotFoundError:
+                    # when either product is not available
+                    pass
+
+        assert ok, f'Error: no valid product was found for {dt} (offline={self.offline})'
 
         concatenated = xr.concat([ds1, ds2], dim='time')
-        
+
         interpolated = concatenated.interp(time=dt)
 
         # download ozone
