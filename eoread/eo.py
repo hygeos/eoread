@@ -605,12 +605,17 @@ def convert(A, unit_to, unit_from=None, converter=None):
     
     default_converters = [
         # pressure
-        {'Pa': 1, 'hPa': 1e-2},
+        {'Pa': 1,
+         'hPa': 1e-2,
+         'millibars': 1e-2,
+         },
 
         # ozone
         {'kg/m2': 1,
          'kg m**-2': 1,
-         'DU': 1/2.1415E-05}
+         'DU': 1/2.1415E-05,
+         'Dobson units': 1/2.1415E-05,
+         }
     ]
 
     conversion_factor = None
