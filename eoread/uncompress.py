@@ -23,7 +23,8 @@ class ErrorUncompressed(Exception):
 def uncompress(filename,
                dirname,
                on_uncompressed='error',
-               create_out_dir=True):
+               create_out_dir=True,
+               verbose=False):
     """
     Uncompress `filename` to `dirname`
 
@@ -40,7 +41,8 @@ def uncompress(filename,
 
     Returns the path to the uncompressed file
     """
-    print(f'Uncompressing {filename}')
+    if verbose:
+        print(f'Uncompressing {filename} to {dirname}')
     if not Path(dirname).exists():
         if create_out_dir:
             Path(dirname).mkdir(parents=True)
@@ -72,7 +74,8 @@ def uncompress(filename,
                 f_out.write(data)
         elif fname.endswith('.Z'):
             cmd = f'gunzip {fname}'
-            print('Executing:', cmd)
+            if verbose:
+                print('Executing:', cmd)
             if subprocess.call(cmd.split()):
                 raise Exception(f'Error executing command {cmd}')
             target_tmp = filename.parent/filename.stem
@@ -100,7 +103,6 @@ def uncompress(filename,
         assert not target.exists(), f'Error, {target} exists.'
 
         # move temporary to destination
-        print(f'Moving uncompressed file to {target}')
         shutil.move(target_tmp, target)
 
     assert target.exists()
