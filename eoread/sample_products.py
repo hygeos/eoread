@@ -32,6 +32,11 @@ def get_sample_products(dir_samples=None):
             'url': 'http://download.hygeos.com/EOREAD_TESTDATA/MSI/S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656.zip',
         },
 
+        # Sentinel-2 MSI, PB 4.00
+        'prod_S2_L1_20220202': {
+            'path': dir_samples/'MSI'/'S2A_MSIL1C_20220202T110251_N0400_R094_T31UDS_20220202T130715.SAFE',
+        },
+
         # Sentinel-3 OLCI
         'prod_S3_L1_20190430': {
             'path': dir_samples/'OLCI'/'S3A_OL_1_EFR____20190430T094655_20190430T094955_20190501T131540_0179_044_136_2160_LN1_O_NT_002.SEN3',

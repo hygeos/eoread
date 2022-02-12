@@ -22,6 +22,10 @@ B12  SWIR 2      2190nm     20m
 '''
 
 
+# Update processing baseline 4.00
+# https://sentinels.copernicus.eu/web/sentinel/-/copernicus-sentinel-2-major-products-upgrade-upcoming
+
+
 from glob import glob
 from pathlib import Path
 
@@ -82,7 +86,15 @@ def Level1_MSI(dirname,
     # load main xml file
     xmlfile = granule_dir.parent.parent/'MTD_MSIL1C.xml'
     xmlroot = objectify.parse(str(xmlfile)).getroot()
-    quantif = float(xmlroot.General_Info.find('Product_Image_Characteristics').QUANTIFICATION_VALUE)
+    product_image_characteristics = xmlroot.General_Info.find('Product_Image_Characteristics')
+    quantif = float(product_image_characteristics.QUANTIFICATION_VALUE)
+    processing_baseline = xmlroot.General_Info.find('Product_Info').PROCESSING_BASELINE.text
+    if float(processing_baseline) >= 4:
+        radio_offset_list = [
+            int(x)
+            for x in product_image_characteristics.Radiometric_Offset_List.RADIO_ADD_OFFSET]
+    else:
+        radio_offset_list = [0]*len(msi_band_names)
 
     # read date
     ds.attrs['datetime'] = str(xmlgranule.General_Info.find('SENSING_TIME'))
@@ -116,7 +128,8 @@ def Level1_MSI(dirname,
         msi_read_geometry(ds, tileangles, chunks)
 
     # msi_read_toa
-    ds = msi_read_toa(ds, granule_dir, quantif, split, chunks)
+    ds = msi_read_toa(ds, granule_dir, quantif,
+                      radio_offset_list, split, chunks)
 
     # read spectral information
     msi_read_spectral(ds)
@@ -149,17 +162,17 @@ def msi_read_latlon(ds, geocoding, chunks):
     )
 
 
-def msi_read_toa(ds, granule_dir, quantif, split, chunks):
+def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
 
-    for k, v in msi_band_names.items():
+    for i, (k, v) in enumerate(msi_band_names.items()):
         filenames = list((granule_dir/'IMG_DATA').glob(f'*_{v}.jp2'))
         assert len(filenames) == 1
         filename = filenames[0]
 
-        arr = xr.open_rasterio(
+        arr = ((xr.open_rasterio(
             filename,
             chunks=chunks,
-        ).astype('float32')/quantif
+        ) + radio_add_offset[i])/quantif).astype('float32')
         arr = arr.squeeze('band')
         arr = arr.drop('x').drop('y')
 

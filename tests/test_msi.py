@@ -9,13 +9,18 @@ from eoread.sample_products import get_sample_products
 from .generic import indices, param
 from . import generic
 from eoread import eo
+from . import conftest
+from matplotlib import pyplot as plt
 
 p = get_sample_products()
 resolutions = ['10', '20', '60']
 
-@pytest.fixture
-def product():
-    return p['prod_S2_L1_20190419']
+@pytest.fixture(params=[
+    p['prod_S2_L1_20190419'],
+    p['prod_S2_L1_20220202'],
+])
+def product(request):
+    return request.param
 
 @pytest.fixture(params=resolutions)
 def resolution(request):
@@ -92,3 +97,13 @@ def test_read(S2_product, param, indices, scheduler):
 
 def test_subset(S2_product):
     generic.test_subset(S2_product)
+
+
+def test_plot(request, product):
+    l1 = Level1_MSI(product['path'])
+    plt.imshow(
+        l1.Rtoa.sel(bands=865),
+        vmin=0, vmax=0.5)
+    plt.colorbar()
+
+    conftest.savefig(request)
