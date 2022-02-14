@@ -10,12 +10,13 @@ https://oceancolor.gsfc.nasa.gov/docs/ancillary/
 '''
 
 from tempfile import TemporaryDirectory
-from eoread.datetime_utils import closest, round_date
+from eoread.datetime_utils import round_date
 from eoread.nasa import nasa_download
 from datetime import datetime
 from pathlib import Path
 from eoread.naming import naming
 from eoread.uncompress import uncompress
+from eoread import hdf4
 import xarray as xr
 import numpy as np
 
@@ -58,7 +59,10 @@ def open_NASA(target):
             tmpdir,
             on_uncompressed='bypass')
 
-        ds = xr.open_dataset(uncompressed, chunks={})
+        if uncompressed.name.endswith('.hdf'):
+            ds = hdf4.load_hdf4(uncompressed)
+        else:
+            ds = xr.open_dataset(uncompressed, chunks={})
 
         out = xr.Dataset()
         out.attrs.update(ds.attrs)
@@ -82,7 +86,7 @@ def open_NASA(target):
             longitude=np.linspace(-180, 180, nlon+1),
         )
 
-        dt = datetime.strptime(out.attrs['Start Time'][:-3], '%Y%j%H%M%S')
+        dt = datetime.strptime(out.attrs['Start Time'][:13], '%Y%j%H%M%S')
         return out.assign_coords(time=dt)
 
 

@@ -24,7 +24,7 @@ def uncompress(filename,
                dirname,
                on_uncompressed='error',
                create_out_dir=True,
-               verbose=False):
+               verbose=False) -> Path:
     """
     Uncompress `filename` to `dirname`
 
