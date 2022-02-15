@@ -14,6 +14,18 @@ import numpy as np
 from eoread.common import DataArray_from_array
 
 
+def clean_attrs(A):
+    '''
+    Remove all '\x00' from attribute values
+    '''
+    def clean(x):
+        if isinstance(x, str):
+            return x.rstrip('\x00')
+        else:
+            return x
+    return {k: clean(v) for k, v in A.items()}
+
+
 class HDF4_ArrayLike:
     def __init__(self, sds):
         self.sds = sds
@@ -45,9 +57,9 @@ def load_hdf4(filename, chunks=1000):
             dims,
             chunks=chunks,
         )
-        ds[name].attrs.update(sds.attributes())
+        ds[name].attrs.update(clean_attrs(sds.attributes()))
 
-    ds.attrs.update(hdf.attributes())
+    ds.attrs.update(clean_attrs(hdf.attributes()))
 
     return ds
 
