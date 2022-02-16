@@ -9,8 +9,9 @@ import numpy as np
 import dask.array as da
 from eoread.common import AtIndex, Repeat, len_slice
 from eoread.common import Interpolator, ceil_dt, floor_dt
-from eoread.common import DataArray_from_array
+from eoread.common import DataArray_from_array, timeit
 from eoread import eo, misc
+from time import sleep
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import dask
@@ -356,3 +357,15 @@ def test_persistent_list():
         C = misc.PersistentList(filename)
         assert len(C) == 4
 
+
+def test_timeit_decorator():
+    @timeit(desc='f')
+    def f():
+        sleep(1)
+    f()
+
+
+def test_timeit_context():
+    with timeit() as ti:
+        sleep(1)
+    assert ti() > 1

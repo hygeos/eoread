@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from contextlib import contextmanager
 from datetime import datetime
-from functools import wraps
+from time import perf_counter
 
 import dask.array as da
 import numpy as np
@@ -214,19 +215,30 @@ def convert_for_nc(value):
         return value
 
 
-def timeit(func):
+@contextmanager
+def timeit(desc=None, verbose=True):
     """
-    A decorator to print the execution time of a callable
+    A decorator/context to print the execution time of a callable
+
+    Example:
+    1) As a decorator:
+        @timeit()
+        def f():
+            ...
+    2) As a context manager:
+        with timeit() as ti:
+            sleep(1)
+        print(ti())
     """
-    @wraps(func)
-    def timed(*args, **kwargs):
-        start = datetime.now()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            t = datetime.now() - start
-            print(f"Total execution time of {func}: {t}")
-    return timed
+    start = perf_counter()
+    try:
+        yield lambda: perf_counter() - start
+    finally:
+        elapsed = perf_counter() - start
+        if verbose:
+            desc_msg = '' if desc is None else f' ({desc})'
+            msg = f"Execution time{desc_msg}: {elapsed:.4f}s"
+            print(msg)
 
 
 def floor_dt(dt, delta):
