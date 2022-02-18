@@ -8,5 +8,6 @@ def DaskProfiler(filename='profile_dask.html'):
     """
     with ResourceProfiler() as rprof,\
             Profiler() as prof:
-        yield
-        visualize([prof, rprof], filename)
+        yield filename
+        visualize([prof, rprof], filename,
+                  show=False, save=True)
