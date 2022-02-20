@@ -254,6 +254,9 @@ def to_netcdf(ds, *,
               if_exists='error',
               tmpdir=None,
               create_out_dir=True,
+              engine='h5netcdf',
+              zlib=True,
+              complevel=5,
               verbose=True,
               **kwargs):
     '''
@@ -281,8 +284,8 @@ def to_netcdf(ds, *,
         name of the attribute to use for product_name in `ds`
     if_exists: 'error', 'skip' or 'overwrite'
         what to do if output file exists
-    tmpdir: str
-        use a given temporary directory instead of the output directory
+    tmpdir: str ; default None = system directory
+        use a given temporary directory
     create_out_dir: str
         create output directory if it does not exist
 
@@ -330,12 +333,8 @@ def to_netcdf(ds, *,
         else:
             raise IOError(f'Directory "{fname.parent}" does not exist.')
 
-    defaults = {
-        'engine': 'h5netcdf',
-        'encoding': {var: dict(zlib=True, complevel=9)
-                     for var in ds.data_vars}
-    }
-    defaults.update(kwargs)
+    encoding = {var: dict(zlib=True, complevel=complevel)
+                for var in ds.data_vars} if zlib else None
 
     PBar = {
         True: ProgressBar,
@@ -351,7 +350,9 @@ def to_netcdf(ds, *,
             print('Using temporary file:', fname_tmp)
 
         ds.to_netcdf(path=fname_tmp,
-                     **defaults)
+                     engine=engine,
+                     encoding=encoding,
+                     **kwargs)
 
         # use intermediary move
         # (both files may be on different devices)
