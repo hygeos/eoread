@@ -164,7 +164,7 @@ def msi_read_latlon(ds, geocoding, chunks):
 
 def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
 
-    for i, (k, v) in enumerate(msi_band_names.items()):
+    for iband, (k, v) in enumerate(msi_band_names.items()):
         filenames = list((granule_dir/'IMG_DATA').glob(f'*_{v}.jp2'))
         assert len(filenames) == 1
         filename = filenames[0]
@@ -172,7 +172,7 @@ def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
         arr = ((xr.open_rasterio(
             filename,
             chunks=chunks,
-        ) + radio_add_offset[i])/quantif).astype('float32')
+        ) + radio_add_offset[iband])/quantif).astype('float32')
         arr = arr.squeeze('band')
         arr = arr.drop('x').drop('y')
 
