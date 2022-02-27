@@ -13,8 +13,10 @@ import fs
 from fs.osfs import OSFS
 from netrc import netrc
 from .uncompress import uncompress as uncomp
+from ftplib import FTP
+import fnmatch
+from .common import timeit
 from .misc import filegen
-
 
 
 def download_url(url, dirname, wget_opts='',
@@ -290,3 +292,19 @@ class Mirror_Uncompress:
         path_final = self.local_fs.getsyspath(path_local)
         assert Path(path_final).exists()
         return path_final
+
+
+def ftp_download(ftp: FTP, dir_local: Path, dir_server: str, pattern: str='*'):
+    """
+    Downloads all files on ftp matching `pattern` from `dir_server` to `dir_local`
+    """
+    ftp.cwd(dir_server)
+    ls = ftp.nlst()
+    list_download = fnmatch.filter(ls, pattern)
+    assert list_download
+    for fname in list_download:
+        target = Path(dir_local)/fname
+        with open(target, 'wb') as fp, timeit(f'Download {fname}'):
+            ftp.retrbinary(f'RETR {fname}', fp.write)
+
+    return list_download
