@@ -62,7 +62,6 @@ def Level1_GOESNG(file_1km,
     # load auxiliary file
     if auxfile is None:
         auxfile = Path(config['auxfile'])
-    assert auxfile.exists(), f'{auxfile} does not exist'
 
     if convert_auxfile:
         # convert hdf4 file to netcdf
@@ -76,6 +75,7 @@ def Level1_GOESNG(file_1km,
         aux = xr.open_dataset(ncfile, chunks=chunksize)
     else:
         # use load_hdf4 reader, which is slow for partial access
+        assert auxfile.exists(), f'{auxfile} does not exist'
         aux = load_hdf4(auxfile)
     ds[naming.lat] = aux['Latitude']
     ds[naming.lon] = aux['Longitude']
