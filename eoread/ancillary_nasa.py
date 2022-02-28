@@ -99,9 +99,10 @@ class Ancillary_NASA:
                  ):
         self.directory = Path(directory)
         self.met_resources = default_met_resources
+        self.oz_resources = default_oz_resources
         if allow_forecast:
             self.met_resources += forecast_resources
-        self.oz_resources = default_oz_resources
+            self.oz_resources += forecast_resources
         self.offline = offline
 
 
@@ -163,6 +164,7 @@ class Ancillary_NASA:
                 latitude=interpolated.latitude,
                 longitude=interpolated.longitude,
             )
+            oz = oz[['total_ozone']]
             return xr.merge([interpolated, oz])
 
         else:
