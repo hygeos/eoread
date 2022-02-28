@@ -133,26 +133,26 @@ class Ancillary_NASA:
         '''
         resources = resources or self.met_resources
 
-        ds1, ds2 = None, None
-        ok = False
+        list_ds = None
         for offline in ([True] if self.offline else [True, False]):
             for res in resources:
-                if ok:
+                if list_ds is not None:
                     break
-                [(p1, d1), (p2, d2)] = res(dt)
                 try:
-                    ds1 = self.download(d1, p1, offline)
-                    ds2 = self.download(d2, p2, offline)
-                    ok = True
+                    list_ds = [self.download(d, p, offline)
+                               for (p, d) in res(dt)]
                 except FileNotFoundError:
                     # when either product is not available
                     pass
 
-        assert ok, f'Error: no valid product was found for {dt} (offline={self.offline})'
+        assert list_ds is not None, f'Error: no valid product was found for {dt} (offline={self.offline})'
 
-        concatenated = xr.concat([ds1, ds2], dim='time')
+        concatenated = xr.concat(list_ds, dim='time')
 
-        interpolated = concatenated.interp(time=dt)
+        if len(list_ds) == 1:
+            interpolated = concatenated
+        else:
+            interpolated = concatenated.interp(time=dt)
 
         # download ozone
         if naming.total_ozone not in interpolated:
