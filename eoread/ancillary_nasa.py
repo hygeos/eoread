@@ -10,15 +10,16 @@ https://oceancolor.gsfc.nasa.gov/docs/ancillary/
 '''
 
 from tempfile import TemporaryDirectory
-from eoread.datetime_utils import round_date
-from eoread.nasa import nasa_download
 from datetime import datetime
 from pathlib import Path
+from os import system, rename
+import xarray as xr
+import numpy as np
+from eoread.datetime_utils import round_date
+from eoread.nasa import nasa_download
 from eoread.naming import naming
 from eoread.uncompress import uncompress
 from eoread import hdf4
-import xarray as xr
-import numpy as np
 
 
 # resources are a list of functions taking the date, and returning the list
@@ -124,6 +125,7 @@ class Ancillary_NASA:
             else:
                 nasa_download(filename, target_dir)
         assert target.exists()
+        target = verify(target)
 
         return open_NASA(target)
 
@@ -165,3 +167,17 @@ class Ancillary_NASA:
 
         else:
             return interpolated
+
+
+def verify(filename):
+    '''
+    Fix files with wrong extension from NASA
+    -> HDF files with bz2 extension
+    '''
+    if filename.name.endswith('.bz2') and system(f'bzip2 -t {filename}'):
+        target = filename.parent/filename.name[:-4]
+        rename(filename, target)
+        filename = target
+
+    return filename
+
