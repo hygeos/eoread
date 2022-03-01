@@ -134,7 +134,7 @@ def skip(filename, if_exists='skip'):
 def filegen(lock_timeout=600,
             tmpdir=None,
             if_exists='skip',
-            varname='path',
+            argname='path',
             check_return_none=True,
             ):
     """
@@ -158,9 +158,9 @@ def filegen(lock_timeout=600,
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            assert varname in kwargs, \
-                f'Error, function should have keyword argument "{varname}"'
-            path = kwargs[varname]
+            assert argname in kwargs, \
+                f'Error, function should have keyword argument "{argname}"'
+            path = kwargs[argname]
             ofile = Path(path)
 
             if skip(ofile, if_exists):
@@ -173,7 +173,7 @@ def filegen(lock_timeout=600,
                               ):
                     if skip(ofile, if_exists):
                         return
-                    updated_kwargs = {**kwargs, varname: tfile}
+                    updated_kwargs = {**kwargs, argname: tfile}
                     ret = f(*args, **updated_kwargs)
                     assert tfile.exists()
                     if check_return_none:

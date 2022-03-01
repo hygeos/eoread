@@ -100,7 +100,7 @@ class ERA5:
         return interpolated
 
 
-    @filegen(varname='target')
+    @filegen(argname='target')
     def download_file(self, target, dt):
         if self.client is None:
             self.client = cdsapi.Client()
