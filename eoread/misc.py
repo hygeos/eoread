@@ -135,6 +135,7 @@ def filegen(lock_timeout=600,
             tmpdir=None,
             if_exists='skip',
             varname='path',
+            check_return_none=True,
             ):
     """
     A decorator for functions generating an output file.
@@ -175,8 +176,10 @@ def filegen(lock_timeout=600,
                     updated_kwargs = {**kwargs, varname: tfile}
                     ret = f(*args, **updated_kwargs)
                     assert tfile.exists()
-                    assert ret is None   # the function should not return anything,
-                                         # because it may be skipped
+                    if check_return_none:
+                        # the function should not return anything,
+                        # because it may be skipped
+                        assert ret is None
                     safe_move(tfile, ofile)
             return
         return wrapper
