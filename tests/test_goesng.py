@@ -22,8 +22,12 @@ def test_load_hdf4():
     ds.Latitude[-10:,:-10:3].compute()
 
 
-def test_instantiate():
-    ds = Level1_GOESNG(local_config.goes_sample_file)
+
+@pytest.mark.parametrize('chunksize', [1000, {'x': 1000, 'y': -1}])
+def test_instantiate(chunksize):
+    ds = Level1_GOESNG(local_config.goes_sample_file,
+                       chunksize=chunksize,
+                       cloudmask=True)
     print(ds)
 
 
