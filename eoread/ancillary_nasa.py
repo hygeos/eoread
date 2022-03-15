@@ -88,6 +88,8 @@ def open_NASA(target):
         )
 
         dt = datetime.strptime(out.attrs['Start Time'][:13], '%Y%j%H%M%S')
+        out.attrs['filename'] = target.name
+
         return out.assign_coords(time=dt)
 
 
@@ -150,7 +152,12 @@ class Ancillary_NASA:
 
         assert list_ds is not None, f'Error: no valid product was found for {dt} (offline={self.offline})'
 
-        concatenated = xr.concat(list_ds, dim='time')
+        list_ds[0].attrs['filename_met_1'] = list_ds[0].attrs['filename']
+        list_ds[1].attrs['filename_met_2'] = list_ds[1].attrs['filename']
+
+        concatenated = xr.concat(
+            list_ds, dim='time',
+            combine_attrs='drop_conflicts')
 
         if len(list_ds) == 1:
             interpolated = concatenated
@@ -164,8 +171,12 @@ class Ancillary_NASA:
                 latitude=interpolated.latitude,
                 longitude=interpolated.longitude,
             )
+            # oz.attrs = oz.rename({'filename_met_1': 'filename_oz_1'})
             oz = oz[['total_ozone']]
-            return xr.merge([interpolated, oz])
+            oz.attrs.update({'filename_oz_1': oz.attrs.pop('filename_met_1')})
+            oz.attrs.update({'filename_oz_2': oz.attrs.pop('filename_met_2')})
+            return xr.merge([interpolated, oz],
+                            combine_attrs='drop_conflicts')
 
         else:
             return interpolated
