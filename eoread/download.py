@@ -294,17 +294,23 @@ class Mirror_Uncompress:
         return path_final
 
 
-def ftp_download(ftp: FTP, dir_local: Path, dir_server: str, pattern: str='*'):
+def ftp_download(ftp: FTP, file_local: Path, dir_server: str, verbose=True):
     """
-    Downloads all files on ftp matching `pattern` from `dir_server` to `dir_local`
+    Downloads `file_local` on ftp, from server directory `dir_server`
+
+    The file name on the server is determined by `file_local.name`
     """
     ftp.cwd(dir_server)
-    ls = ftp.nlst()
-    list_download = fnmatch.filter(ls, pattern)
-    assert list_download
-    for fname in list_download:
-        target = Path(dir_local)/fname
-        with open(target, 'wb') as fp, timeit(f'Download {fname}'):
-            ftp.retrbinary(f'RETR {fname}', fp.write)
+    fname = file_local.name
+    with open(file_local, 'wb') as fp, timeit(f'Download {fname}', verbose=verbose):
+        ftp.retrbinary(f'RETR {fname}', fp.write)
+    assert file_local.exists()
 
-    return list_download
+
+def ftp_list(ftp: FTP, dir_server: str, pattern: str='*'):
+    '''
+    Returns the list of fles matching `pattern` on `dir_server`
+    '''
+    ftp.cwd(dir_server)
+    ls = ftp.nlst()
+    return fnmatch.filter(ls, pattern)

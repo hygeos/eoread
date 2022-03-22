@@ -1,7 +1,12 @@
 from pathlib import Path
 import pytest
 from tempfile import TemporaryDirectory
-from eoread.download import Mirror_Uncompress, download_url, get_S2_google_url
+from eoread.download import Mirror_Uncompress, get_S2_google_url
+from ftplib import FTP
+from pathlib import Path
+import pytest
+from tempfile import TemporaryDirectory
+from eoread import download
 from eoread.nasa import nasa_download
 from eoread.uncompress import uncompress
 from fs.ftpfs import FTPFS
@@ -59,3 +64,14 @@ def test_mirror_uncompress():
         mfs.get('initrd')
 
         mfs.local_fs.tree()
+
+
+def test_ftp():
+    ftp = FTP('ftp.de.debian.org')
+    ftp.login()
+    ls = download.ftp_list(ftp, '/debian/doc/')
+    assert ls
+    with TemporaryDirectory() as tmpdir:
+        download.ftp_download(ftp, Path(tmpdir)/'00-INDEX', '/debian/doc/')
+    
+
