@@ -124,14 +124,14 @@ def skip(filename, if_exists='skip'):
         if if_exists == 'skip':
             return True
         elif if_exists == 'error':
-            raise IOError(f'File {filename} exists.')
+            raise FileExistsError(f'File {filename} exists.')
         else:
             raise ValueError(f'Invalid argument if_exists={if_exists}')
     else:
         return False
 
 
-def filegen(lock_timeout=600,
+def filegen(lock_timeout=0,
             tmpdir=None,
             if_exists='skip',
             argname='path',
