@@ -342,20 +342,37 @@ def test_locate():
         eo.locate(lat, lon, 15., 15., dist_min_km=10)
 
 
-def test_persistent_list():
+@pytest.mark.parametrize('concurrent', [True, False])
+def test_persistent_list(concurrent):
     with TemporaryDirectory() as tmpdir:
         filename = Path(tmpdir)/'list.json'
         a = [1, 2, "three"]
 
-        A = misc.PersistentList(filename)
+        A = misc.PersistentList(filename, concurrent=concurrent)
         A.extend(a)
+        assert 1 in A
+        assert len(A) == 3
 
-        B = misc.PersistentList(filename)
+        B = misc.PersistentList(filename, concurrent=concurrent)
         assert A == B
         B.append('4')
 
-        C = misc.PersistentList(filename)
+        C = misc.PersistentList(filename, concurrent=concurrent)
         assert len(C) == 4
+        C.clear()
+        assert len(C) == 0
+
+def test_persistent_list_concurrent():
+    with TemporaryDirectory() as tmpdir:
+        filename = Path(tmpdir)/'list.json'
+        A = misc.PersistentList(filename)
+        B = misc.PersistentList(filename)
+        A.append(1)
+        assert len(B) == 1
+        assert 1 in B
+        B.append(2)
+        assert len(A) == 2
+        assert len(B) == 2
 
 
 def test_timeit_decorator():

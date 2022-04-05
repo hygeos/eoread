@@ -54,15 +54,19 @@ class LockFile:
                  interval=1,
                  timeout=600,
                  create_dir=True,
+                 disable=False,
                 ):
         self.lock_file = Path(str(lock_file)+ext)
-        if create_dir:
+        if create_dir and not disable:
             self.lock_file.parent.mkdir(exist_ok=True, parents=True)
         self.fd = None
         self.interval = interval
         self.timeout = timeout
+        self.disable = disable
 
     def __enter__(self):
+        if self.disable:
+            return
         i = 0
         while True:
             self.fd = open(self.lock_file, 'w')
@@ -78,6 +82,8 @@ class LockFile:
                     raise TimeoutError(f'Timeout on Lockfile "{self.lock_file}"')
 
     def __exit__(self, type, value, traceback):
+        if self.disable:
+            return
         try:
             fcntl.flock(self.fd, fcntl.LOCK_UN)
             self.fd.flush()
@@ -89,31 +95,63 @@ class LockFile:
 
 class PersistentList(list):
     """
-    A list that saves its content in `filename` on each modification
+    A list that saves its content in `filename` on each modification. The extension
+    must be `.json`.
+    
+    `concurrent`: whether to activate concurrent mode. In this mode, the
+        file is also read before each access.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, concurrent=True):
         self._filename = Path(filename)
+        self.concurrent = concurrent
         assert str(filename).endswith('.json')
+        self._read()
 
-        if self._filename.exists():
-            with open(self._filename) as fp:
-                self.extend(json.load(fp))
-
-        # trigger save on all of these methods
-        for attr in ('append', 'extend', 'insert', 'pop', 'remove', 'reverse', 'sort'):
+        # use `_autosave` decorator on all of these methods
+        for attr in ('append', 'extend', 'insert', 'pop',
+                     'remove', 'reverse', 'sort', 'clear'):
             setattr(self, attr, self._autosave(getattr(self, attr)))
+        
+        # trigger read on all of these methods
+        for attr in ('__getitem__',):
+            setattr(self, attr, self._autoread(getattr(self, attr)))
+
+    def __len__(self):
+        # for some reason, len() does not work with _autoread wrapper
+        if self.concurrent:
+            self._read()
+        return list.__len__(self)
+
+    def _autoread(self, func):
+        @wraps(func)
+        def _func(*args, **kwargs):
+            if self.concurrent:
+                self._read()
+            return func(*args, **kwargs)
+        return _func
 
     def _autosave(self, func):
         @wraps(func)
         def _func(*args, **kwargs):
-            ret = func(*args, **kwargs)
-            self._save()
-            return ret
+            with LockFile(self._filename, disable=(not self.concurrent)):
+                if self.concurrent:
+                    self._read()
+                ret = func(*args, **kwargs)
+                self._save()
+                return ret
         return _func
+
+    def _read(self):
+        list.clear(self)
+        if self._filename.exists():
+            with open(self._filename) as fp:
+                # don't call .extend directly, as it would
+                # recursively trigger read and save
+                list.extend(self, json.load(fp))
 
     def _save(self):
         with open(self._filename, 'w') as fp:
-            json.dump(self, fp, indent=4)
+            json.dump(self.copy(), fp, indent=4)
 
 
 def skip(filename, if_exists='skip'):
