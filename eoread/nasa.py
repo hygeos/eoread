@@ -43,6 +43,8 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
     '''
     if product.startswith('https://'):
         url = product
+    elif product.startswith('S3'):
+        url= f'https://oceandata.sci.gsfc.nasa.gov/sentinel/getfile/{product}.zip'
     else:
         url = f'https://oceandata.sci.gsfc.nasa.gov/ob/getfile/{product}'
 
