@@ -22,6 +22,7 @@ class AtIndex:
         idx: DataArray (rows x columns)
         Results in A[idx]: (nbands x rows x columns)
     '''
+    # TODO: reprecate this class, it can be replaced by xr.apply_ufunc
     def __init__(self, A, idx, idx_name):
         # dimensions to be indexed by this object
         self.dims = tuple(sum([[x] if not x == idx_name else list(idx.dims) for x in A.dims], []))
@@ -52,6 +53,9 @@ class Interpolator:
 
     Uses coordinates `tie_rows` and `tie_columns`.
     '''
+    # TODO: avoid triggering a compute in the __getitem__
+    # => use map_overlap ?
+    # => Also possible with apply_ufunc ?
     def __init__(self, shape, A, method='linear'):
         self.shape = shape
         self.dtype = A.dtype
@@ -71,7 +75,7 @@ class Interpolator:
         )
         # dtype is not preserved by interp
         # coercing to self.dtype
-        return ret.compute(scheduler='sync').astype(self.dtype)
+        return ret.values.astype(self.dtype)
 
 
 class Repeat:
@@ -82,6 +86,7 @@ class Repeat:
     A: DataArray to repeat
     repeats: tuple of int (number of repeats along each dimension)
     '''
+    # TODO: use dask.array.repeat?
     def __init__(self, A, repeats):
         self.shape = tuple([s*r for (s, r) in zip(A.shape, repeats)])
         self.ndim = len(self.shape)

@@ -116,7 +116,7 @@ def read_manifest(dirname):
 
 
 def read_OLCI(dirname,
-              chunks={},
+              chunks=None,
               level=None,
               tie_param=False,
               init_spectral=False,
@@ -178,7 +178,7 @@ def read_OLCI(dirname,
 
     # tie geometry interpolation
     tie_geom_file = os.path.join(dirname, 'tie_geometries.nc')
-    tie_ds = xr.open_dataset(tie_geom_file, chunks={}, engine=engine)
+    tie_ds = xr.open_dataset(tie_geom_file, chunks=-1, engine=engine)
     tie_ds = tie_ds.assign_coords(
                 tie_columns=np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows=np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
@@ -204,7 +204,7 @@ def read_OLCI(dirname,
 
     # tie meteo interpolation
     tie_meteo_file = os.path.join(dirname, 'tie_meteo.nc')
-    tie = xr.open_dataset(tie_meteo_file, chunks={}, engine=engine)
+    tie = xr.open_dataset(tie_meteo_file, chunks=-1, engine=engine)
     tie = tie.assign_coords(
                 tie_columns = np.arange(tie.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows = np.arange(tie.dims['tie_rows'])*ds.al_subsampling_factor,
@@ -306,6 +306,8 @@ def read_OLCI(dirname,
     ds.attrs[naming.sensor] = 'OLCI'
     ds.attrs[naming.input_directory] = os.path.dirname(dirname)
 
+    ds = ds.chunk(dict(detectors=-1))   # FIXME: do this upstream
+
     if init_spectral:
         olci_init_spectral(ds, chunks)
 
@@ -331,12 +333,13 @@ def olci_init_spectral(ds, chunks):
     ds[naming.wav].attrs.update(ds.lambda0.attrs)
 
     # solar flux
-    ds[naming.F0] = DataArray_from_array(
-        AtIndex(ds.solar_flux,
-                ds.detector_index,
-                'detectors'),
-        dims,
-        chunks,
+    ds[naming.F0] = xr.apply_ufunc(
+        lambda sf, di: sf[:,0,0,di],
+        ds.solar_flux,  # (bands x detectors)
+        ds.detector_index,   # (rows x columns)
+        dask='parallelized',
+        input_core_dims=[['detectors'], []],
+        output_dtypes=[ds.solar_flux.dtype],
     )
     ds[naming.F0].attrs.update(ds.solar_flux.attrs)
 
