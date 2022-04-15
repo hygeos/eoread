@@ -319,16 +319,14 @@ def olci_init_spectral(ds, chunks):
 
     Adds the resulting datasets to `ds`: wav, F0 (in place)
     '''
-    # dimensions to be indexed by this object
-    dims = sum([[x] if not x == 'detectors' else list(ds.detector_index.dims) for x in ds.lambda0.dims], [])
-
     # wavelength
-    ds[naming.wav] = DataArray_from_array(
-        AtIndex(ds.lambda0,
-                ds.detector_index,
-                'detectors'),
-        dims,
-        chunks,
+    ds[naming.wav] = xr.apply_ufunc(
+        lambda l0, di: l0[:,0,0,di],
+        ds.lambda0,  # (bands x detectors)
+        ds.detector_index,   # (rows x columns)
+        dask='parallelized',
+        input_core_dims=[['detectors'], []],
+        output_dtypes=[ds.lambda0.dtype],
     )
     ds[naming.wav].attrs.update(ds.lambda0.attrs)
 
