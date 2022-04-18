@@ -6,6 +6,10 @@ Read NASA Level1 files from MODIS, VIIRS, SeaWiFS
 
 Use the L1C approach: L1C files are generated with SeaDAS (l2gen) to
 get all radiometric correction
+
+How to install SeaDAS OCSSW (see https://seadas.gsfc.nasa.gov/downloads/)
+
+    ./install_ocssw --install_dir $HOME/ocssw --tag V2022.0 --seadas --modisa --seawifs --viirsn
 """
 
 from pathlib import Path
