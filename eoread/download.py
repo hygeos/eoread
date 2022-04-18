@@ -78,7 +78,7 @@ def download_sentinel(product, dirname):
     api.download(pid, directory_path=dirname)
 
 
-def download(product):
+def download_multi(product):
     """
     Download a product from various sources
         - direct url

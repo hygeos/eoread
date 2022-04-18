@@ -6,6 +6,25 @@ Define and download test products defined in products.py
 """
 
 from pathlib import Path
+from eoread.download import download_multi
+
+
+def product_getter(request):
+    """
+    A function designed to be wrapped as a fixture for downloading products
+
+    Example:
+        product = pytest.fixture(params=['product1'])(product_getter)
+
+    Or:
+        product = pytest.fixture(product_getter)
+    Then parametrized by:
+        @pytest.mark.parametrize('product', ['product1', 'product2'], indirect=True)
+    """
+    prod = get_sample_products()[request.param]
+    download_multi(prod)
+    return prod
+
 
 def get_sample_products(dir_samples=None):
     """
@@ -15,6 +34,7 @@ def get_sample_products(dir_samples=None):
     - url: url for direct download
     - archive: basename of the downloaded file (defaults to the basename of 'url')
     """
+    # TODO: don't use this function in the tests. Use a fixture based on product_getter instead
     if dir_samples is None:
         dir_base = Path(__file__).resolve().parent.parent
         dir_samples = dir_base/'SAMPLE_DATA'
