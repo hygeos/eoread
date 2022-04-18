@@ -8,7 +8,7 @@ Utilities to download products
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
-from textwrap import dedent
+from netrc import netrc
 from .uncompress import uncompress
 from .misc import filegen
 
@@ -46,30 +46,31 @@ def download_url(url, dirname, wget_opts='',
     return target
 
 
+def get_auth(name):
+    ret = netrc().authenticators(name)
+    if ret is None:
+        raise ValueError(f'Please provide entry "{name}" in ~/.netrc')
+    (login, account, password) = ret
+    account = account or {
+        'scihub': 'https://scihub.copernicus.eu/dhus/',
+        'coda': 'https://coda.eumetsat.int',
+    }[name]
+    return {'user': login,
+            'password': password,
+            'api_url': account}
+
+
 def download_sentinel(product, dirname):
     """
     Download a sentinel product to `dirname`
     """
     from sentinelsat import SentinelAPI
-    try:
-        import credentials
-    except:
-        raise Exception(dedent("""\
-                        Could not import credentials module
-                        Please create a file credentials.py with your credentials:
-                        scihub = {'user': 'username',
-                                  'password': 'password',
-                                  'api_url': 'https://scihub.copernicus.eu/dhus/'}
-                        coda = {'user': 'username',
-                                'password': 'password',
-                                'api_url': 'https://coda.eumetsat.int'}
-                        """))
 
     if 'scihub_id' in product:
-        cred = credentials.scihub
+        cred = get_auth('scihub')
         pid = product['scihub_id']
     elif 'coda_id' in product:
-        cred = credentials.coda
+        cred = get_auth('coda')
         pid = product['coda_id']
     else:
         return None
