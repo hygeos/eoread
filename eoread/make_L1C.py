@@ -34,7 +34,7 @@ def makeL1C(filename_l1a, dirname=None):
     elif l1a.name.startswith('S'):
         return makeL1C_SeaWiFS(l1a, dname)
     else:
-        raise Exception(f'Invalid sensor in genL1C ({l1a.name})')
+        raise RuntimeError(f'Invalid sensor in genL1C ({l1a.name})')
 
 
 def makeL1C_MODIS(l1a, dirname):
@@ -48,17 +48,17 @@ def makeL1C_MODIS(l1a, dirname):
             print(f'Skipping existing {l1c}')
         else:
             # gen GEO
-            cmd = f'modis_GEO.py --output={geo} {l1a}'
+            cmd = f'modis_GEO --output={geo} {l1a}'
             print(cmd)
             if os.system(cmd):
-                raise Exception('Error in modis_GEO')
+                raise RuntimeError('Error in modis_GEO')
             assert geo.exists()
 
             # gen l1b
-            cmd = f'modis_L1B.py -y -z --okm={l1b} {l1a} {geo}'
+            cmd = f'modis_L1B -y -z --okm={l1b} {l1a} {geo}'
             print(cmd)
             if os.system(cmd):
-                raise Exception('Error in modis_L1B.py')
+                raise RuntimeError('Error in modis_L1B')
             assert l1b.exists()
 
             # gen L1C
@@ -79,7 +79,7 @@ def makeL1C_VIIRS(l1a, dirname):
             l1c = dirname/(l1a.name.replace('.L1A_JPSS1.nc', '.L1C'))
             geo = Path(tmpdir)/(l1a.name.replace('.L1A_JPSS1.nc', '.GEO-M_JPSS1.nc'))
         else:
-            raise Exception(f'genL1C_VIIRS: invalid file name {l1a}')
+            raise RuntimeError(f'genL1C_VIIRS: invalid file name {l1a}')
 
         if l1c.exists():
             print(f'Skipping existing {l1c}')
@@ -87,7 +87,7 @@ def makeL1C_VIIRS(l1a, dirname):
             # gen GEO
             cmd = f'geolocate_viirs ifile={l1a} geofile_mod={geo}'
             if os.system(cmd):
-                raise Exception('Error in genL1C_VIIRS')
+                raise RuntimeError('Error in genL1C_VIIRS')
 
             run_l2gen_L1C(ifile=l1a,
                           l1c=l1c,
@@ -125,7 +125,7 @@ def run_l2gen_L1C(ifile, l1c, nbands, geofile=None):
         print('L1C:', l1c)
         print('CMD:', cmd)
         if os.system(cmd):
-            raise Exception(f'Error running command "{cmd}"')
+            raise RuntimeError(f'Error running command "{cmd}"')
 
         assert l1c_tmp.exists()
 
