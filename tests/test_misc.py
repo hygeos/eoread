@@ -19,9 +19,8 @@ def f(file_lock, interval):
         sys.stdout.flush()
 
 @pytest.mark.parametrize('interval', [0, 0.1, 1])
-@pytest.mark.parametrize('dirname', [None, '/rfs/tmp/', '/home/francois/tmp/'])
-def test_lockfile(dirname, interval):
-    with TemporaryDirectory(dir=dirname) as tmpdir:
+def test_lockfile(interval):
+    with TemporaryDirectory() as tmpdir:
         lock_file = Path(tmpdir)/'test'
         Pool(4).map(partial(f, interval=interval), [lock_file]*4)
         assert not lock_file.exists()
