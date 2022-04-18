@@ -8,13 +8,13 @@ from eoread.goesng import Level1_GOESNG, config
 from eoread.hdf4 import load_hdf4
 from eoread import eo
 from . import conftest
-from . import local_config
+# from . import local_config
 from . import generic
 from .generic import param, indices, scheduler
 
 
 # GOESNG-0750.1km.hdf
-config['auxfile'] = local_config.goes_auxfile
+# config['auxfile'] = local_config.goes_auxfile
 
 def test_load_hdf4():
     ds = load_hdf4(config['auxfile'])
