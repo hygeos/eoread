@@ -5,22 +5,20 @@
 import pytest
 import xarray as xr
 from eoread.msi import Level1_MSI
-from eoread.sample_products import get_sample_products
+from eoread.sample_products import product_getter
 from .generic import indices, param
 from . import generic
 from eoread import eo
 from . import conftest
 from matplotlib import pyplot as plt
 
-p = get_sample_products()
 resolutions = ['10', '20', '60']
 
-@pytest.fixture(params=[
-    p['prod_S2_L1_20190419'],
-    p['prod_S2_L1_20220202'],
-])
-def product(request):
-    return request.param
+
+product = pytest.fixture(params=[
+    'prod_S2_L1_20190419',
+    # 'prod_S2_L1_20220202',
+])(product_getter)
 
 @pytest.fixture(params=resolutions)
 def resolution(request):

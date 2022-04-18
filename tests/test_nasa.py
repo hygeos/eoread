@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import pytest
 from eoread.nasa import Level1_NASA, nasa_download
 from eoread.make_L1C import makeL1C
-from eoread.sample_products import get_sample_products
+from eoread.sample_products import product_getter, get_sample_products
 from . import generic
 from .generic import indices, param
 
@@ -19,14 +19,16 @@ nasa_products = [
     'prod_S2004115_L1A_GAC',
 ]
 
-@pytest.mark.parametrize('pid', nasa_products)
-def test_L1C(pid):
-    filename = p[pid]['path']
+product = pytest.fixture(params=nasa_products)(product_getter)
+
+
+def test_L1C(product):
+    filename = product['path']
     assert makeL1C(filename)
 
-@pytest.mark.parametrize('pid', nasa_products)
-def test_instantiate(pid):
-    filename = p[pid]['path']
+
+def test_instantiate(product):
+    filename = product['path']
     Level1_NASA(makeL1C(filename))
 
 

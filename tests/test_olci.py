@@ -3,7 +3,7 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from eoread.sample_products import get_sample_products
+from eoread.sample_products import product_getter
 from eoread.olci import Level1_OLCI, Level2_OLCI, olci_init_spectral
 from eoread.olci import get_valid_l2_pixels
 from eoread import eo
@@ -12,10 +12,10 @@ from . import generic
 from .generic import param, indices, scheduler
 from .conftest import savefig
 
-p = get_sample_products()
+
+product = pytest.fixture(params=['prod_S3_L1_20190430'])(product_getter)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_olci_level1(product):
     ds = Level1_OLCI(product['path'])
 
@@ -33,7 +33,6 @@ def test_olci_level1(product):
     assert 'total_columnar_water_vapour' in ds
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_split_merge(product):
     ds = Level1_OLCI(product['path'])
     print(ds)
@@ -44,7 +43,6 @@ def test_split_merge(product):
     print(merge)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_sub_pt(product):
     ds = Level1_OLCI(product['path'])
     lat0 = ds.latitude[500, 500]
@@ -52,13 +50,13 @@ def test_sub_pt(product):
     eo.sub_pt(ds, lat0, lon0, 3)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
+@pytest.mark.parametrize('product', ['prod_S3_L2_20190612'], indirect=True)
 def test_olci_level2(product):
     l2 = Level2_OLCI(product['path'])
     print(l2)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L2_20190612']])
+@pytest.mark.parametrize('product', ['prod_S3_L2_20190612'], indirect=True)
 def test_olci_level2_flags(product):
     l2 = Level2_OLCI(product['path'])
 
@@ -66,25 +64,21 @@ def test_olci_level2_flags(product):
     get_valid_l2_pixels(l2.wqsf)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_main(product):
     ds = Level1_OLCI(product['path'])
     eo.init_Rtoa(ds)
     generic.test_main(ds)
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_read(product, param, indices, scheduler):
     ds = Level1_OLCI(product['path'])
     eo.init_Rtoa(ds)
     generic.test_read(ds, param, indices, scheduler)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_subset(product):
     ds = Level1_OLCI(product['path'])
     generic.test_subset(ds)
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 @pytest.mark.parametrize('s', [slice(None, 300), slice(None, None, 10)])
 def test_preview(product, param, request, s):
     """
@@ -101,7 +95,6 @@ def test_preview(product, param, request, s):
     savefig(request)
 
 
-@pytest.mark.parametrize('product', [p['prod_S3_L1_20190430']])
 def test_flag(product):
     """
     Check that flags are properly raised
