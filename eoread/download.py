@@ -111,6 +111,10 @@ def download_multi(product):
     with TemporaryDirectory(prefix='tmp_eoread_download_') as tmpdir:
         if 'url' in product:
             download_url(product['url'], tmpdir)
+        elif product['path'].name.startswith('S2'):
+            import fels
+            url = get_S2_google_url(product['path'].name)
+            fels.get_sentinel2_image(url, tmpdir)
         elif ('scihub_id' in product) or ('coda_id' in product):
             download_sentinel(product, tmpdir)
         else:
@@ -119,7 +123,7 @@ def download_multi(product):
 
         compressed = next(Path(tmpdir).glob('*'))
 
-        uncompress(compressed, path.parent)
+        uncompress(compressed, path.parent, on_uncompressed='copy')
 
     assert path.exists(), f'{path} does not exist.'
 
