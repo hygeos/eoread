@@ -319,7 +319,7 @@ def to_netcdf(ds, *,
     if fname.exists():
         if if_exists == 'skip':
             print(f'File {fname} exists, skipping...')
-            return
+            return fname
         elif if_exists == 'overwrite':
             fname.unlink()
         elif if_exists == 'error':
