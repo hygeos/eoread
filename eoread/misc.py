@@ -204,7 +204,7 @@ def filegen(lock_timeout=0,
             if skip(ofile, if_exists):
                 return
             
-            with TemporaryDirectory(tmpdir) as tmpd:
+            with TemporaryDirectory(dir=tmpdir) as tmpd:
                 tfile = Path(tmpd)/ofile.name
                 with LockFile(ofile,
                               timeout=lock_timeout,
