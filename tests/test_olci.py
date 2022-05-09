@@ -79,13 +79,17 @@ def test_subset(product):
     ds = Level1_OLCI(product['path'])
     generic.test_subset(ds)
 
-@pytest.mark.parametrize('s', [slice(None, 300), slice(None, None, 10)])
-def test_preview(product, param, request, s):
+@pytest.mark.parametrize('s', [
+    slice(None, 300),
+    slice(None, None, 10),
+    ])
+@pytest.mark.parametrize('interp', ['legacy', 'linear', 'atan2'])
+def test_preview(product, param, request, s, interp):
     """
     Generate browses of various products
     """
     plt.figure()
-    l1 = Level1_OLCI(product['path'])
+    l1 = Level1_OLCI(product['path'], interp_angles=interp)
     eo.init_Rtoa(l1)
     if l1[param].ndim == 2:
         plt.imshow(l1[param][s, s])

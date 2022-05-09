@@ -50,7 +50,9 @@ def Level1_OLCI(dirname,
                 chunks=500,
                 tie_param=False,
                 init_spectral=True,
-                init_reflectance=False):
+                init_reflectance=False,
+                interp_angles='linear',
+                ):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     '''
@@ -59,6 +61,7 @@ def Level1_OLCI(dirname,
                    chunks=chunks,
                    tie_param=tie_param,
                    init_spectral=(init_spectral or init_reflectance),
+                   interp_angles=interp_angles,
                    )
 
     if init_reflectance:
@@ -70,7 +73,10 @@ def Level1_OLCI(dirname,
 
 def Level2_OLCI(dirname,
                 chunks=500,
-                tie_param=False, init_spectral=True):
+                tie_param=False,
+                init_spectral=True,
+                interp_angles='linear',
+                ):
     '''
     Read an OLCI Level2 product as an xarray.Dataset
     '''
@@ -79,6 +85,7 @@ def Level2_OLCI(dirname,
                      chunks=chunks,
                      tie_param=tie_param,
                      init_spectral=init_spectral,
+                     interp_angles=interp_angles,
                      )
 
 
@@ -120,10 +127,17 @@ def read_OLCI(dirname,
               level=None,
               tie_param=False,
               init_spectral=False,
-              engine=None):
+              engine=None,
+              interp_angles='linear',
+              ):
     '''
     Read an OLCI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances, the angles on the full grid, etc.
+    
+    interp_angles:
+        'linear': linear interpolation
+        'atan2': interpolate sin(x) and cos(x), then x = atan2(sin, cos)
+        'legacy': for backward compatibility (nearest for azimuth angles, linear for zenith angles)
     '''
     ds = xr.Dataset()
 
@@ -187,17 +201,43 @@ def read_OLCI(dirname,
     assert tie_ds.tie_columns[-1] == ds.columns[-1]
     assert tie_ds.tie_rows[0] == ds.rows[0]
     assert tie_ds.tie_rows[-1] == ds.rows[-1]
+
+    if interp_angles == 'linear':
+        interp_aa = 'linear'
+        interp_za = 'linear'
+    elif interp_angles == 'atan2':
+        interp_aa = 'atan2'
+        interp_za = 'atan2'
+    elif interp_angles == 'legacy':
+        interp_aa = 'nearest'
+        interp_za = 'linear'
+    else:
+        raise ValueError(f'Invalid interp_angles "{interp_angles}"')
+    
     for (ds_full, ds_tie, method) in [
-                ('sza', 'SZA', 'linear'),
-                ('saa', 'SAA', 'nearest'),
-                ('vza', 'OZA', 'linear'),
-                ('vaa', 'OAA', 'nearest'),
+                ('sza', 'SZA', interp_za),
+                ('saa', 'SAA', interp_aa),
+                ('vza', 'OZA', interp_za),
+                ('vaa', 'OAA', interp_aa),
             ]:
-        ds[ds_full] = DataArray_from_array(
-            Interpolator(shape2, tie_ds[ds_tie].astype('float32'), method),
-            dims2,
-            chunks,
-        )
+        if method == 'atan2':
+            _cos = DataArray_from_array(
+                Interpolator(shape2, np.cos(np.radians(tie_ds[ds_tie].astype('float32'))), 'linear'),
+                dims2,
+                chunks,
+            )
+            _sin = DataArray_from_array(
+                Interpolator(shape2, np.sin(np.radians(tie_ds[ds_tie].astype('float32'))), 'linear'),
+                dims2,
+                chunks,
+            )
+            ds[ds_full] = np.degrees(np.arctan2(_sin, _cos))
+        else:
+            ds[ds_full] = DataArray_from_array(
+                Interpolator(shape2, tie_ds[ds_tie].astype('float32'), method),
+                dims2,
+                chunks,
+            )
         ds[ds_full].attrs = tie_ds[ds_tie].attrs
         if tie_param:
             ds[ds_full+'_tie'] = tie_ds[ds_tie]
