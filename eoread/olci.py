@@ -254,14 +254,23 @@ def read_OLCI(dirname,
     assert tie.tie_rows[0] == ds.rows[0]
     assert tie.tie_rows[-1] == ds.rows[-1]
     
-    ds[naming.horizontal_wind] = DataArray_from_array(
+    wind0 = DataArray_from_array(
         Interpolator(
             shape2,
-            np.sqrt(pow(tie.horizontal_wind.isel(wind_vectors=0), 2)+pow(tie.horizontal_wind.isel(wind_vectors=1), 2))
+            tie.horizontal_wind.isel(wind_vectors=0)
         ),
         dims2,
         chunks,
     )
+    wind1 = DataArray_from_array(
+        Interpolator(
+            shape2,
+            tie.horizontal_wind.isel(wind_vectors=1)
+        ),
+        dims2,
+        chunks,
+    )
+    ds[naming.horizontal_wind] = np.sqrt(wind0**2 + wind1**2)
     ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
     variables = [
         'humidity',
