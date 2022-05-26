@@ -9,7 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
 from netrc import netrc
-from .uncompress import uncompress
+from .uncompress import uncompress as uncomp
 from .misc import filegen
 
 
@@ -46,18 +46,42 @@ def download_url(url, dirname, wget_opts='',
     return target
 
 
-def get_auth(name):
+def get_auth(name, kind=None):
+    """
+    Returns a dictionary with credentials, using .netrc
+
+    `name` is the identifier (= `machine` in .netrc). This allows for several accounts on a single machine.
+    The url is returned as `account`
+    
+    `kind`: provide authentication for different APIs
+        - None (default): dict of ('user', 'password', 'url')
+        - 'dhus': dict of ('user', 'password', 'api_url') ; SentinelAPI(**get_auth('service'))
+        - 'ftpfs': dict of ('host', 'user', 'password') ; fs.ftpfs.FTPFS(**get_auth('service'))
+    """
     ret = netrc().authenticators(name)
     if ret is None:
-        raise ValueError(f'Please provide entry "{name}" in ~/.netrc')
+        raise ValueError(f'Please provide entry "{name}" in ~/.netrc ; '
+                         f'example: machine {name} login <login> password <passwd> account <url>')
     (login, account, password) = ret
-    account = account or {
-        'scihub': 'https://scihub.copernicus.eu/dhus/',
-        'coda': 'https://coda.eumetsat.int',
-    }[name]
-    return {'user': login,
-            'password': password,
-            'api_url': account}
+
+    if kind is None:
+        return {'user': login,
+                'password': password,
+                'url': account}
+    elif kind == 'dhus':
+        account = account or {
+            'scihub': 'https://scihub.copernicus.eu/dhus/',
+            'coda': 'https://coda.eumetsat.int',
+        }[name]
+        return {'user': login,
+                'password': password,
+                'api_url': account}
+    elif kind == 'ftpfs':
+        return {'user': login,
+                'passwd': password,
+                'host': account}
+    else:
+        raise ValueError(f'Error (kind = "{kind}" is not understood)')
 
 
 def download_sentinel(product, dirname):
@@ -124,7 +148,7 @@ def download_multi(product):
 
         compressed = next(Path(tmpdir).glob('*'))
 
-        uncompress(compressed, path.parent, on_uncompressed='copy')
+        uncomp(compressed, path.parent, on_uncompressed='copy')
 
     assert path.exists(), f'{path} does not exist.'
 
