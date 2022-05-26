@@ -92,14 +92,19 @@ def uncompress(filename,
             else:
                 raise ValueError(f'Invalid value "{on_uncompressed}" for argument `on_uncompressed`')
 
-        # determine path to uncompressed temporary directory
+        # determine path to uncompressed temporary directory and target
+        target = None
         if target_tmp is None:
             lst = list(Path(tmpdir).glob('*'))
-            assert len(lst) == 1
-            target_tmp = lst[0]
+            if len(lst) == 1:
+                target_tmp = lst[0]
+            else:
+                target_tmp = Path(tmpdir)
+                target = Path(dirname)/filename.stem
 
         # determine target
-        target = Path(dirname)/target_tmp.name
+        if target is None:
+            target = Path(dirname)/target_tmp.name
         assert not target.exists(), f'Error, {target} exists.'
 
         # move temporary to destination
