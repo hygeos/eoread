@@ -41,6 +41,7 @@ def uncompress(filename,
 
     Returns the path to the uncompressed file
     """
+    filename = Path(filename)
     if verbose:
         print(f'Uncompressing {filename} to {dirname}')
     if not Path(dirname).exists():

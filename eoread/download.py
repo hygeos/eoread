@@ -6,11 +6,15 @@ Utilities to download products
 """
 
 from pathlib import Path
+import shutil
 from tempfile import TemporaryDirectory
 import subprocess
+import fs
+from fs.osfs import OSFS
 from netrc import netrc
 from .uncompress import uncompress as uncomp
 from .misc import filegen
+
 
 
 def download_url(url, dirname, wget_opts='',
@@ -46,7 +50,7 @@ def download_url(url, dirname, wget_opts='',
     return target
 
 
-def get_auth(name, kind=None):
+def get_auth(name):
     """
     Returns a dictionary with credentials, using .netrc
 
@@ -64,24 +68,27 @@ def get_auth(name, kind=None):
                          f'example: machine {name} login <login> password <passwd> account <url>')
     (login, account, password) = ret
 
-    if kind is None:
-        return {'user': login,
-                'password': password,
-                'url': account}
-    elif kind == 'dhus':
-        account = account or {
-            'scihub': 'https://scihub.copernicus.eu/dhus/',
-            'coda': 'https://coda.eumetsat.int',
-        }[name]
-        return {'user': login,
-                'password': password,
-                'api_url': account}
-    elif kind == 'ftpfs':
-        return {'user': login,
-                'passwd': password,
-                'host': account}
-    else:
-        raise ValueError(f'Error (kind = "{kind}" is not understood)')
+    return {'user': login,
+            'password': password,
+            'url': account}
+
+
+def get_auth_dhus(name):
+    auth = get_auth(name)
+    api_url = auth['url'] or {
+        'scihub': 'https://scihub.copernicus.eu/dhus/',
+        'coda': 'https://coda.eumetsat.int',
+    }[name]
+    return {'user': auth['user'],
+            'password': auth['password'],
+            'api_url': api_url}
+
+
+def get_auth_ftpfs(name):
+    auth = get_auth(name)
+    return {'host': auth['url'],
+            'user': auth['user'],
+            'passwd': auth['password']}
 
 
 def download_sentinel(product, dirname):
@@ -181,3 +188,105 @@ def get_S2_google_url(filename):
     url = f'{url_base}/{utm}/{pos0}/{pos1}/{filename_full}'
 
     return url
+
+
+class Mirror_Uncompress:
+    """
+    Locally map a remote filesystem, with lazy file access and archive decompression.
+    
+    remote_fs is a PyFilesystem instance (docs.pyfilesystem.org)
+    
+    uncompress: comma-separated string of extensions to uncompress.
+        Set to '' to disactivate decompression.
+    
+    Example:
+        mfs = MirrorFS(FTPFS(...).opendir(...), '.')
+        for p in mfs.glob('*.zip'):
+            mfs.get(p)
+    """
+    def __init__(self, remote_fs, local_dir, uncompress='.tar.gz,.zip,.gz,.Z') -> None:
+        self.remote_fs = remote_fs
+        self.local_fs = OSFS(local_dir)
+        self.uncompress = uncompress.split(',')
+        self.uncompress.append('')  # case where file is not compressed !
+    
+    def glob(self, pattern):
+        """
+        pattern: remote pattern
+        """
+        for p in self.remote_fs.glob(pattern):
+            yield p.path
+        
+    def find(self, pattern):
+        """
+        finds and returns a unique path from pattern
+        """
+        # find local
+        ls = list(self.local_fs.glob(pattern))
+        if len(ls) == 1:
+            return ls[0].path
+        
+        # find remote
+        ls = list(self.remote_fs.glob(pattern))
+        if len(ls) != 1:
+            raise FileNotFoundError(f'Query on {self.remote_fs} did not lead to a single file ({pattern}) -> {ls}')
+
+        return ls[0].path
+    
+    def get(self, path):
+        """
+        Get a path, and optionally does decompression if needed
+        If path ends by an `uncompress` extension, this extension is stripped.
+
+        Returns the absolute local path
+        """
+        path_local, path_remote = None, None
+        for p in self.uncompress:
+            # check whether path has been provided as a remote path
+            if path.endswith(p):
+                path_remote = path
+                path_local = path[:-len(p)]
+                break
+
+        # if path has been provided as local
+        # (path_remote may still be undetermined)
+        path_local = path_local or path
+        
+        if not self.local_fs.exists(path_local):
+            # get local path
+            if path_remote is None:
+                for p in self.uncompress:
+                    if self.remote_fs.exists(path_local+p):
+                        path_remote = path_local+p
+                        break
+            assert self.remote_fs.exists(path_remote), \
+                f'{path_remote} does not exist on {self.remote_fs}'
+            path_tmp = path_local+'.tmp'
+
+            if path_local == path_remote:
+                # no compression
+                if self.remote_fs.isdir(path_remote):
+                    copy = fs.copy.copy_dir
+                else:
+                    copy = fs.copy.copy_file
+
+                copy(
+                    self.remote_fs, path_remote,
+                    self.local_fs, path_tmp)
+            else:
+                # apply decompression
+                with TemporaryDirectory() as tmpdir:
+                    Path(OSFS(tmpdir).getsyspath(path_remote)).parent.mkdir(parents=True, exist_ok=True)
+                    fs.copy.copy_file(
+                        self.remote_fs, path_remote,
+                        OSFS(tmpdir), path_remote
+                        )
+                    u = uncomp(OSFS(tmpdir).getsyspath(path_remote),
+                               Path(self.local_fs.getsyspath(path_tmp)).parent)
+                    shutil.move(u, self.local_fs.getsyspath(path_tmp))
+            shutil.move(self.local_fs.getsyspath(path_tmp),
+                        self.local_fs.getsyspath(path_local))
+
+        path_final = self.local_fs.getsyspath(path_local)
+        assert Path(path_final).exists()
+        return path_final
