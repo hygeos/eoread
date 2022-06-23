@@ -98,6 +98,7 @@ class Ancillary_NASA:
                  directory='ANCILLARY/Meteorological/',
                  allow_forecast=True,
                  offline=False,
+                 verbose=False,
                  ):
         self.directory = Path(directory)
         self.met_resources = default_met_resources
@@ -106,7 +107,7 @@ class Ancillary_NASA:
             self.met_resources += forecast_resources
             self.oz_resources += forecast_resources
         self.offline = offline
-
+        self.verbose = verbose
 
     def download(self, dt: datetime, pattern: str,
                  offline: bool = False):
@@ -123,10 +124,23 @@ class Ancillary_NASA:
         target = target_dir/filename
         if not target.exists():
             if offline:
+                if self.verbose:
+                    print(f'Trying file {target} : NOT FOUND [OFFLINE]')
                 raise FileNotFoundError(
                     f'Error, file {target} is not available and offline mode is set.')
             else:
-                nasa_download(filename, target_dir)
+                try:
+                    nasa_download(filename, target_dir)
+                except FileNotFoundError:
+                    if self.verbose:
+                        print(f'Trying file {target} : NOT FOUND [ONLINE]')
+                    raise
+                if self.verbose:
+                    print(f'Trying file {target} : FOUND [ONLINE]')
+        else:
+            if self.verbose:
+                print(f'Trying file {target} : FOUND [OFFLINE]')
+            
         assert target.exists()
         target = verify(target)
 
