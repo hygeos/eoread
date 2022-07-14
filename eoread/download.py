@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 import subprocess
 import fs
 from fs.osfs import OSFS
+from fs.base import FS
 from netrc import netrc
 from .uncompress import uncompress as uncomp
 from ftplib import FTP
@@ -58,11 +59,6 @@ def get_auth(name):
 
     `name` is the identifier (= `machine` in .netrc). This allows for several accounts on a single machine.
     The url is returned as `account`
-    
-    `kind`: provide authentication for different APIs
-        - None (default): dict of ('user', 'password', 'url')
-        - 'dhus': dict of ('user', 'password', 'api_url') ; SentinelAPI(**get_auth('service'))
-        - 'ftpfs': dict of ('host', 'user', 'password') ; fs.ftpfs.FTPFS(**get_auth('service'))
     """
     ret = netrc().authenticators(name)
     if ret is None:
@@ -87,10 +83,27 @@ def get_auth_dhus(name):
 
 
 def get_auth_ftpfs(name):
+    """
+    get netrc credentials for use with pyfilesystem's FTPFS
+    
+    Ex: FTPFS(**get_auth_ftpfs(<name>))
+    """
     auth = get_auth(name)
     return {'host': auth['url'],
             'user': auth['user'],
             'passwd': auth['password']}
+
+def get_url_ftpfs(name):
+    """
+    get netrc credentials for use with pyfilesystem's fs.open_fs
+
+    Ex: fs.open_fs(get_url_ftpfs(<name>))
+    """
+    auth = get_auth(name)
+    user = auth['user']
+    password = auth['password']
+    machine = auth['url']
+    return f"ftp://{user}:{password}@{machine}/"
 
 
 def download_sentinel(product, dirname):
@@ -196,7 +209,12 @@ class Mirror_Uncompress:
     """
     Locally map a remote filesystem, with lazy file access and archive decompression.
     
-    remote_fs is a PyFilesystem instance (docs.pyfilesystem.org)
+    remote_fs is opened by fs.open_fs (see docs.pyfilesystem.org)
+        Examples:
+            'ftp://<user>:<password>@<server>/<path>'
+            '<path>'
+            'osfs://<path>'
+        ... or a FS (FTPFS, OSFS, etc)
     
     uncompress: comma-separated string of extensions to uncompress.
         Set to '' to disactivate decompression.
@@ -206,17 +224,35 @@ class Mirror_Uncompress:
         for p in mfs.glob('*.zip'):
             mfs.get(p)
     """
-    def __init__(self, remote_fs, local_dir, uncompress='.tar.gz,.zip,.gz,.Z') -> None:
+    def __init__(self,
+                 remote_fs,
+                 local_fs,
+                 uncompress: str='.tar.gz,.zip,.gz,.Z',
+                 ) -> None:
         self.remote_fs = remote_fs
-        self.local_fs = OSFS(local_dir)
+        self.local_fs = local_fs
+        self.local = None
+        self.remote = None
         self.uncompress = uncompress.split(',')
         self.uncompress.append('')  # case where file is not compressed !
     
-    def glob(self, pattern):
+    def get_local(self) -> FS:
+        if self.local is None:
+            self.local = fs.open_fs(self.local_fs)
+        
+        return self.local
+    
+    def get_remote(self) -> FS:
+        if self.remote is None:
+            self.remote = fs.open_fs(self.remote_fs)
+        
+        return self.remote
+    
+    def glob(self, pattern: str):
         """
         pattern: remote pattern
         """
-        for p in self.remote_fs.glob(pattern):
+        for p in self.get_remote().glob(pattern):
             yield p.path
         
     def find(self, pattern):
@@ -224,12 +260,12 @@ class Mirror_Uncompress:
         finds and returns a unique path from pattern
         """
         # find local
-        ls = list(self.local_fs.glob(pattern))
+        ls = list(self.get_local().glob(pattern))
         if len(ls) == 1:
             return ls[0].path
         
         # find remote
-        ls = list(self.remote_fs.glob(pattern))
+        ls = list(self.get_remote().glob(pattern))
         if len(ls) != 1:
             raise FileNotFoundError(f'Query on {self.remote_fs} did not lead to a single file ({pattern}) -> {ls}')
 
@@ -254,42 +290,42 @@ class Mirror_Uncompress:
         # (path_remote may still be undetermined)
         path_local = path_local or path
         
-        if not self.local_fs.exists(path_local):
+        if not self.get_local().exists(path_local):
             # get local path
             if path_remote is None:
                 for p in self.uncompress:
-                    if self.remote_fs.exists(path_local+p):
+                    if self.get_remote().exists(path_local+p):
                         path_remote = path_local+p
                         break
-            assert self.remote_fs.exists(path_remote), \
-                f'{path_remote} does not exist on {self.remote_fs}'
+            assert self.get_remote().exists(path_remote), \
+                f'{path_remote} does not exist on {self.get_remote()}'
             path_tmp = path_local+'.tmp'
 
             if path_local == path_remote:
                 # no compression
-                if self.remote_fs.isdir(path_remote):
+                if self.get_remote().isdir(path_remote):
                     copy = fs.copy.copy_dir
                 else:
                     copy = fs.copy.copy_file
 
                 copy(
-                    self.remote_fs, path_remote,
-                    self.local_fs, path_tmp)
+                    self.get_remote(), path_remote,
+                    self.get_local(), path_tmp)
             else:
                 # apply decompression
                 with TemporaryDirectory() as tmpdir:
                     Path(OSFS(tmpdir).getsyspath(path_remote)).parent.mkdir(parents=True, exist_ok=True)
                     fs.copy.copy_file(
-                        self.remote_fs, path_remote,
+                        self.get_remote(), path_remote,
                         OSFS(tmpdir), path_remote
                         )
                     u = uncomp(OSFS(tmpdir).getsyspath(path_remote),
-                               Path(self.local_fs.getsyspath(path_tmp)).parent)
-                    shutil.move(u, self.local_fs.getsyspath(path_tmp))
-            shutil.move(self.local_fs.getsyspath(path_tmp),
-                        self.local_fs.getsyspath(path_local))
+                               Path(self.get_local().getsyspath(path_tmp)).parent)
+                    shutil.move(u, self.get_local().getsyspath(path_tmp))
+            shutil.move(self.get_local().getsyspath(path_tmp),
+                        self.get_local().getsyspath(path_local))
 
-        path_final = self.local_fs.getsyspath(path_local)
+        path_final = self.get_local().getsyspath(path_local)
         assert Path(path_final).exists()
         return path_final
 

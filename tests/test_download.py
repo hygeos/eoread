@@ -46,11 +46,15 @@ def test_download_missing():
             nasa_download('ABCDEFG0123456789', tmpdir)
 
 
-def test_mirror_uncompress():
+@pytest.mark.parametrize('ftp_object', [
+    FTPFS('ftp.us.debian.org').opendir('debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/'),
+    'ftp://ftp.us.debian.org/debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/',
+    ])
+def test_mirror_uncompress(ftp_object):
 
     with TemporaryDirectory() as tmpdir:
         mfs = Mirror_Uncompress(
-            FTPFS('ftp.us.debian.org').opendir('debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/'),
+            ftp_object,
             tmpdir)
         print(list(mfs.glob('*')))
 
@@ -58,12 +62,20 @@ def test_mirror_uncompress():
         mfs.get('boot.scr')
         mfs.get('hd-media.tar.gz')
         mfs.get('hd-media')
+        mfs.get('SD-card-images/partition.img.gz')
+        mfs.get('SD-card-images/partition.img')
         mfs.get('SD-card-images')
         mfs.get('SD-card-images')
         mfs.get('initrd.gz')
         mfs.get('initrd')
 
-        mfs.local_fs.tree()
+        mfs.get_local().tree()
+
+        # test get without ftp
+        mfs2 = Mirror_Uncompress(
+            None,
+            tmpdir)
+        mfs2.get('boot.scr')
 
 
 def test_ftp():
