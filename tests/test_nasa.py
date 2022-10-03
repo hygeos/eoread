@@ -52,11 +52,3 @@ def test_subset(pid):
     l1 = Level1_NASA(makeL1C(filename))
     generic.test_subset(l1)
 
-@pytest.mark.skip('requires credentials')
-def test_download():
-    with TemporaryDirectory() as tmpdir:
-        f = nasa_download(
-            'N198800600_O3_N7TOMS_24h.hdf',
-            tmpdir)
-        assert f.exists()
-        
