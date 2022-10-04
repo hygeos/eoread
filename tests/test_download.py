@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 from tempfile import TemporaryDirectory
-from eoread.download import Mirror_Uncompress, get_S2_google_url
+from eoread.download import Mirror_Uncompress, download_S2_google
 from ftplib import FTP
 from pathlib import Path
 import pytest
@@ -17,10 +17,11 @@ from fs.ftpfs import FTPFS
     # 'S2B_MSIL2A_20190901T105619_N0213_R094_T30TWT_20190901T141237',    # Not implemented
 ])
 def test_download_S2_google(product_name):
-    from fels import fels
     with TemporaryDirectory() as tmpdir:
-        url = get_S2_google_url(product_name)
-        fels.get_sentinel2_image(url, tmpdir)
+        f = download_S2_google(product_name, tmpdir)
+        assert f.exists()
+    
+    
 
 
 @pytest.mark.parametrize('product_name', [
