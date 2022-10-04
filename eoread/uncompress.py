@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+from functools import wraps
 from zipfile import ZipFile
 import bz2
 import gzip
@@ -14,10 +15,53 @@ import getpass
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory, gettempdir, mkdtemp
 
+from eoread.misc import LockFile
+
 class ErrorUncompressed(Exception):
     """
     Raised when input file is already not compressed
     """
+
+
+def uncompress_decorator(filename='.eoread_uncompress_mapping'):
+    """
+    A decorator that uncompresses the result of function `f`
+    
+    Signature of `f` is assumed to be as follows:
+        f(identifier, dirname, *args, **kwargs)
+    
+    The file returned by `f` is uncompressed to dirname
+    
+    The mapping of "identifier -> uncompressed" is stored in dirname/filename
+    """
+    def read_mapping(mapping_file: Path):
+        if mapping_file.exists():
+            with open(mapping_file) as fp:
+                return json.load(fp)
+        else:
+            return {}
+    def decorator(f):
+        @wraps(f)
+        def wrapper(identifier, dirname, *args, **kwargs):
+            mapping_file = Path(dirname)/filename
+            mapping = read_mapping(mapping_file)
+            
+            if identifier not in mapping:
+                with TemporaryDirectory() as tmpdir:
+                    f_compressed = f(identifier, tmpdir, *args, **kwargs)
+                    target = uncompress(f_compressed, dirname)
+
+                    with LockFile(mapping_file):
+                        mapping = read_mapping(mapping_file)
+                        mapping[identifier] = target.name
+                        with open(mapping_file, 'w') as fp:
+                            json.dump(mapping, fp, indent=4)
+            else:
+                target = Path(dirname)/mapping[identifier]
+            assert target.exists()
+            return target
+        return wrapper
+    return decorator
 
 
 def uncompress(filename,
