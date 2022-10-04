@@ -17,6 +17,8 @@ import xarray as xr
 import numpy as np
 from datetime import datetime
 import subprocess
+
+from eoread.uncompress import uncompress_decorator
 from .download import download_url
 from .naming import naming, flags
 from .common import DataArray_from_array
@@ -62,6 +64,14 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
         lock_timeout=3600,
         if_exists='skip',
         )
+
+
+def nasa_download_uncompress(product, dirname) -> Path:
+    """
+    Download a product on oceandata.sci.gsfc.nasa.gov with
+    `nasa_download` and uncompress the result
+    """
+    return uncompress_decorator()(nasa_download)(product, dirname)
 
 
 def nasa_search(**kwargs):

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from tempfile import TemporaryDirectory
 from eoread import download
-from eoread.nasa import nasa_download
+from eoread.nasa import nasa_download, nasa_download_uncompress
 from eoread.uncompress import uncompress
 from fs.ftpfs import FTPFS
 
@@ -22,19 +22,25 @@ def test_download_S2_google(product_name):
         url = get_S2_google_url(product_name)
         fels.get_sentinel2_image(url, tmpdir)
 
+
 @pytest.mark.parametrize('product_name', [
-    'S3A_OL_1_EFR____20190107T005248_20190107T005307_20190108T121012_0019_040_059_4680_LN1_O_NT_002',
+    'S3A_OL_1_EFR____20220320T221328_20220320T221334_20220322T021726_0006_083_172_1440_LN1_O_NT_002',   # small sample product
     'S2000001002712.L1A_GAC.Z',
 ])
-def test_download_nasa(product_name):
+@pytest.mark.parametrize('do_uncompress', [True, False])
+def test_download_nasa(product_name, do_uncompress):
     '''
     Test downloading (and uncompressing) some files
     '''
     with TemporaryDirectory() as tmpdir:
-        f = nasa_download(product_name, Path(tmpdir)/'compressed')
-        print(f)
-        assert f.exists()
-        assert uncompress(f, Path(tmpdir)/'uncompressed').exists()
+        if do_uncompress:
+            for _ in range(2):
+                f = nasa_download_uncompress(product_name, tmpdir)
+                assert f.exists()
+        else:
+            f = nasa_download(product_name, Path(tmpdir)/'compressed')
+            assert f.exists()
+            assert uncompress(f, Path(tmpdir)/'uncompressed').exists()
 
 
 def test_download_missing():
