@@ -49,30 +49,7 @@ sub = sub_pt(ds, pt_lat, pt_lon, rad)   # rad is the radius in km
 
 ## Processing
 
-Define a function or class for processing:
-```python
-class Rayleigh_correction:
-    def __init__(self, rod='bodhaine'):
-        # initializations, like reading the LUT
-    
-    @blockwise_method(
-        dims_blockwise=('rows', 'columns'),
-        dims_out=[('bands', 'rows', 'columns'),
-                  ('bands', 'rows', 'columns')],
-        dtypes=['float32', 'uint32'])
-    def calc(self, Rtoa_gc):
-        Rmol = ...
-        Rprime = Rtoa_gc - Rmol
-        return Rprime, flags
-```
-
-Using the decorator `blockwise_method` allows applying calc to xarray DataArrays:
-```python
-# ds is a xr.Dataset containing the variable Rtoa_gc
-# we add the variables Rprime and flags like so:
-ds['Rprime'], ds['flags'] = Rayleigh_correction().run(ds.Rtoa_gc)
-```
-
+Use xr.map_blocks to apply a function to each block of a Dataset or DataArray.
 
 ## Output products
 

@@ -21,8 +21,6 @@ def test_download_S2_google(product_name):
         f = download_S2_google(product_name, tmpdir)
         assert f.exists()
     
-    
-
 
 @pytest.mark.parametrize('product_name', [
     'S3A_OL_1_EFR____20220320T221328_20220320T221334_20220322T021726_0006_083_172_1440_LN1_O_NT_002',   # small sample product

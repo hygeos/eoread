@@ -211,8 +211,8 @@ def download_S2_google(product, dirname):
     def down_S2(path):
         with timeit('Downloading'):
             print(f'Downloading {product}...')
-        url = get_S2_google_url(product)
-        fels.get_sentinel2_image(url, outputdir=path.parent)
+            url = get_S2_google_url(product)
+            fels.get_sentinel2_image(url, outputdir=path.parent)
     down_S2(path=target)
     return target
 
