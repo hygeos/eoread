@@ -39,7 +39,11 @@ class HDF4_ArrayLike:
             SDC.INT32: np.dtype('int32'),
             SDC.UINT32: np.dtype('uint32'),
         }[sds.info()[3]]
-        self.shape = tuple(sds.info()[2])
+        shp = sds.info()[2]
+        if hasattr(shp, '__len__'):
+            self.shape = tuple(shp)
+        else:
+            self.shape = (shp,)
 
     def __getitem__(self, keys):
         return self.sds.__getitem__(keys)
