@@ -23,7 +23,8 @@ class ErrorUncompressed(Exception):
     """
 
 
-def uncompress_decorator(filename='.eoread_uncompress_mapping'):
+def uncompress_decorator(filename='.eoread_uncompress_mapping',
+                         verbose=True):
     """
     A decorator that uncompresses the result of function `f`
     
@@ -49,7 +50,7 @@ def uncompress_decorator(filename='.eoread_uncompress_mapping'):
             if identifier not in mapping:
                 with TemporaryDirectory() as tmpdir:
                     f_compressed = f(identifier, tmpdir, *args, **kwargs)
-                    target = uncompress(f_compressed, dirname)
+                    target = uncompress(f_compressed, dirname, verbose=verbose)
 
                     with LockFile(mapping_file):
                         mapping = read_mapping(mapping_file)

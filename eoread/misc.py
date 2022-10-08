@@ -13,6 +13,15 @@ from functools import wraps
 import fcntl
 
 
+def only(x, description=None):
+    """
+    Small utility function to get the element of a single-element list
+    """
+    x = list(x)
+    assert len(x) == 1, f'Error in {description}'
+    return x[0] 
+
+
 def safe_move(src, dst, makedirs=True):
     """
     Move `src` file to `dst`
