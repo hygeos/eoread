@@ -161,6 +161,8 @@ def read_OLCI(dirname,
     prod_list = []
     bands = []
     for idx, filename in manifest['bandfilenames']:
+        if '_unc' in filename:
+            continue
         fname = os.path.join(dirname, filename)
         prod_list.append(xr.open_dataset(fname, chunks=chunks, engine=engine)[os.path.basename(fname)[:-3]])
         bands.append(olci_band_names[idx])
