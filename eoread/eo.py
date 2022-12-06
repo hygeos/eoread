@@ -468,21 +468,27 @@ def merge(ds,
     return copy
 
 
-def getflags(A):
+def getflags(A=None, meanings=None, masks=None, sep=None):
     """
-    returns the flags in attributes of `A` as a dictionary
+    returns the flags in attributes of `A` as a dictionary {meaning: value}
 
     Arguments:
     ---------
 
-    A: Dataarray
+    provide either:
+        A: Dataarray
+    or:
+        meanings: flag meanings 'FLAG1 FLAG2'
+        masks: flag values [1, 2]
+        sep: string separator
     """
     try:
-        m = A.attrs[naming.flags_meanings].split(naming.flags_meanings_separator)
-        v = A.attrs[naming.flags_masks]
+        meanings = meanings if (meanings is not None) else A.attrs[naming.flags_meanings]
+        masks = masks if (masks is not None) else A.attrs[naming.flags_masks]
+        sep = sep or naming.flags_meanings_separator
     except KeyError:
         return OrderedDict()
-    return OrderedDict(zip(m, v))
+    return OrderedDict(zip(meanings.split(sep), masks))
 
 
 def getflag(A, name):
