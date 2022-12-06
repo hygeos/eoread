@@ -181,15 +181,14 @@ def skip(filename, if_exists='skip'):
 
 
 def filegen(arg=0,
-            lock_timeout=-1,
+            lock_timeout=0,
             tmpdir=None,
             if_exists='skip',
             check_return_none=True,
             ):
     """
     A decorator for functions generating an output file.
-    The path to this output file should be provided to the function under
-    named argument `path`.
+    The path to this output file should is defined through `arg`.
 
     This decorator adds the following features to the function:
     - Use temporary file in a configurable directory, moved afterwards to final location
@@ -197,7 +196,7 @@ def filegen(arg=0,
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
     
-    argname: int ot str (default 0)
+    arg: int ot str (default 0)
         if int, defines the position of the positional argument defining the output file
             (warning, starts at 1 for methods)
         if str, defines the argname of the keyword argument defining the output file

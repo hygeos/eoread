@@ -100,7 +100,7 @@ class ERA5:
         return interpolated
 
 
-    @filegen(argname='target')
+    @filegen(1)
     def download_file(self, target, dt):
         if self.client is None:
             self.client = cdsapi.Client()
@@ -131,7 +131,7 @@ class ERA5:
         assert dt.second == 0
 
         target = self.directory/dt.strftime(self.pattern)
-        self.download_file(target=target, dt=dt)
+        self.download_file(target, dt=dt)
 
         return open_ERA5(target)
 

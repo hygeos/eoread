@@ -48,7 +48,7 @@ def download_url(url, dirname, wget_opts='',
         if check_function is not None:
             check_function(path)
 
-    download_target(path=target)
+    download_target(target)
 
     return target
 
@@ -213,7 +213,7 @@ def download_S2_google(product, dirname):
             print(f'Downloading {product}...')
             url = get_S2_google_url(product)
             fels.get_sentinel2_image(url, outputdir=path.parent)
-    down_S2(path=target)
+    down_S2(target)
     return target
 
 
