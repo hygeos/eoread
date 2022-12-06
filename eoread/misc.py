@@ -52,6 +52,9 @@ class LockFile:
     """
     Create a blocking context with a lock file
 
+    timeout: timeout in seconds, waiting to the lock to be released.
+        If negative, disable lock files entirely.
+
     Ex:
     with LockFile('/dir/to/file.txt'):
         # create a file '/dir/to/file.txt.lock' including a filesystem lock
@@ -61,17 +64,16 @@ class LockFile:
                  lock_file,
                  ext='.lock',
                  interval=1,
-                 timeout=600,
+                 timeout=0,
                  create_dir=True,
-                 disable=False,
                 ):
         self.lock_file = Path(str(lock_file)+ext)
-        if create_dir and not disable:
+        if create_dir and (timeout >= 0):
             self.lock_file.parent.mkdir(exist_ok=True, parents=True)
         self.fd = None
         self.interval = interval
         self.timeout = timeout
-        self.disable = disable
+        self.disable = timeout < 0
 
     def __enter__(self):
         if self.disable:
@@ -179,7 +181,7 @@ def skip(filename, if_exists='skip'):
 
 
 def filegen(arg=0,
-            lock_timeout=0,
+            lock_timeout=-1,
             tmpdir=None,
             if_exists='skip',
             check_return_none=True,

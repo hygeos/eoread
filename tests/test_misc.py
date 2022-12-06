@@ -11,7 +11,7 @@ from eoread.misc import LockFile, filegen
 
 def f(file_lock, interval):
     print(f'Started at {datetime.now()}')
-    with LockFile(file_lock):
+    with LockFile(file_lock, timeout=10):
         print('Lock acquired at', datetime.now())
         sys.stdout.flush()
         sleep(interval)
