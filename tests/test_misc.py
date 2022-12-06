@@ -34,13 +34,13 @@ def test_filegen():
 
     with TemporaryDirectory() as tmpdir:
         target = Path(tmpdir)/'test'
-        f(path=target)
-        f(path=target)  # second call skips existing file
+        f(target)
+        f(target)  # second call skips existing file
 
 
 def test_filegen_class():
     class MyClass:
-        @filegen()
+        @filegen(1)
         def method(self, path):
             with open(path, 'w') as fd:
                 fd.write('test')
@@ -48,5 +48,5 @@ def test_filegen_class():
     with TemporaryDirectory() as tmpdir:
         target = Path(tmpdir)/'test'
         M = MyClass()
-        M.method(path=target)
-        M.method(path=target)  # second call skips existing file
+        M.method(target)
+        M.method(target)  # second call skips existing file

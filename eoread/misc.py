@@ -178,10 +178,10 @@ def skip(filename, if_exists='skip'):
         return False
 
 
-def filegen(lock_timeout=0,
+def filegen(arg=0,
+            lock_timeout=0,
             tmpdir=None,
             if_exists='skip',
-            argname='path',
             check_return_none=True,
             ):
     """
@@ -194,6 +194,11 @@ def filegen(lock_timeout=0,
     - Detect existing file (if_exists='skip' or 'error')
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
+    
+    argname: int ot str (default 0)
+        if int, defines the position of the positional argument defining the output file
+            (warning, starts at 1 for methods)
+        if str, defines the argname of the keyword argument defining the output file
 
     Example:
         @filegen()
@@ -205,9 +210,17 @@ def filegen(lock_timeout=0,
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            assert argname in kwargs, \
-                f'Error, function should have keyword argument "{argname}"'
-            path = kwargs[argname]
+            if isinstance(arg, int):
+                assert args, 'Error, no positional argument have been provided'
+                assert (arg >= 0) and (arg < len(args))
+                path = args[arg]
+            elif isinstance(arg, str):
+                assert arg in kwargs, \
+                    f'Error, function should have keyword argument "{arg}"'
+                path = kwargs[arg]
+            else:
+                raise ValueError(f'Invalid argumnt {arg}')
+                
             ofile = Path(path)
 
             if skip(ofile, if_exists):
@@ -220,8 +233,17 @@ def filegen(lock_timeout=0,
                               ):
                     if skip(ofile, if_exists):
                         return
-                    updated_kwargs = {**kwargs, argname: tfile}
-                    ret = f(*args, **updated_kwargs)
+                    if isinstance(arg, int):
+                        updated_args = list(args)
+                        updated_args[arg] = tfile
+                        updated_kwargs = kwargs
+                    elif isinstance(arg, str):
+                        updated_args = args
+                        updated_kwargs = {**kwargs, arg: tfile}
+                    else:
+                        raise ValueError(f'Invalid argumnt {arg}')
+                        
+                    ret = f(*updated_args, **updated_kwargs)
                     assert tfile.exists()
                     if check_return_none:
                         # the function should not return anything,
