@@ -12,6 +12,7 @@ import xarray as xr
 from pyhdf.SD import SD, SDC
 import numpy as np
 from eoread.common import DataArray_from_array
+from eoread import eo
 
 
 def clean_attrs(A):
@@ -48,7 +49,7 @@ class HDF4_ArrayLike:
     def __getitem__(self, keys):
         return self.sds.__getitem__(keys)
 
-def load_hdf4(filename, chunks=1000):
+def load_hdf4(filename, trim_dims=False, chunks=1000):
     """
     Loads a hdf4 file as a lazy xarray object
     """
@@ -65,6 +66,9 @@ def load_hdf4(filename, chunks=1000):
 
     ds.attrs.update(clean_attrs(hdf.attributes()))
 
-    return ds
+    if trim_dims:
+        return eo.trim_dims(ds)
+    else:
+        return ds
 
 

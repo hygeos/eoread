@@ -652,3 +652,47 @@ def chunk(ds, **kwargs):
             ds[var].data = ds[var].data.rechunk(chks)
             
     return ds
+
+
+def trim_dims(A):
+    """
+    Trims the dimensions of Dataset A
+    
+    Rename all possible dimensions to avoid duplicate dimensions with same sizes
+    Avoid any DataArray with duplicate dimensions
+    """
+    # list of lists of dimensions that should be grouped together
+    groups = []
+    
+    # loop over all dimensions sizes
+    for size in set(A.dims.values()):
+        # list all dimensions with current size
+        groups_current = []
+        dims_current = [k for k, v in A.dims.items()
+                        if v == size]
+
+        # for each variable, add its dimensions (intersecting dims_current)
+        # to separate groups to avoid duplicated
+        for var in A:
+            for i, d in enumerate(
+                [x for x in A[var].dims
+                 if x in dims_current]
+                ):
+                if len(groups_current) <= i:
+                    groups_current.append([])
+                if d not in groups_current[i]:
+                    groups_current[i].append(d)
+
+        groups += groups_current
+
+    # check that intersection of all groups is empty
+    assert not set.intersection(*[set(x) for x in groups])
+
+    rename_dict = dict(sum([[(dim, 'new_'+group[0])
+                             for dim in group]
+                            for group in groups
+                            if len(group) > 1  # don't rename if not useful
+                            ], []))
+    return A.rename_dims(rename_dict)
+            
+
