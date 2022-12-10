@@ -144,7 +144,7 @@ class PersistentList(list):
     def _autosave(self, func):
         @wraps(func)
         def _func(*args, **kwargs):
-            with LockFile(self._filename, disable=(not self.concurrent)):
+            with LockFile(self._filename):
                 if self.concurrent:
                     self._read()
                 ret = func(*args, **kwargs)
