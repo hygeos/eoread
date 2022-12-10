@@ -110,16 +110,21 @@ def locate(lat, lon, lat0, lon0, dist_min_km=None):
     """
     Locate `lat0`, `lon0` within `lat`, `lon`
 
-    if dist_min_km is specified and if the minimal distance exceeds it, a ValueError is raised
+    if dist_min_km is specified and if the minimal distance
+    exceeds it, a ValueError is raised
     """
     print(f'Locating lat={lat0}, lon={lon0}')
     dist = haversine(lat, lon, lat0, lon0)
-    dist_min = np.array(np.amin(dist))
+    dist_min = np.array(np.nanmin(dist))
+
+    if np.isnan(dist_min):
+        raise ValueError('No valid input coordinate')
 
     if (dist_min_km is not None) and (dist_min > dist_min_km):
-        raise ValueError(f'locate: minimal distance is {dist_min}, should be at most {dist_min_km}')
+        raise ValueError(f'locate: minimal distance is {dist_min}, '
+                         f'should be at most {dist_min_km}')
 
-    return np.where(dist == dist_min)
+    return [x[0] for x in np.where(dist == dist_min)]
 
 
 def contains(ds, lat, lon):
