@@ -106,14 +106,17 @@ def init_geometry(ds, scat_angle=False):
     return ds
 
 
-def locate(lat, lon, lat0, lon0, dist_min_km=None):
+def locate(lat, lon, lat0, lon0,
+           dist_min_km=None,
+           verbose=False):
     """
     Locate `lat0`, `lon0` within `lat`, `lon`
 
     if dist_min_km is specified and if the minimal distance
     exceeds it, a ValueError is raised
     """
-    print(f'Locating lat={lat0}, lon={lon0}')
+    if verbose:
+        print(f'Locating lat={lat0}, lon={lon0}')
     dist = haversine(lat, lon, lat0, lon0)
     dist_min = np.array(np.nanmin(dist))
 
