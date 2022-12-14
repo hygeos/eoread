@@ -26,8 +26,9 @@ def test_lockfile(interval):
         assert not lock_file.exists()
 
 
-def test_filegen():
-    @filegen()
+@pytest.mark.parametrize('if_exists', ['skip', 'overwrite', 'backup'])
+def test_filegen(if_exists):
+    @filegen(if_exists=if_exists)
     def f(path):
         with open(path, 'w') as fd:
             fd.write('test')
@@ -38,9 +39,10 @@ def test_filegen():
         f(target)  # second call skips existing file
 
 
-def test_filegen_class():
+@pytest.mark.parametrize('if_exists', ['skip', 'overwrite', 'backup'])
+def test_filegen_class(if_exists):
     class MyClass:
-        @filegen(1)
+        @filegen(1, if_exists=if_exists)
         def method(self, path):
             with open(path, 'w') as fd:
                 fd.write('test')

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-from datetime import datetime
-from os import remove, system
+from os import remove
+import os
 from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
@@ -11,6 +11,7 @@ from time import sleep
 import json
 from functools import wraps
 import fcntl
+from typing import Union
 
 
 def only(x, description=None):
@@ -165,22 +166,41 @@ class PersistentList(list):
             json.dump(self.copy(), fp, indent=4)
 
 
-def skip(filename, if_exists='skip'):
+def skip(filename: Path,
+         if_exists: str='skip'):
     """
-    Utility function to check whether a file should be skipped
+    Utility function to check whether to skip an existing file
+    
+    if_exists:
+        'skip': skip the existing file
+        'error': raise an error on existing file
+        'overwrite': overwrite existing file
+        'backup': move existing file to a backup '*.1', '*.2'...
     """
     if Path(filename).exists():
         if if_exists == 'skip':
             return True
         elif if_exists == 'error':
             raise FileExistsError(f'File {filename} exists.')
+        elif if_exists == 'overwrite':
+            os.remove(filename)
+            return False
+        elif if_exists == 'backup':
+            i = 1
+            while True:
+                file_backup = str(filename)+'.'+str(i)
+                if not Path(file_backup).exists():
+                    break
+                if i >= 100:
+                    raise FileExistsError()
+            shutil.move(filename, file_backup)
         else:
             raise ValueError(f'Invalid argument if_exists={if_exists}')
     else:
         return False
 
 
-def filegen(arg=0,
+def filegen(arg: Union[int, str]=0,
             lock_timeout=0,
             tmpdir=None,
             if_exists='skip',
@@ -192,7 +212,7 @@ def filegen(arg=0,
 
     This decorator adds the following features to the function:
     - Use temporary file in a configurable directory, moved afterwards to final location
-    - Detect existing file (if_exists='skip' or 'error')
+    - Detect existing file (if_exists='skip', 'overwrite', 'backup' or 'error')
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
     
