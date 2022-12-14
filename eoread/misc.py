@@ -186,8 +186,9 @@ def skip(filename: Path,
             os.remove(filename)
             return False
         elif if_exists == 'backup':
-            i = 1
+            i = 0
             while True:
+                i += 1
                 file_backup = str(filename)+'.'+str(i)
                 if not Path(file_backup).exists():
                     break
