@@ -113,9 +113,13 @@ class PersistentList(list):
     `concurrent`: whether to activate concurrent mode. In this mode, the
         file is also read before each access.
     """
-    def __init__(self, filename, concurrent=True):
+    def __init__(self,
+                 filename,
+                 timeout=0,
+                 concurrent=True):
         self._filename = Path(filename)
         self.concurrent = concurrent
+        self.timeout = timeout
         assert str(filename).endswith('.json')
         self._read()
 
@@ -138,15 +142,15 @@ class PersistentList(list):
         @wraps(func)
         def _func(*args, **kwargs):
             if self.concurrent:
-                with LockFile(self._filename):
-                    self._read()
+                self._read()
             return func(*args, **kwargs)
         return _func
 
     def _autosave(self, func):
         @wraps(func)
         def _func(*args, **kwargs):
-            with LockFile(self._filename):
+            with LockFile(self._filename,
+                          timeout=self.timeout):
                 if self.concurrent:
                     self._read()
                 ret = func(*args, **kwargs)
@@ -163,8 +167,10 @@ class PersistentList(list):
                 list.extend(self, json.load(fp))
 
     def _save(self):
-        with open(self._filename, 'w') as fp:
+        tmpfile = self._filename.parent/(self._filename.name+'.tmp')
+        with open(tmpfile, 'w') as fp:
             json.dump(self.copy(), fp, indent=4)
+        shutil.move(tmpfile, self._filename)
 
 
 def skip(filename: Path,
