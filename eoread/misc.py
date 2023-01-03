@@ -138,7 +138,8 @@ class PersistentList(list):
         @wraps(func)
         def _func(*args, **kwargs):
             if self.concurrent:
-                self._read()
+                with LockFile(self._filename):
+                    self._read()
             return func(*args, **kwargs)
         return _func
 
