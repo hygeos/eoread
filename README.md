@@ -49,7 +49,8 @@ sub = sub_pt(ds, pt_lat, pt_lon, rad)   # rad is the radius in km
 
 ## Processing
 
-Use xr.map_blocks to apply a function to each block of a Dataset or DataArray.
+Use xr.apply_ufunc to apply a universal function (in the numpy sense)
+to each block of a Dataset or DataArray.
 
 ## Output products
 
