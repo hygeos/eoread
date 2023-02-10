@@ -24,6 +24,9 @@ def test_cache_dataset():
     with TemporaryDirectory() as tmpdir:
         cache_file = Path(tmpdir)/'cache.nc'
         cache_dataset(cache_file)(my_function)()
-        a = cache_dataset(cache_file)(my_function)()
+        a = cache_dataset(
+            cache_file,
+            chunks={'lat': 10, 'lon': 10},
+        )(my_function)()
         assert a == my_function()
     

@@ -40,27 +40,23 @@ def cachefunc(cache_file, method='json'):
     return decorator
         
 
-def cache_dataset(cache_file, attrs=None):
+def cache_dataset(cache_file,
+                  attrs=None,
+                  verbose=True,
+                  **kwargs):
     """
     A decorator that caches the dataset returned by a function in a netcdf file
     
     The attribute dictionary `attrs` is stored in the file, and verified upon reading
+
+    Other kwargs (ex: chunks) are passed to xr.open_dataset
     """
     def decorator(f):
         @wraps(f)
-        def wrapper(*args, **kwargs):
-            if Path(cache_file).exists():
-                print(f'Using cache file {cache_file}')
-                ds = xr.open_dataset(cache_file)
+        def wrapper(*args, **wrap_kwargs):
 
-                # check attributes in loaded file
-                if attrs is not None:
-                    for k, v in attrs.items():
-                        assert ds.attrs[k] == v, \
-                            f'Error when checking attribute {k}: {ds.attrs[k]} != {v}'
-
-            else:
-                ds = f(*args, **kwargs)
+            if not Path(cache_file).exists():
+                ds = f(*args, **wrap_kwargs)
                 Path(cache_file).parent.mkdir(exist_ok=True, parents=True)
 
                 # store provided attributes in cache file
@@ -69,7 +65,18 @@ def cache_dataset(cache_file, attrs=None):
 
                 # Write `ds` to `cache_file`
                 eo.to_netcdf(ds, filename=cache_file)
-                print(f'Wrote cache file {cache_file}')
+                if verbose:
+                    print(f'Wrote cache file {cache_file}')
+            elif verbose:
+                print(f'Using cache file {cache_file}')
+
+            ds = xr.open_dataset(cache_file, **kwargs)
+
+            # check attributes in loaded file
+            if attrs is not None:
+                for k, v in attrs.items():
+                    assert ds.attrs[k] == v, \
+                        f'Error when checking attribute {k}: {ds.attrs[k]} != {v}'
                 
             return ds
         return wrapper
