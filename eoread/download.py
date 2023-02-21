@@ -204,10 +204,10 @@ def get_S2_google_url(filename):
 
     return url
 
-def download_S2_google(product, dirname):
+def download_S2_google(product, dirname, **kwargs):
     from fels import fels
     target = Path(dirname)/(product+'.SAFE')
-    @filegen()
+    @filegen(**kwargs)
     def down_S2(path):
         with timeit('Downloading'):
             print(f'Downloading {product}...')
