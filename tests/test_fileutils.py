@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 from time import sleep
-from eoread.misc import LockFile, filegen
+from eoread.fileutils import LockFile, filegen
 
 def f(file_lock, interval):
     print(f'Started at {datetime.now()}')

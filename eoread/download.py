@@ -17,7 +17,7 @@ from .uncompress import uncompress as uncomp
 from ftplib import FTP
 import fnmatch
 from .common import timeit
-from .misc import filegen
+from .fileutils import filegen
 
 
 def download_url(url, dirname, wget_opts='',

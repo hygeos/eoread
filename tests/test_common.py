@@ -7,10 +7,11 @@ import pytest
 import xarray as xr
 import numpy as np
 import dask.array as da
-from eoread.common import AtIndex, Repeat, len_slice
+from eoread.common import AtIndex, Repeat
 from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array, timeit
-from eoread import eo, misc
+from eoread.fileutils import PersistentList
+from eoread import eo
 from time import sleep
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -348,16 +349,16 @@ def test_persistent_list(concurrent):
         filename = Path(tmpdir)/'list.json'
         a = [1, 2, "three"]
 
-        A = misc.PersistentList(filename, concurrent=concurrent)
+        A = PersistentList(filename, concurrent=concurrent)
         A.extend(a)
         assert 1 in A
         assert len(A) == 3
 
-        B = misc.PersistentList(filename, concurrent=concurrent)
+        B = PersistentList(filename, concurrent=concurrent)
         assert A == B
         B.append('4')
 
-        C = misc.PersistentList(filename, concurrent=concurrent)
+        C = PersistentList(filename, concurrent=concurrent)
         assert len(C) == 4
         C.clear()
         assert len(C) == 0
@@ -365,8 +366,8 @@ def test_persistent_list(concurrent):
 def test_persistent_list_concurrent():
     with TemporaryDirectory() as tmpdir:
         filename = Path(tmpdir)/'list.json'
-        A = misc.PersistentList(filename)
-        B = misc.PersistentList(filename)
+        A = PersistentList(filename)
+        B = PersistentList(filename)
         A.append(1)
         assert len(B) == 1
         assert 1 in B

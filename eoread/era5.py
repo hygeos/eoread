@@ -7,7 +7,7 @@ ERA5 Ancillary data provider
 '''
 
 import argparse
-from eoread.misc import filegen
+from eoread.fileutils import filegen
 from pathlib import Path
 from datetime import datetime, timedelta
 from eoread.naming import naming

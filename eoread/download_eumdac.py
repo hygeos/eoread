@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import eumdac
 from eoread import download
-from eoread.misc import filegen
+from eoread.fileutils import filegen
 import shutil
 from eoread.uncompress import uncompress
 

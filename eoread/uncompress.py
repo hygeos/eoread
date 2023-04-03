@@ -15,7 +15,7 @@ import getpass
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory, gettempdir, mkdtemp
 
-from eoread.misc import LockFile
+from eoread.fileutils import LockFile
 
 class ErrorUncompressed(Exception):
     """
