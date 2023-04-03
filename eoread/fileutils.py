@@ -12,6 +12,10 @@ import json
 from functools import wraps
 import fcntl
 from typing import Union
+from datetime import datetime
+import getpass
+import subprocess
+import inspect
 
 
 cfg = {
@@ -296,3 +300,98 @@ def filegen(arg: Union[int, str]=0,
         return wrapper
     return decorator
 
+
+def get_git_commit():
+    try:
+        return subprocess.check_output(
+            ['git', 'describe', '--always', '--dirty']).decode()[:-1]
+    except subprocess.CalledProcessError:
+        return '<could not get git commit>'
+
+
+def mdir(directory: Union[Path,str],
+         mdir_filename: str='mdir.json',
+         strict: bool=True,
+         **kwargs
+         ) -> Path:
+    """
+    Create or access a managed directory with path `directory`
+    Returns the directory path, so that it can be used in directories definition:
+        dir_data = mdir('/path/to/data/')
+
+    tag it with a file `mdir.json`, containing:
+        - The creation date
+        - The last access date
+        - The python file and module that was run during access
+        - The username
+        - The current git commit if available
+        - Any other kwargs, such as:
+            - project
+            - version
+            - description
+            - etc
+
+    mdir_filename: default='mdir.json'
+
+    strict: boolean
+        False: metadata is updated
+        True: metadata is checked or added (default)
+           (remove file content to override)
+    """
+    d = Path(directory)
+    mdir_file = d/mdir_filename
+
+    caller = inspect.stack()[1]
+
+    # Attributes to check
+    attrs = {
+        'caller_file': caller.filename,
+        'caller_function': caller.function,
+        'git_commit': get_git_commit(),
+        'username': getpass.getuser(),
+        **kwargs,
+    }
+
+    data_init = {
+        '__comment__': 'This file has been automatically created '
+                        'by mdir() upon managed directory creation, '
+                        'and stores metadata.',
+        'creation_date': str(datetime.now()),
+        **attrs,
+    }
+
+    modified = False
+    if not d.exists():
+        d.mkdir()
+        data = data_init
+        modified = True
+    else:
+        if not mdir_file.exists():
+            if strict:
+                raise FileNotFoundError(
+                    f'Directory {d} has been wrapped by mdir '
+                    'but does not contain a mdir file.')
+            else:
+                data = data_init
+                modified = True
+        else:
+            with open(mdir_file, encoding='utf-8') as fp:
+                data = json.load(fp)
+
+        for k, v in attrs.items():
+            if k in data:
+                if v != data[k]:
+                    if strict:
+                        raise ValueError(f'Mismatch of "{k}" in {d} ({v} != {data[k]})')
+                    else:
+                        data[k] = v
+                        modified = True
+            else:
+                data[k] = v
+                modified = True
+
+    if modified:
+        with open(mdir_file, 'w', encoding='utf-8') as fp:
+            json.dump(data_init, fp, indent=4)
+
+    return d
