@@ -14,6 +14,14 @@ import fcntl
 from typing import Union
 
 
+cfg = {
+    # module-wide configuration
+    'lock_timeout': 0,
+    'tmpdir': None,
+    'if_exists': 'skip',
+}
+
+
 def only(x, description=None):
     """
     Small utility function to get the element of a single-element list
@@ -209,10 +217,8 @@ def skip(filename: Path,
 
 
 def filegen(arg: Union[int, str]=0,
-            lock_timeout=0,
-            tmpdir=None,
-            if_exists='skip',
             check_return_none=True,
+            **fg_kwargs
             ):
     """
     A decorator for functions generating an output file.
@@ -235,10 +241,17 @@ def filegen(arg: Union[int, str]=0,
             open(path, 'w').write('test')
         f(path='/path/to/file.txt')
     
+    Configuration arguments can be passed to filegen(), or to the wrapped function,
+    or modified module-wise through the 'cfg' dictionary.
     """
     def decorator(f):
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, filegen_kwargs=None, **kwargs):
+            # configuration: take first module_wide configuration,
+            # then filegen_kwargs
+            config = {**cfg,
+                      **fg_kwargs,
+                      **(filegen_kwargs or {})}
             if isinstance(arg, int):
                 assert args, 'Error, no positional argument have been provided'
                 assert (arg >= 0) and (arg < len(args))
@@ -252,15 +265,15 @@ def filegen(arg: Union[int, str]=0,
                 
             ofile = Path(path)
 
-            if skip(ofile, if_exists):
+            if skip(ofile, config['if_exists']):
                 return
             
-            with TemporaryDirectory(dir=tmpdir) as tmpd:
+            with TemporaryDirectory(dir=config['tmpdir']) as tmpd:
                 tfile = Path(tmpd)/ofile.name
                 with LockFile(ofile,
-                              timeout=lock_timeout,
+                              timeout=config['lock_timeout'],
                               ):
-                    if skip(ofile, if_exists):
+                    if skip(ofile, config['if_exists']):
                         return
                     if isinstance(arg, int):
                         updated_args = list(args)
