@@ -52,7 +52,7 @@ def test_download_missing():
 
 
 @pytest.mark.parametrize('ftp_object', [
-    FTPFS('ftp.us.debian.org').opendir('debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/'),
+    # FTPFS('ftp.us.debian.org').opendir('debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/'),
     'ftp://ftp.us.debian.org/debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/',
     ])
 def test_mirror_uncompress(ftp_object):

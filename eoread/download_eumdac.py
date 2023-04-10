@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Optional
 import eumdac
 from eoread import download
 from eoread.fileutils import filegen
@@ -41,16 +42,36 @@ def download_product(target, product):
 
 
 @filegen()
-def download_eumdac(target: Path, collection=None):
-    if collection is None:
-        if '-SEVI-' in  target.name:
-            collection = 'EO:EUM:DAT:MSG:HRSEVIRI'
+def download_eumdac(target: Path,
+                    collections: Optional[list]=None):
+    """
+    Download a product on EUMETSAT data store
+    
+    collections: list of collections. Ex:
+        - 'EO:EUM:DAT:MSG:HRSEVIRI' for SEVIRI
+        - 'EO:EUM:DAT:0409' or 'EO:EUM:DAT:0577' for OLCI L1B FR
+        - 'EO:EUM:DAT:0410' or 'EO:EUM:DAT:0578' for OLCI L1B RR
+    """
+    if collections is None:
+        if '-SEVI-' in target.name:
+            collections = ['EO:EUM:DAT:MSG:HRSEVIRI']
+        elif '_OL_1_EFR____' in target.name:
+            collections = ['EO:EUM:DAT:0409', 'EO:EUM:DAT:0577']
+        elif '_OL_1_ERR____' in target.name:
+            collections = ['EO:EUM:DAT:0410', 'EO:EUM:DAT:0578']
         else:
             raise ValueError()
     
-    products = query(collection, title=target.name)
+    product = None
+    for coll in collections:
+        products = query(coll, title=target.name)
 
-    assert len(products) == 1
-    product = products.first()
+        if len(products) == 1:
+            product = products.first()
+        elif len(products) > 1:
+            raise ValueError(f'Error, found {len(products)} products')
+    
+    if product is None:
+        raise ValueError('Could not find any valid product.')
 
     download_product(target, product)
