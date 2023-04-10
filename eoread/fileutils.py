@@ -311,7 +311,7 @@ def get_git_commit():
 
 def mdir(directory: Union[Path,str],
          mdir_filename: str='mdir.json',
-         strict: bool=True,
+         strict: bool=False,
          **kwargs
          ) -> Path:
     """
