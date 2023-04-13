@@ -342,12 +342,14 @@ class Mirror_Uncompress:
         return path_final
 
 
+@filegen(1)
 def ftp_download(ftp: FTP, file_local: Path, dir_server: str, verbose=True):
     """
     Downloads `file_local` on ftp, from server directory `dir_server`
 
     The file name on the server is determined by `file_local.name`
     """
+    ftp.cwd('/')
     ftp.cwd(dir_server)
     fname = file_local.name
     with open(file_local, 'wb') as fp, timeit(f'Download {fname}', verbose=verbose):
