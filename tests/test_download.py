@@ -1,15 +1,11 @@
-from pathlib import Path
 import pytest
-from tempfile import TemporaryDirectory
-from eoread.download import Mirror_Uncompress, download_S2_google
-from ftplib import FTP
 from pathlib import Path
-import pytest
 from tempfile import TemporaryDirectory
+from eoread.download import download_S2_google
 from eoread import download
 from eoread.nasa import nasa_download, nasa_download_uncompress
 from eoread.uncompress import uncompress
-from fs.ftpfs import FTPFS
+from ftplib import FTP
 
 @pytest.mark.parametrize('product_name', [
     'S2B_MSIL1C_20201217T111359_N0209_R137_T30TWT_20201217T132006',
@@ -49,38 +45,6 @@ def test_download_missing():
     with TemporaryDirectory() as tmpdir:
         with pytest.raises(FileNotFoundError):
             nasa_download('ABCDEFG0123456789', tmpdir)
-
-
-@pytest.mark.parametrize('ftp_object', [
-    # FTPFS('ftp.us.debian.org').opendir('debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/'),
-    'ftp://ftp.us.debian.org/debian/dists/Debian8.11/main/installer-armhf/current/images/hd-media/',
-    ])
-def test_mirror_uncompress(ftp_object):
-
-    with TemporaryDirectory() as tmpdir:
-        mfs = Mirror_Uncompress(
-            ftp_object,
-            tmpdir)
-        print(list(mfs.glob('*')))
-
-        mfs.get('boot.scr')
-        mfs.get('boot.scr')
-        mfs.get('hd-media.tar.gz')
-        mfs.get('hd-media')
-        mfs.get('SD-card-images/partition.img.gz')
-        mfs.get('SD-card-images/partition.img')
-        mfs.get('SD-card-images')
-        mfs.get('SD-card-images')
-        mfs.get('initrd.gz')
-        mfs.get('initrd')
-
-        mfs.get_local().tree()
-
-        # test get without ftp
-        mfs2 = Mirror_Uncompress(
-            None,
-            tmpdir)
-        mfs2.get('boot.scr')
 
 
 def test_ftp():
