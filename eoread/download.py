@@ -9,6 +9,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import subprocess
 from netrc import netrc
+import threading
+
+from tqdm import tqdm
 from .uncompress import uncompress as uncomp
 from ftplib import FTP
 import fnmatch
@@ -53,13 +56,15 @@ def get_auth(name):
     """
     Returns a dictionary with credentials, using .netrc
 
-    `name` is the identifier (= `machine` in .netrc). This allows for several accounts on a single machine.
+    `name` is the identifier (= `machine` in .netrc). This allows for several accounts
+    on a single machine.
     The url is returned as `account`
     """
     ret = netrc().authenticators(name)
     if ret is None:
-        raise ValueError(f'Please provide entry "{name}" in ~/.netrc ; '
-                         f'example: machine {name} login <login> password <passwd> account <url>')
+        raise ValueError(
+            f'Please provide entry "{name}" in ~/.netrc ; '
+            f'example: machine {name} login <login> password <passwd> account <url>')
     (login, account, password) = ret
 
     return {'user': login,
@@ -180,7 +185,8 @@ def get_S2_google_url(filename):
 
     The result of this function can be downloaded with the fels module:
         fels.get_sentinel2_image(url, directory)
-    Note: the filename can be obtained either with the Sentinels hub api, or with google's catalog (see fels)
+    Note: the filename can be obtained either with the Sentinels hub api, or with
+    google's catalog (see fels)
     """
     tile = filename.split('_')[-2]
     prod_type = filename.split('_')[1]
@@ -213,21 +219,47 @@ def download_S2_google(product, dirname, **kwargs):
     return target
 
 
-
-
-
 @filegen(1)
 def ftp_download(ftp: FTP, file_local: Path, dir_server: str, verbose=True):
     """
     Downloads `file_local` on ftp, from server directory `dir_server`
 
     The file name on the server is determined by `file_local.name`
+
+    Refs:
+        https://stackoverflow.com/questions/19692739/
+        https://stackoverflow.com/questions/73534659/
     """
-    ftp.cwd('/')
-    ftp.cwd(dir_server)
     fname = file_local.name
-    with open(file_local, 'wb') as fp, timeit(f'Download {fname}', verbose=verbose):
-        ftp.retrbinary(f'RETR {fname}', fp.write)
+    path_server = str(Path('/')/str(dir_server)/fname)
+    size = ftp.size(path_server)
+    pbar = tqdm(desc=f'Downloading {path_server}',
+                total=size,
+                unit='B',
+                unit_scale=True,
+                unit_divisor=1024,
+                disable=not verbose)
+    with open(file_local, 'wb') as fp:
+        sock = ftp.transfercmd('RETR ' + path_server)
+        def background():
+            while True:
+                block = sock.recv(1024*1024)
+                if not block:
+                    break
+                fp.write(block)
+                pbar.update(len(block))
+            sock.close()
+        t = threading.Thread(target=background)
+        t.start()
+        noops_sent = 0
+        while t.is_alive():
+            t.join(60)
+            ftp.putcmd('NOOP')
+            noops_sent += 1
+    pbar.close()
+    ftp.voidresp()
+    for _ in range(noops_sent):
+        ftp.voidresp()
     assert file_local.exists()
 
 

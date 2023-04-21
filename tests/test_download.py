@@ -47,12 +47,14 @@ def test_download_missing():
             nasa_download('ABCDEFG0123456789', tmpdir)
 
 
-def test_ftp():
-    ftp = FTP('ftp.de.debian.org')
-    ftp.login()
-    ls = download.ftp_list(ftp, '/debian/doc/')
+def test_ftp_dowload():
+    ftp = FTP('test.rebex.net',
+              user='demo',
+              passwd='password')
+    ls = download.ftp_list(ftp, '/')
     assert ls
     with TemporaryDirectory() as tmpdir:
-        download.ftp_download(ftp, Path(tmpdir)/'00-INDEX', '/debian/doc/')
+        download.ftp_download(ftp, Path(tmpdir)/'readme.txt', '/pub/example/')
+        
     
 
