@@ -1,3 +1,7 @@
+import filecmp
+import os
+import random
+import string
 import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -47,7 +51,7 @@ def test_download_missing():
             nasa_download('ABCDEFG0123456789', tmpdir)
 
 
-def test_ftp_dowload():
+def test_ftp_download():
     ftp = FTP('test.rebex.net',
               user='demo',
               passwd='password')
@@ -56,5 +60,41 @@ def test_ftp_dowload():
     with TemporaryDirectory() as tmpdir:
         download.ftp_download(ftp, Path(tmpdir)/'readme.txt', '/pub/example/')
         
-    
 
+@pytest.mark.parametrize('size_bytes', [
+    1024,
+    100000,
+])
+def test_ftp_upload(size_bytes):
+    # Connect to some public test ftp server (with write permissions)
+    ftp = FTP('ftp.dlptest.com',
+              user='dlpuser',
+              passwd='rNrKYTX9g7z3RgJRmxWuGHbeu')
+    rands = ''.join(random.choice(string.ascii_letters)
+                       for _ in range(16))
+    dir_server = '/ftp_upload_test_'+rands
+    with TemporaryDirectory() as tmpdir:
+        for _ in range(2): # twice, to check overwrite
+            # create a random file
+            tmpfile = Path(tmpdir)/rands
+            if tmpfile.exists():
+                tmpfile.unlink()
+            with open(tmpfile, 'wb') as fout:
+                fout.write(os.urandom(size_bytes))
+
+            for if_exists in ['overwrite', 'skip']:
+                # second upload should do nothing
+                download.ftp_upload(ftp, tmpfile, dir_server, if_exists=if_exists)
+
+            with pytest.raises(FileExistsError):
+                download.ftp_upload(ftp, tmpfile, dir_server, if_exists='error')
+            
+            # Check consistency
+            tmpfile2 = Path(tmpdir)/'check'/rands
+            if tmpfile2.exists():
+                tmpfile2.unlink()
+            download.ftp_download(ftp, tmpfile2, dir_server)
+
+            assert filecmp.cmp(tmpfile, tmpfile2)
+
+        ftp.delete(str(Path(dir_server, rands)))
