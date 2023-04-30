@@ -68,7 +68,7 @@ def test_missing_mdir():
     """
     with TemporaryDirectory() as tmpdir:
         with pytest.raises(FileNotFoundError):
-            mdir(Path(tmpdir))
+            mdir(Path(tmpdir), strict=True)
 
 
 def test_get_git_commit():

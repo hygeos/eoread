@@ -312,6 +312,7 @@ def get_git_commit():
 def mdir(directory: Union[Path,str],
          mdir_filename: str='mdir.json',
          strict: bool=False,
+         create: bool=True,
          **kwargs
          ) -> Path:
     """
@@ -337,6 +338,8 @@ def mdir(directory: Union[Path,str],
         False: metadata is updated
         True: metadata is checked or added (default)
            (remove file content to override)
+
+    create: whether directory is automatically created (default True)
     """
     d = Path(directory)
     mdir_file = d/mdir_filename
@@ -362,6 +365,10 @@ def mdir(directory: Union[Path,str],
 
     modified = False
     if not d.exists():
+        if not create:
+            raise FileNotFoundError(
+                f'Directory {d} does not exist, '
+                'please create it [mdir(..., create=False)]')
         d.mkdir()
         data = data_init
         modified = True
