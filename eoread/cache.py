@@ -2,10 +2,11 @@ from functools import wraps
 import json
 from pathlib import Path
 import pickle
+from tempfile import TemporaryDirectory
 from typing import Callable, Optional
 import xarray as xr
 from eoread import eo
-from eoread.fileutils import filegen
+from eoread.fileutils import filegen, safe_move
 
 
 def cachefunc(cache_file: Path,
@@ -30,23 +31,32 @@ def cachefunc(cache_file: Path,
         @wraps(f)
         def wrapper(*args, **kwargs):
             if not cache_file.exists():
+
                 result = f(*args, **kwargs)
 
-                filegen(**(fg_kwargs or {}))(writer)(cache_file, result)
+                with TemporaryDirectory(dir=cache_file.parent,
+                                        prefix='cachefunc_') as tmpdir:
+                    cache_file_tmp = Path(tmpdir)/cache_file.name
+
+                    # write the temporary file
+                    filegen(**(fg_kwargs or {}))(writer)(cache_file_tmp, result)
+
+                    # check that the object read back is identical
+                    # to the original result (defaults to ==)
+                    obj = reader(cache_file_tmp)
+                    
+                    if checker is None:
+                        assert result == obj
+                    else:
+                        assert checker(result, obj)
+                    
+                    # check successful: move the file
+                    safe_move(cache_file_tmp, cache_file)
+                    assert cache_file.exists()
+                    
+                    return obj
             else:
-                result = None
-
-            obj = reader(cache_file)
-
-            if result is not None:
-                # check that the object read back is identical
-                # to the original result (defaults to ==)
-                if checker is None:
-                    assert result == obj
-                else:
-                    assert checker(result, obj)
-
-            return obj
+                return reader(cache_file)
 
         return wrapper
     return decorator
