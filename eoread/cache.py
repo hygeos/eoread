@@ -4,6 +4,7 @@ from pathlib import Path
 import pickle
 from tempfile import TemporaryDirectory
 from typing import Callable, Optional
+import pandas as pd
 import xarray as xr
 from eoread import eo
 from eoread.fileutils import filegen, safe_move
@@ -60,6 +61,15 @@ def cachefunc(cache_file: Path,
 
         return wrapper
     return decorator
+
+
+def cache_dataframe(cache_file: Path):
+    return cachefunc(
+        cache_file,
+        writer=lambda filename, df: df.to_csv(filename, index=False),
+        reader=lambda filename: pd.read_csv(filename, parse_dates=['time']),
+        checker=lambda x, y: x.equals(y),
+    )
 
 
 def cache_json(cache_file: Path):
