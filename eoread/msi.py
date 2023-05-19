@@ -26,7 +26,6 @@ B12  SWIR 2      2190nm     20m
 # https://sentinels.copernicus.eu/web/sentinel/-/copernicus-sentinel-2-major-products-upgrade-upcoming
 
 
-from glob import glob
 from pathlib import Path
 
 import dask.array as da
@@ -57,7 +56,7 @@ def Level1_MSI(dirname,
                chunks=500,
                split=False):
     '''
-    Read an OLCI Level1 product as an xarray.Dataset
+    Read an MSI Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA radiances, reflectances,
     the angles on the full grid, etc.
 
@@ -346,3 +345,11 @@ class LATLON:
                 return lon.astype(self.dtype)
             else:
                 return np.array(lon, dtype=self.dtype)
+
+
+def Level2_MSI(dirname):
+    """
+    Read an MSI level2 product as xarray.Dataset
+    """
+    raise NotImplementedError
+    

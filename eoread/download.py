@@ -6,14 +6,18 @@ Utilities to download products
 """
 
 from pathlib import Path
+import shutil
 from tempfile import TemporaryDirectory
+from sentinelsat import SentinelAPI
 import subprocess
 from netrc import netrc
 import threading
 from typing import Union
 
 from tqdm import tqdm
-from .uncompress import uncompress as uncomp
+
+from eoread.download_S2 import get_sentinel2_image
+from eoread.uncompress import uncompress as uncomp, uncompress_decorator
 from ftplib import FTP, error_perm
 import fnmatch
 from .common import timeit
@@ -112,8 +116,6 @@ def download_sentinel(product, dirname):
     """
     Download a sentinel product to `dirname`
     """
-    from sentinelsat import SentinelAPI
-
     if 'scihub_id' in product:
         cred = get_auth('scihub')
         pid = product['scihub_id']
@@ -125,6 +127,25 @@ def download_sentinel(product, dirname):
 
     api = SentinelAPI(**cred)
     api.download(pid, directory_path=dirname)
+
+
+@filegen()
+def download_sentinelapi(target: Path,
+                         source: str = 'scihub'):
+    """
+    Download a product using sentinelapi
+
+    Source: scihub, coda
+    """
+    api = SentinelAPI(**get_auth_dhus(source))
+    res = list(api.query(filename=target.name+'*'))
+    assert len(res) == 1
+    with TemporaryDirectory() as tmpdir:
+        compressed = api.download(
+            res[0],
+            directory_path=tmpdir)
+        uncompressed = uncomp(compressed['path'], tmpdir)
+        shutil.move(uncompressed, target)
 
 
 def download_multi(product):
@@ -208,14 +229,13 @@ def get_S2_google_url(filename):
     return url
 
 def download_S2_google(product, dirname, **kwargs):
-    from fels import fels
     target = Path(dirname)/(product+'.SAFE')
     @filegen(**kwargs)
     def down_S2(path):
         with timeit('Downloading'):
             print(f'Downloading {product}...')
             url = get_S2_google_url(product)
-            fels.get_sentinel2_image(url, outputdir=path.parent)
+            get_sentinel2_image(url, outputdir=path.parent)
     down_S2(target)
     return target
 

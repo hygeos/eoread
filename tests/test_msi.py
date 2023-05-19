@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
+from pathlib import Path
 import pytest
 import xarray as xr
-from eoread.msi import Level1_MSI
+from eoread.download import download_S2_google, download_sentinelapi
+from eoread.msi import Level1_MSI, Level2_MSI
 from eoread.sample_products import product_getter
-from .generic import indices, param
 from . import generic
 from eoread import eo
 from . import conftest
@@ -105,3 +106,28 @@ def test_plot(request, product):
     plt.colorbar()
 
     conftest.savefig(request)
+
+
+@pytest.fixture(params=[
+    {'product': 'S2B_MSIL2A_20190901T105619_N0213_R094_T30TWT_20190901T141237',
+     'source': 'google'},
+    {'product': 'S2A_MSIL2A_20230418T105621_N0509_R094_T31UCR_20230418T170158',
+     'source': 'scihub'},
+])
+def level2_msi(request):
+    dir_samples = Path(__file__).parent.parent/'SAMPLE_DATA'
+    source = request.param['source']
+    product = request.param['product']
+    if source == 'google':
+        return download_S2_google(product, dir_samples)
+    elif source == 'scihub':
+        target = dir_samples/product
+        download_sentinelapi(target)
+        return target
+    else:
+        raise ValueError
+
+
+def test_level2(request, level2_msi: Path):
+    assert level2_msi.exists()
+    
