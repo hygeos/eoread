@@ -88,11 +88,12 @@ def get_auth_dhus(name):
             'api_url': api_url}
 
 
-def get_auth_ftpfs(name):
+def get_auth_ftp(name):
     """
-    get netrc credentials for use with pyfilesystem's FTPFS
+    get netrc credentials for use with pyfilesystem's
+    FTPFS or ftplib's FTP
     
-    Ex: FTPFS(**get_auth_ftpfs(<name>))
+    Ex: FTP(**get_auth_ftp(<name>))
     """
     auth = get_auth(name)
     return {'host': auth['url'],
