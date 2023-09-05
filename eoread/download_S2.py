@@ -61,10 +61,14 @@ def get_sentinel2_image(url, outputdir, overwrite=False,
                     print("Error downloading {} [{}]".format(url + rel_path, error))
                     continue
                 if not abs_path.endswith('.html'):
-                    with open(abs_path) as fp:
-                        file_start = fp.read(6)
-                        assert file_start != '<html>', \
-                            f'Fetched file was html ({abs_path})'
+                    try:
+                        with open(abs_path) as fp:
+                            file_start = fp.read(6)
+                            assert file_start != '<html>', \
+                                f'Fetched file was html ({abs_path})'
+                    except UnicodeDecodeError:
+                        # should be binary, ok
+                        pass
                     
     elif reject_old and not is_new(target_manifest):
         print(f'Warning: old-format image {outputdir} exists')
