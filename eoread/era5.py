@@ -26,7 +26,7 @@ def open_ERA5(filename):
     with the other ancillary data sources
     '''
     ds = xr.open_dataset(filename, chunks={})
-    ds[naming.horizontal_wind] = np.sqrt(np.sqrt(ds.u10**2 + ds.v10**2))
+    ds[naming.horizontal_wind] = np.sqrt(ds.u10**2 + ds.v10**2)
     ds = ds.rename({
         'sp': naming.sea_level_pressure,
         'tco3': naming.total_ozone,
