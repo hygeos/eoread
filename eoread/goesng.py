@@ -189,6 +189,8 @@ def Level1_GOESNG(file_1km,
 
         eo.raiseflag(ds[naming.flags], 'CLOUD_BASE', flags['CLOUD_BASE'], cma)
 
-    return ds
-    
-
+    # assign integer coords to preserve selected coordinates
+    return ds.assign_coords(
+        rows=range(len(ds.rows)),
+        columns=range(len(ds.columns)),
+    )
