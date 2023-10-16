@@ -1,7 +1,7 @@
 from pydap.cas.urs import setup_session
 import xarray as xr
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 import requests
 
@@ -119,7 +119,7 @@ class MERRA2:
                 
     def get(self, product: str, variables: list[str], d: date) -> xr.Dataset:
         '''
-        Returns the corresponding xarray Dataset object, with the cirrect variables
+        Returns the corresponding xarray Dataset object, with the correct variables
         Download the product if necessary (with only the requested variables)
         
         - product: string of the MERRA2 product from which to download the variables ex: 'M2I1NXASM'
@@ -138,6 +138,24 @@ class MERRA2:
         return self.standardize(ds)
         
     
+    def get_multiple(self, product: str, variables: list[str], d1: date, d2: date) -> xr.Dataset:
+        """
+        Download, or just load if possible the according product, merge different days
+        between d1 and d2 both included into a single dataset object
+        """
+        
+        dates = [d1 + timedelta(days=dt_day) for dt_day in range((d2 - d1).days + 1)]
+ 
+        ds = self.get(product, variables, dates.pop(0))
+        
+        # merge the rest of the dates
+        for d in dates:
+            ds = ds.merge(self.get(product, variables, d))
+        
+        return ds
+            
+        
+ 
     def _assossiate_product(self, config, variables):
         '''
         Returns a list of tupple like: [(product_name, var_list), ..]

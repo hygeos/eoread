@@ -96,6 +96,23 @@ def test_merge_diff_products():
     assert 'total_column_water_vapor' in variables
 
 
+def test_get_multiple():
+    
+    """
+    Test basic get, either from local file or download
+    Test variable name nomenclature
+    """
+    merra = MERRA2(config_file='tests/ancillary/inputs/merra2.json', 
+                   directory='tests/ancillary/download',
+                   )
+    
+    ds = merra.get_multiple(product='M2I1NXINT', variables=['TQV'], 
+                            d1=date(2012, 12, 10), d2=date(2012, 12, 12)
+                            )
+                            
+    # check that the merge happened over time dim
+    assert len(ds.time.values) == 3 * 24 
+
 def test_download_product():
     """
     Test downloading function
