@@ -96,7 +96,7 @@ def test_merge_diff_products():
     assert 'total_column_water_vapor' in variables
 
 
-def test_get_multiple():
+def test_get_range():
     
     """
     Test basic get, either from local file or download
@@ -106,7 +106,7 @@ def test_get_multiple():
                    directory='tests/ancillary/download',
                    )
     
-    ds = merra.get_multiple(product='M2I1NXINT', variables=['TQV'], 
+    ds = merra.get_range(product='M2I1NXINT', variables=['TQV'], 
                             d1=date(2012, 12, 10), d2=date(2012, 12, 12)
                             )
                             

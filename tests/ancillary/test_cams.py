@@ -23,6 +23,11 @@ def test_get():
     
     # check that the constructed variable has been computed
     assert 'total_aerosol_optical_thickness_550nm' in variables
+    
+    # test wrap
+    assert np.max(ds.longitude.values) == 180.0
+    assert np.min(ds.longitude.values) == -180.0
+    
 
 
 def test_get_no_std():
@@ -38,6 +43,10 @@ def test_get_no_std():
     
     # check that the constructed variable has not been computed
     assert 'total_aerosol_optical_thickness_550nm' not in variables
+    
+    # test wrap
+    assert np.max(ds.longitude.values) == 180.0
+    assert np.min(ds.longitude.values) == -180.0
 
 
 def test_fail_get_offline():

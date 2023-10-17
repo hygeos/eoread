@@ -138,7 +138,7 @@ class MERRA2:
         return self.standardize(ds)
         
     
-    def get_multiple(self, product: str, variables: list[str], d1: date, d2: date) -> xr.Dataset:
+    def get_range(self, product: str, variables: list[str], d1: date, d2: date) -> xr.Dataset:
         """
         Download, or just load if possible the according product, merge different days
         between d1 and d2 both included into a single dataset object

@@ -1,8 +1,9 @@
-
-import pytest
 from datetime import date
-
 from pathlib import Path
+
+import numpy as np
+import pytest
+
 
 from eoread.ancillary.era5 import ERA5
 
@@ -18,6 +19,30 @@ def test_get():
     assert 'tco3' not in variables
     assert 'mid_cloud_cover'    in variables
     assert 'total_column_ozone' in variables
+    
+    # test wrap
+    assert np.max(ds.longitude.values) == 180.0
+    assert np.min(ds.longitude.values) == -180.0
+
+# 
+def test_get_pressure_levels():
+    
+    # o3, q, t
+    # ozone_mass_mixing_ratio', 'specific_humidity', 'temperature',
+
+    era5 = ERA5(directory='tests/ancillary/download')
+    area = [1, -1, -1, 1,]
+    ds = era5.get(product='RAPL', variables=['o3', 'q', 't'], d=date(2013, 11, 30), area=area) # download dataset
+    
+    variables = list(ds)
+    
+    assert 'o3' not in variables
+    assert 'q'  not in variables
+    assert 't'  not in variables
+    assert 'ozone_mass_mixing_ratio' in variables
+    assert 'specific_humidity' in variables
+    assert 'temperature' in variables
+    
 
 
 def test_get_no_std():

@@ -85,14 +85,17 @@ class CAMS:
         - product: CAMS string product 
         - variables: list of strings of the CAMS variables short names to download ex: ['gtco3', 'aod550', 'parcs']
         - d: date of the data (not datetime)
-        - area: [90, -180, -90, 180] -> [top, left, bot, right]
+        - area: [90, -180, -90, 180] -> [north, west, south, east]
         
         """
             
         filepath = self.download(product, variables, d, area)
         
         ds = xr.open_mfdataset(filepath)                      # open dataset
-        ds = eo.wrap(ds, 'longitude', -180, 180)
+        
+        # correctly wrap longitudes if full area requested
+        if area == [90, -180, -90, 180]:
+            ds = eo.wrap(ds, 'longitude', -180, 180)
         
         if self.no_std: # do not standardize, return as is
             return ds

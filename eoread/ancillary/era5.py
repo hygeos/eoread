@@ -37,7 +37,8 @@ class ERA5:
             ds['horizontal_wind'] = np.sqrt(ds.u10**2 + ds.v10**2)
         
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
-        return eo.wrap(ds, 'longitude', -180, 180)
+        
+        return ds
     
     
     def __init__(self, directory: Path, offline: bool=False, verbose: bool=True, no_std: bool=False):
@@ -76,7 +77,10 @@ class ERA5:
         filepath = self.download(product, variables, d, area)
                   
         ds = xr.open_mfdataset(filepath) # open dataset
-        ds = eo.wrap(ds, 'longitude', -180, 180)
+        
+        # correctly wrap longitudes if full area requested
+        if area == [90, -180, -90, 180]:
+            ds = eo.wrap(ds, 'longitude', -180, 180)
         
         if self.no_std:
             return ds
@@ -97,6 +101,8 @@ class ERA5:
         products = [
             'reanalysis-era5-single-levels',
             'RASL',
+            'reanalysis-era5-pressure-levels',
+            'RAPL',
         ]
         
         # list of currently supported products
@@ -129,6 +135,11 @@ class ERA5:
         if product in ['RASL', 'reanalysis-era5-single-levels']:
             product_abrv = 'RASL'
             downloader = self._download_RASL_file
+            
+        elif product in ['RAPL', 'reanalysis-era5-pressure-levels']:
+            product_abrv = 'RAPL'
+            downloader = self._download_RAPL_file
+
             
         if downloader is None or product_abrv is None:
             raise ValueError(f"product '{product}' is not currently supported, \n currently supported products: \n{supported}")
@@ -187,7 +198,61 @@ class ERA5:
                 'area': area,
             },
             target)
-            
+    
+    
+    @filegen(1)
+    def _download_RAPL_file(self, target, d, area):
+        """
+        Download a single file, containing 24 times, hourly resolution
+        uses the CDS API. Uses a temporary file and avoid unnecessary download 
+        if it is already present, thanks to fileutil.filegen 
+        
+        - target: path to the target file after download
+        - d: date of the dataset
+        """
+        if self.client is None:
+            self.client = cdsapi.Client()
+
+        print(f'Downloading {target}...')
+        self.client.retrieve(
+            'reanalysis-era5-pressure-levels',
+            {
+                'product_type': 'reanalysis',
+                'format': 'netcdf',
+                'area': area,
+                'time': [
+                    '00:00', '01:00', '02:00',
+                    '03:00', '04:00', '05:00',
+                    '06:00', '07:00', '08:00',
+                    '09:00', '10:00', '11:00',
+                    '12:00', '13:00', '14:00',
+                    '15:00', '16:00', '17:00',
+                    '18:00', '19:00', '20:00',
+                    '21:00', '22:00', '23:00',
+                ],
+                'year':[f'{d.year}'],
+                'month':[f'{d.month:02}'],
+                'day':[f'{d.day:02}'],
+                'pressure_level': [
+                    '1', '2', '3',
+                    '5', '7', '10',
+                    '20', '30', '50',
+                    '70', '100', '125',
+                    '150', '175', '200',
+                    '225', '250', '300',
+                    '350', '400', '450',
+                    '500', '550', '600',
+                    '650', '700', '750',
+                    '775', '800', '825',
+                    '850', '875', '900',
+                    '925', '950', '975',
+                    '1000',
+                ],
+                'variable': self.cds_variables,
+            },
+            target
+        )
+    
             
     def _get_filename(self, d: date, product: str, area) -> str:
         """

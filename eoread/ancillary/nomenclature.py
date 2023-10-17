@@ -36,9 +36,9 @@ class Nomenclature:
         for var in list(ds):
             new_names[var] = self.get_new_name(var)
         
-        error = self.verify_units(ds)
+        error, logs = self.verify_units(ds)
         # invalid unit, conversion needed
-        if error: raise ValueError('Invalid units encountered after post-processing')
+        if error: raise ValueError(f'Invalid units encountered after post-processing \n{logs}')
         
         return ds.rename(new_names)
     
@@ -69,19 +69,25 @@ class Nomenclature:
             # get actual unit
             if hasattr(ds[var], 'units'): 
                 actual = ds[var].units
+                actual = actual.strip()
                 
+                # -- REMOVE CASE SENSITIVITY --  
+                # actual = actual.lower()
+                # expected = expected.lower()
+            
+            unit = actual # unit string to compare
+            
             # expected dimensionless
             if expected == 'nan':
-                u = actual.lower().strip()
                 
                 if not hasattr(ds[var], 'units'): # valid # TODO Error when no units attribute ??
                     logs += f'[valid] {var}:\t units: dimensionless (no units attrs)'
                 
                 # dimensionless value variations
-                elif (   u == '~' # CAMS            
-                      or u == 'dimensionless'
-                      or u == '(0 - 1)' # ERA5
-                      or u == '1'       # MERRA2
+                elif (   unit == '~' # CAMS            
+                      or unit == 'dimensionless'
+                      or unit == '(0 - 1)' # ERA5
+                      or unit == '1'       # MERRA2
                 ):
                     logs += f'[valid] {var}:\t units: dimensionless'
                 
@@ -91,9 +97,9 @@ class Nomenclature:
                     encountered_error = True
                 
             else: # dimensions are expected
-                u = actual.strip().replace('**', '') # (era5) kg m**-2 ==  (merra2) kg m-2
+                unit = actual.strip().replace('**', '') # (era5) kg m**-2 ==  (merra2) kg m-2
                 
-                if actual == expected:
+                if unit == expected:
                     logs += f'[valid] {var}:\t units: {expected}'
                 else:
                     logs     += f'[ERROR] {var}:\t units: expected {expected} got: {actual}'
@@ -108,7 +114,7 @@ class Nomenclature:
         # also use standard output to print errors
         if encountered_error: print(err_logs)
         
-        return encountered_error
+        return encountered_error, err_logs
     
     
     def get_new_name(self, var: str) -> str:

@@ -36,3 +36,6 @@ mid_cloud_optical_thickness,                            TAUMID,         ,       
 high_cloud_optical_thickness,                           TAUHGH,         ,           ,
 total_column_cloud_ice_water,                           ,               ,           tciw,      kg m-2          
 total_column_cloud_liquid_water,                        ,               ,           tclw,      kg m-2
+ozone_mass_mixing_ratio,                                ,               ,           o3,        kg kg-1
+specific_humidity,                                      ,               ,           q,         kg kg-1
+temperature,                                            ,               ,           t,         K
