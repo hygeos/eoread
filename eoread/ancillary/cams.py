@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from eoread import eo
 
-import ancillary.cdsapi_parser as cdsapi_parser
+import eoread.ancillary.cdsapi_parser as cdsapi_parser
 import xarray as xr
 import pandas as pd
 import numpy as np
