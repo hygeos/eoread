@@ -9,8 +9,8 @@ def interp(aux: xr.DataArray,
            template: Optional[xr.DataArray] = None,
            ) -> xr.DataArray:
     """
-    Interpolation of xarray dask-based DataArray `aux` along dimensions
-    provided in Dataset `ds_coords`. The mapping of these dimensions is
+    Interpolation of xarray DataArray `aux` along dimensions provided
+    in dask-based Dataset `ds_coords`. The mapping of these dimensions is
     defined in `dims`.
 
     The xarray `interp` method does not work efficiently on dask-based
@@ -39,11 +39,19 @@ def interp(aux: xr.DataArray,
                  for (k, v) in dims.items()
                  }).reset_coords(drop=True)
 
+    # Check that aux is not dask-based
+    assert aux.chunks is None, 'Auxiliary DataArray should not be dask-based'
+
     first_dim = list(dims.values())[0]
     template = template or ds_coords[first_dim].reset_coords(drop=True)
 
-    return xr.map_blocks(
+    # update the interpolated with input attributes
+    template.attrs = aux.attrs
+
+    interpolated = xr.map_blocks(
         interp_chunk,
         ds_coords[dims.keys()],
         template=template
     )
+
+    return interpolated
