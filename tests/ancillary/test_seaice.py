@@ -1,4 +1,4 @@
-from ancillary.seaice import SeaIce
+from eoread.ancillary.seaice import SeaIce
 from datetime import date
 import xarray as xr
 import numpy as np

@@ -41,6 +41,7 @@ class MERRA2:
     def __init__(self,
                 *,
                  directory: Path = 'ANCILLARY/MERRA-2',
+                 nomenclature_file=None,
                  config_file: Path = 'merra2.json',
                  offline = False,
                  verbose = True,
@@ -77,7 +78,7 @@ class MERRA2:
         if 'password' not in self.auth: 
             raise KeyError(f'Missing key \'password\' for host {MERRA2.host} in .netrc file')
     
-        self.names = Nomenclature(provider='MERRA2')
+        self.names = Nomenclature(provider='MERRA2', csv_file=nomenclature_file)
     
     
     def download(self, product: str, variables: list[str], d: date) -> Path:

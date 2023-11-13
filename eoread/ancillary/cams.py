@@ -47,7 +47,7 @@ class CAMS:
         return eo.wrap(ds, 'longitude', -180, 180)
     
     
-    def __init__(self, directory: Path, offline: bool=False, verbose: bool=True, no_std: bool=False):
+    def __init__(self, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
                 
         self.directory = Path(directory).resolve()
         if not self.directory.exists():
@@ -67,7 +67,7 @@ class CAMS:
         self.product_specs = self.product_specs[~self.product_specs['name'].astype(str).str.startswith('#')] # remove comment lines
 
         # General variable nomenclature preparation
-        self.names = Nomenclature(provider='CAMS')
+        self.names = Nomenclature(provider='CAMS', csv_file=nomenclature_file)
                 
         # get credentials from .cdsapirc file
         self._parse_cdsapirc()

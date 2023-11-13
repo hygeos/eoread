@@ -11,9 +11,15 @@ class Nomenclature:
     must be initialized with a provider name
     """
     
-    def __init__(self, provider: str, log: Path = None):
+    def __init__(self, provider: str, csv_file = None, log: Path = None):
         
-        self.csv_file = Path(__file__).parent / 'nomenclature.csv' # file path relative to the module
+        if csv_file is None:
+            self.csv_file = Path(__file__).parent / 'nomenclature.csv' # file path relative to the module
+        else:
+            self.csv_file = Path(csv_file)
+        
+        # verify that the csv_file exists
+        assert self.csv_file.is_file()
 
         self.names = pd.read_csv(self.csv_file, skipinitialspace=True)
         self.names = self.names.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
@@ -24,7 +30,7 @@ class Nomenclature:
             
         self.provider = provider
         self.log = log
-    
+        
     
     def rename_dataset(self, ds) -> Dataset:
         """

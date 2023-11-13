@@ -1,33 +1,11 @@
 
 
-VARIABLE,                                           MERRA2,         CAMS,       ERA5,       UNIT
+VARIABLE,                                           MERRA2,         CAMS,       ERA5,       UNITS
         
-temperature_at_10m,                                 T10M,           ?,          ,           K
-u_wind_at_10m,                                      U10M,           u10,        ,           m.s-1
-v_wind_at_10m,                                      V10M,           v10,        ,           m.s-1
-surface_wind_speed,                                 SPEED           ,           ,           m.s-1
-planetary_boundary_layer_height,                    PBLH,           ,           ?,          m
-surface_pressure,                                   PS,             ,           sp,         Pa
-sea_level_pressure,                                 SLP,            ,           ,           Pa
-total_column_ozone,                                 TO3,            gtco3,      tco3,       Dobsons
-total_column_water_vapor,                           TQV,            tcwv,       tcwv,       kg.m-2
+local_temperature_at_10m,                           T10M,           ,           ,           K
+local_u_wind_at_10m,                                U10M,           u10,        ,           m.s-1
+local_v_wind_at_10m,                                V10M,           v10,        ,           m.s-1
+local_surface_wind_speed,                           SPEED,          ,           ,           m.s-1
+local_total_column_ozone,                           TO3,            gtco3,      tco3,       Dobsons
 
-total_aerosol_optical_thickness_550nm,              TOTEXTTAU,      aod550,     ,
-total_aerosol_angstrom_coefficient_550nm,           TOTANGSTR,      ,           #,
-
-dust_aerosol_optical_thickness_550nm,               DUEXTTAU,       duaod550,   ,
-organic_carbon_aerosol_optical_thickness_550nm,     OCEXTTAU,       omaod550,   ,
-black_carbon_aerosol_optical_thickness_550nm,       BCEXTTAU,       bcaod550,   ,
-sea_salt_aerosol_optical_thickness_550nm,           SSEXTTAU,       ssaod550,   ,
-sulfate_aerosol_optical_thickness_550nm,            SUEXTTAU,       suaod550,   ,
-
-total_cloud_cover,                                  CLDTOT,         ,         tcc,    
-low_cloud_cover,                                    CLDLOW,         ,           ?, 
-mid_cloud_cover,                                    CLDMID,         ,           ?, 
-high_cloud_cover,                                   CLDHGH,         ,           ?,     
-total_cloud_optical_thickness,                      TAUTOT,         ,           #,    
-low_cloud_optical_thickness,                        TAULOW,         ,            ,
-mid_cloud_optical_thickness,                        TAUMID,         ,            ,
-high_cloud_optical_thickness,                       TAUHGH,         ,            ,
-total_column_cloud_ice_water,                       ,               ,        tciw,  kg.m-2          
-total_column_cloud_liquid_water,                    ,               ,        tclw,  kg.m-2
+end, end, end, end, end

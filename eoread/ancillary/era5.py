@@ -41,7 +41,7 @@ class ERA5:
         return ds
     
     
-    def __init__(self, directory: Path, offline: bool=False, verbose: bool=True, no_std: bool=False):
+    def __init__(self, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
         
         self.directory = Path(directory).resolve()
         if not self.directory.exists():
@@ -61,7 +61,7 @@ class ERA5:
         self.product_specs = self.product_specs[~self.product_specs['name'].astype(str).str.startswith('#')]                      # remove comment lines
         
         # General variable nomenclature preparation
-        self.names = Nomenclature(provider='ERA5')
+        self.names = Nomenclature(provider='ERA5', csv_file=nomenclature_file)
 
 
     def get(self, product:str, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:

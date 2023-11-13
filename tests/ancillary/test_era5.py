@@ -8,58 +8,78 @@ import tempfile
 
 from eoread.ancillary.era5 import ERA5
 
+from tempfile import TemporaryDirectory
+
 def test_get():
-    ds = None
     
     with tempfile.TemporaryDirectory() as tmpdir:
         
         era5 = ERA5(directory=tmpdir)
-        ds = era5.get(product='RASL', variables=['mcc', 'tco3'], d=date(2022, 11, 30)) # download dataset
+        ds = era5.get(product='RASL', variables=['mcc', 'tco3'], d=date(2019, 11, 30)) # download dataset
     
-    assert ds is not None
-    
-    variables = list(ds) # get dataset variables as list of str
-    
-    assert 'mcc'  not in variables
-    assert 'tco3' not in variables
-    assert 'mid_cloud_cover'    in variables
-    assert 'total_column_ozone' in variables
-    
-    # test wrap
-    assert np.max(ds.longitude.values) == 180.0
-    assert np.min(ds.longitude.values) == -180.0
+        variables = list(ds) # get dataset variables as list of str
+        
+        assert 'mcc'  not in variables
+        assert 'tco3' not in variables
+        assert 'mid_cloud_cover'    in variables
+        assert 'total_column_ozone' in variables
+        
+        # test wrap
+        assert np.max(ds.longitude.values) == 180.0
+        assert np.min(ds.longitude.values) == -180.0
 
-# 
+
+def test_get_local_var_def_file():
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        
+        era5 = ERA5(directory=tmpdir, nomenclature_file='tests/ancillary/inputs/nomenclature/variables.csv')
+        ds = era5.get(product='RASL', variables=['tco3'], d=date(2019, 11, 30)) # download dataset
+    
+        variables = list(ds) # get dataset variables as list of str
+        
+        assert 'tco3' not in variables
+        assert 'local_total_column_ozone' in variables
+        
+        # test wrap
+        assert np.max(ds.longitude.values) == 180.0
+        assert np.min(ds.longitude.values) == -180.0
+
+
 def test_get_pressure_levels():
     
     # o3, q, t
     # ozone_mass_mixing_ratio', 'specific_humidity', 'temperature',
+    
+    with TemporaryDirectory() as tmpdir:
 
-    era5 = ERA5(directory='tests/ancillary/download')
-    area = [1, -1, -1, 1,]
-    ds = era5.get(product='RAPL', variables=['o3', 'q', 't'], d=date(2013, 11, 30), area=area) # download dataset
-    
-    variables = list(ds)
-    
-    assert 'o3' not in variables
-    assert 'q'  not in variables
-    assert 't'  not in variables
-    assert 'ozone_mass_mixing_ratio' in variables
-    assert 'specific_humidity' in variables
-    assert 'temperature' in variables
-    
+        era5 = ERA5(directory=tmpdir)
+        area = [1, -1, -1, 1,]
+        ds = era5.get(product='RAPL', variables=['o3', 'q', 't'], d=date(2013, 11, 30), area=area) # download dataset
+        
+        variables = list(ds)
+        
+        assert 'o3' not in variables
+        assert 'q'  not in variables
+        assert 't'  not in variables
+        assert 'ozone_mass_mixing_ratio' in variables
+        assert 'specific_humidity' in variables
+        assert 'temperature' in variables
+        
 
 
 def test_get_no_std():
     
-    era5 = ERA5(directory='tests/ancillary/download', no_std=True)
-    ds = era5.get(product='RASL', variables=['mcc', 'tco3'],d=date(2022, 11, 30)) # download dataset
-    
-    variables = list(ds)
-    assert 'mcc'  in variables
-    assert 'tco3' in variables
-    assert 'mid_cloud_cover'    not in variables
-    assert 'total_column_ozone' not in variables
+    with TemporaryDirectory() as tmpdir:
+        
+        era5 = ERA5(directory=tmpdir, no_std=True)
+        ds = era5.get(product='RASL', variables=['mcc', 'tco3'],d=date(2022, 11, 30)) # download dataset
+        
+        variables = list(ds)
+        assert 'mcc'  in variables
+        assert 'tco3' in variables
+        assert 'mid_cloud_cover'    not in variables
+        assert 'total_column_ozone' not in variables
 
 
 def test_fail_get_offline():
