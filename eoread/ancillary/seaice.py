@@ -16,13 +16,23 @@ import numpy as np
 import pyproj
 
 
-_ftp_configs = []
+
 """
 Different ftp sources and paths to download files, severals can be specified and 
 will be used as fallbacks if needed
 """
 
-_data_src_1 = {
+_data_nrt = {
+    'host':             'nrt.cmems-du.eu',
+    'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_NRT_OBSERVATIONS_011_001/',
+    'sub_folder_north': 'METNO-GLO-SEAICE_CONC-NORTH-L4-NRT-OBS/%Y/%m/', 
+    'sub_folder_south': 'METNO-GLO-SEAICE_CONC-SOUTH-L4-NRT-OBS/%Y/%m/',
+    'file_name_north':  'ice_conc_nh_polstere-100_multi_%Y%m%d1200.nc',
+    'file_name_south':  'ice_conc_sh_polstere-100_multi_%Y%m%d1200.nc',
+}
+
+
+_data_my = {
     'host':             'my.cmems-du.eu',
     'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
     'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_CONT_TIMESERIES-NH-LA-OBS/%Y/%m/', 
@@ -30,9 +40,8 @@ _data_src_1 = {
     'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
     'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
 }
-_ftp_configs.append(_data_src_1)
     
-_data_src_2 = {
+_data_my_2 = {
     'host':             'my.cmems-du.eu',
     'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
     'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_TIMESERIES-NH-LA-OBS/%Y/%m/', 
@@ -40,7 +49,6 @@ _data_src_2 = {
     'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
     'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
 }
-_ftp_configs.append(_data_src_2)
 
 
 """
@@ -79,7 +87,7 @@ def _get_ftp_connexion(host) -> FTP:
     
 
 def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray, 
-            variables: list[str]=['ice_conc']) -> xr.DataArray:
+            variables: list[str]=None) -> xr.Dataset:
     """
     Returns the Sea Ice Concentration data interpoated to the specified lat-lon
     Uses Pyproj to transform the lat-lon to polar coordinates then interpolate afterward  
@@ -87,6 +95,7 @@ def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray,
     - fn_n: local filename for the northen hemisphere file
     - fn_s: local filename for the southern hemisphere file
     - lat, lon: coordinates on which to interpolate Sea Ice Conc
+    - variables: variables to interpolate and keep (all if None)
     """
     
     # will project the output's latlon to both north and south polar coordinates
@@ -94,6 +103,9 @@ def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray,
     
     ds_n = xr.open_mfdataset(fn_n) # northern seaice dataset
     ds_s = xr.open_mfdataset(fn_s) # southern seaice dataset
+    
+    if variables is None:
+        variables = list(ds_n) # take all variables
     
     crs_n = pyproj.CRS('EPSG:6931') # northern polar coordinates system
     crs_s = pyproj.CRS('EPSG:6932') # southern polar coordinates system
@@ -133,25 +145,36 @@ def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray,
     
     return combined.rename({'yc': 'y', 'xc': 'x'}).assign_coords({'lat': lat, 'lon': lon})
 
-class SeaIceLector:
+class SeaIce:
     """
     Ancillary date provider using Copernicus
     https://data.marine.copernicus.eu/product/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/description
+    
+    mode: "NRT" | "MY" | "all"
     """
     
     def __init__(self,
                  directory='ANCILLARY/SeaIce/',
-                 ftp_configs=_ftp_configs,
+                 mode="NRT",
                  offline=False,
                  verbose=False):
                  
         self.directory = Path(directory).resolve()
-        self.ftp_configs = ftp_configs
         self.client = None
         self.offline = offline
         self.verbose = verbose
         
-        assert isinstance(ftp_configs, list) and len(ftp_configs) >= 1
+        assert (mode == "NRT" or mode == "all" or mode == "MY")
+        self.mode = mode
+        
+        # construct FTP sources list
+        self.ftp_configs = []
+        if mode == "all" or mode == "NRT": 
+            self.ftp_configs.append(_data_nrt)
+            
+        if mode == "all" or mode == "MY":  
+            self.ftp_configs.append(_data_my)
+            self.ftp_configs.append(_data_my_2)
         
         if not self.directory.exists():
             raise FileNotFoundError(
@@ -159,7 +182,7 @@ class SeaIceLector:
                 'Please create it for hosting SeaIce files.')
     
     
-    def get(self, d: date, lat: np.ndarray, lon: np.ndarray) -> xr.DataArray:
+    def get(self, d: date, lat: np.ndarray, lon: np.ndarray) -> xr.Dataset:
         """
         Download source files and return the (interpolated) Sea Ice Concentration for the
         specified latlon tuple and date
@@ -186,7 +209,7 @@ class SeaIceLector:
             ftp_s = _get_ftp_paths_south(d, cfg)
             
             # create new ftp connexion if needed
-            if not 'ftp' in cfg: 
+            if 'ftp' not in cfg: 
                 cfg['ftp'] = _get_ftp_connexion(cfg['host']); 
             ftp = cfg['ftp'] # get ftp connexion
             
@@ -206,7 +229,8 @@ class SeaIceLector:
                 files_found = True
                 break # do not attempt to download on other contexts
             
-        if not files_found: raise FileNotFoundError(f'Could not find any corresponding file for date {d}')
+        if not files_found: 
+            raise FileNotFoundError(f'Could not find any corresponding file for date {d} with selected mode \"{self.mode}\"')
         
         return _interp(
             fn_n = local_f_south, 

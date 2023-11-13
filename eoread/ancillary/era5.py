@@ -134,11 +134,11 @@ class ERA5:
         
         if product in ['RASL', 'reanalysis-era5-single-levels']:
             product_abrv = 'RASL'
-            downloader = self._download_RASL_file
+            downloader = self._download_reanalysis_single_level
             
         elif product in ['RAPL', 'reanalysis-era5-pressure-levels']:
             product_abrv = 'RAPL'
-            downloader = self._download_RAPL_file
+            downloader = self._download_reanalysis_pressure_levels
 
             
         if downloader is None or product_abrv is None:
@@ -170,7 +170,7 @@ class ERA5:
 
 
     @filegen(1)
-    def _download_RASL_file(self, target, d, area):
+    def _download_reanalysis_single_level(self, target, d, area):
         """
         Download a single file, containing 24 times, hourly resolution
         uses the CDS API. Uses a temporary file and avoid unnecessary download 
@@ -201,7 +201,7 @@ class ERA5:
     
     
     @filegen(1)
-    def _download_RAPL_file(self, target, d, area):
+    def _download_reanalysis_pressure_levels(self, target, d, area):
         """
         Download a single file, containing 24 times, hourly resolution
         uses the CDS API. Uses a temporary file and avoid unnecessary download 

@@ -4,16 +4,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import tempfile
 
 from eoread.ancillary.era5 import ERA5
 
 def test_get():
+    ds = None
     
-    era5 = ERA5(directory='tests/ancillary/download')
-
-    ds = era5.get(product='RASL', variables=['mcc', 'tco3'], d=date(2022, 11, 30)) # download dataset
+    with tempfile.TemporaryDirectory() as tmpdir:
+        
+        era5 = ERA5(directory=tmpdir)
+        ds = era5.get(product='RASL', variables=['mcc', 'tco3'], d=date(2022, 11, 30)) # download dataset
     
-    variables = list(ds)
+    assert ds is not None
+    
+    variables = list(ds) # get dataset variables as list of str
     
     assert 'mcc'  not in variables
     assert 'tco3' not in variables
