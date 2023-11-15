@@ -32,23 +32,23 @@ _data_nrt = {
 }
 
 
-_data_my = {
-    'host':             'my.cmems-du.eu',
-    'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
-    'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_CONT_TIMESERIES-NH-LA-OBS/%Y/%m/', 
-    'sub_folder_south': 'OSISAF-GLO-SEAICE_CONC_CONT_TIMESERIES-SH-LA-OBS/%Y/%m/',
-    'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
-    'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
-}
+# _data_my = {
+#     'host':             'my.cmems-du.eu',
+#     'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
+#     'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_CONT_TIMESERIES-NH-LA-OBS/%Y/%m/', 
+#     'sub_folder_south': 'OSISAF-GLO-SEAICE_CONC_CONT_TIMESERIES-SH-LA-OBS/%Y/%m/',
+#     'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
+#     'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
+# }
     
-_data_my_2 = {
-    'host':             'my.cmems-du.eu',
-    'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
-    'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_TIMESERIES-NH-LA-OBS/%Y/%m/', 
-    'sub_folder_south': 'OSISAF-GLO-SEAICE_CONC_TIMESERIES-SH-LA-OBS/%Y/%m/',
-    'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
-    'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
-}
+# _data_my_2 = {
+#     'host':             'my.cmems-du.eu',
+#     'base_folder':      '/Core/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/',
+#     'sub_folder_north': 'OSISAF-GLO-SEAICE_CONC_TIMESERIES-NH-LA-OBS/%Y/%m/', 
+#     'sub_folder_south': 'OSISAF-GLO-SEAICE_CONC_TIMESERIES-SH-LA-OBS/%Y/%m/',
+#     'file_name_north':  'ice_conc_nh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
+#     'file_name_south':  'ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc',
+# }
 
 
 """
@@ -107,9 +107,9 @@ def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray,
     if variables is None:
         variables = list(ds_n) # take all variables
     
-    crs_n = pyproj.CRS('EPSG:6931') # northern polar coordinates system
-    crs_s = pyproj.CRS('EPSG:6932') # southern polar coordinates system
-    
+    crs_n = pyproj.CRS('EPSG:3411') # northern polar coordinates system
+    crs_s = pyproj.CRS('EPSG:3412') # southern polar coordinates system
+
     # northern Sea Ice
     p = pyproj.Proj(crs_n)
     x_n, y_n = p(longitude=lon, latitude=lat)
@@ -150,7 +150,7 @@ class SeaIce:
     Ancillary date provider using Copernicus
     https://data.marine.copernicus.eu/product/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/description
     
-    mode: "NRT" | "MY" | "all"
+    mode: "NRT" (multiyear not yet supported)
     """
     
     def __init__(self,
@@ -171,10 +171,12 @@ class SeaIce:
         self.ftp_configs = []
         if mode == "all" or mode == "NRT": 
             self.ftp_configs.append(_data_nrt)
-            
-        if mode == "all" or mode == "MY":  
-            self.ftp_configs.append(_data_my)
-            self.ftp_configs.append(_data_my_2)
+
+        if mode == "MY":
+            raise ValueError("Multiyear not yet supported, please only ")            
+        # if mode == "all" or mode == "MY":  
+        #     self.ftp_configs.append(_data_my)
+        #     self.ftp_configs.append(_data_my_2)
         
         if not self.directory.exists():
             raise FileNotFoundError(
@@ -233,7 +235,7 @@ class SeaIce:
             raise FileNotFoundError(f'Could not find any corresponding file for date {d} with selected mode \"{self.mode}\"')
         
         return _interp(
-            fn_n = local_f_south, 
+            fn_n = local_f_north, 
             fn_s = local_f_south, 
             lat = lat, 
             lon = lon)
