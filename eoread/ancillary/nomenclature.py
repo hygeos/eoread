@@ -1,5 +1,7 @@
 import pandas as pd
 
+import shutil
+
 from pathlib import Path
 from xarray import Dataset
 
@@ -31,6 +33,18 @@ class Nomenclature:
         self.provider = provider
         self.log = log
         
+    
+    def copy_table(target_dir='.'):
+        """
+        Create a local copy of the nomenclature CSV table, to the specified directory
+        """
+        
+        src_file = Path(__file__).parent / 'nomenclature.csv' # file path relative to the module
+        
+        assert Path(target_dir).exists()
+        
+        shutil.copy(src_file, target_dir)
+    
     
     def rename_dataset(self, ds) -> Dataset:
         """

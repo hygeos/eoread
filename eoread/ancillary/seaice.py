@@ -148,7 +148,7 @@ def _interp(fn_n: Path, fn_s: Path, lat: np.ndarray, lon: np.ndarray,
 class SeaIce:
     """
     Ancillary date provider using Copernicus
-    https://data.marine.copernicus.eu/product/SEAICE_GLO_SEAICE_L4_REP_OBSERVATIONS_011_009/description
+    https://data.marine.copernicus.eu/product/SEAICE_GLO_SEAICE_L4_NRT_OBSERVATIONS_011_001/description
     
     mode: "NRT" (multiyear not yet supported)
     """
