@@ -14,8 +14,8 @@ def test_get_var_std_name():
     # test for CAMS
     nm_cams = Nomenclature(provider = 'CAMS')
     
-    assert nm_cams.get_new_name('aod550')   == 'total_aerosol_optical_thickness_550nm'
-    assert nm_cams.get_new_name('suaod550') == 'sulfate_aerosol_optical_thickness_550nm'
+    assert nm_cams.get_new_name('aod550')   == 'total_aerosol_optical_depth_550nm'
+    assert nm_cams.get_new_name('suaod550') == 'sulfate_aerosol_optical_depth_550nm'
 
 
 def test_get_var_std_name_local_file():

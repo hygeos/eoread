@@ -21,7 +21,7 @@ def test_get_versions():
 def test_get_specs_local():
     
     parser = Merra2Parser()
-    specs = cache_json(Path('merra2.json'))(parser.get_products_specs)(date(2012, 12, 10))
+    specs = cache_json(Path('merra2.json'))(parser.get_model_specs)(date(2012, 12, 10))
     
     assert 'M2I1NXINT' in specs
     assert 'M2T1NXRAD' in specs

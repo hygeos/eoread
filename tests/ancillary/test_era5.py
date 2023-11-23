@@ -14,8 +14,9 @@ def test_get():
     
     with tempfile.TemporaryDirectory() as tmpdir:
         
-        era5 = ERA5(directory=tmpdir)
-        ds = era5.get(product='RASL', variables=['mcc', 'tco3'], d=date(2019, 11, 30)) # download dataset
+        era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+            directory=Path(tmpdir))
+        ds = era5.get(variables=['mcc', 'tco3'], d=date(2019, 11, 30)) # download dataset
     
         variables = list(ds) # get dataset variables as list of str
         
@@ -33,8 +34,10 @@ def test_get_local_var_def_file():
     
     with tempfile.TemporaryDirectory() as tmpdir:
         
-        era5 = ERA5(directory=tmpdir, nomenclature_file='tests/ancillary/inputs/nomenclature/variables.csv')
-        ds = era5.get(product='RASL', variables=['tco3'], d=date(2019, 11, 30)) # download dataset
+        era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                    directory=Path(tmpdir), 
+                    nomenclature_file=Path('tests/ancillary/inputs/nomenclature/variables.csv'))
+        ds = era5.get(variables=['tco3'], d=date(2019, 11, 30)) # download dataset
     
         variables = list(ds) # get dataset variables as list of str
         
@@ -53,9 +56,11 @@ def test_get_pressure_levels():
     
     with TemporaryDirectory() as tmpdir:
 
-        era5 = ERA5(directory=tmpdir)
-        area = [1, -1, -1, 1,]
-        ds = era5.get(product='RAPL', variables=['o3', 'q', 't'], d=date(2013, 11, 30), area=area) # download dataset
+        era5 = ERA5(model=ERA5.models.reanalysis_pressure_levels,
+                    directory=Path(tmpdir))
+                    
+        area = [1, -1, -1,  1]
+        ds = era5.get(variables=['o3', 'q', 't'], d=date(2013, 11, 30), area=area) # download dataset
         
         variables = list(ds)
         
@@ -72,8 +77,9 @@ def test_get_no_std():
     
     with TemporaryDirectory() as tmpdir:
         
-        era5 = ERA5(directory=tmpdir, no_std=True)
-        ds = era5.get(product='RASL', variables=['mcc', 'tco3'],d=date(2022, 11, 30)) # download dataset
+        era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                    directory=Path(tmpdir), no_std=True)
+        ds = era5.get(variables=['mcc', 'tco3'],d=date(2022, 11, 30)) # download dataset
         
         variables = list(ds)
         assert 'mcc'  in variables
@@ -84,19 +90,21 @@ def test_get_no_std():
 
 def test_fail_get_offline():
     
-    era5 = ERA5(directory='tests/ancillary/inputs/ERA5', offline=True)
+    era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                directory=Path('tests/ancillary/inputs/ERA5'), offline=True)
     
-    with pytest.raises(ResourceWarning) as excinfo:
-        era5.get(product='RASL', variables=['mcc'],d=date(2001, 11, 30))
+    with pytest.raises(ResourceWarning):
+        era5.get(variables=['mcc'],d=date(2001, 11, 30))
         
         
 # downloading offline an already locally existing product should work
 def test_download_offline():
     
     # empy file but with correct nomenclature
-    era5 = ERA5(directory='tests/ancillary/inputs/ERA5', offline=True)
+    era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                directory=Path('tests/ancillary/inputs/ERA5'), offline=True)
 
-    f = era5.download(product='RASL', variables=['mcc', 'tco3'],d=date(2022, 11, 30))
+    f = era5.download(variables=['mcc', 'tco3'],d=date(2022, 11, 30))
     
     assert isinstance(f, Path)
         
@@ -104,30 +112,26 @@ def test_download_offline():
 def test_fail_download_offline():
     
     # empy file but with correct nomenclature
-    era5 = ERA5(directory='tests/ancillary/inputs/ERA5', offline=True)
+    era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                directory=Path('tests/ancillary/inputs/ERA5'), offline=True)
 
-    with pytest.raises(ResourceWarning) as excinfo:
-        era5.get(product='RASL', variables=['mcc', 'tco3'],d=date(2001, 11, 30)) 
+    with pytest.raises(ResourceWarning):
+        era5.get(variables=['mcc', 'tco3'],d=date(2001, 11, 30)) 
 
-
-def test_fail_bad_product():
-    era5 = ERA5(directory='tests/ancillary/inputs/ERA5')
-    
-    with pytest.raises(ValueError) as excinfo:
-        era5.get(product='ObviouslyWrongProduct', variables=['gtco3'], d=date(2013, 11, 23))
 
 # should fail because the specified local folder doesn't exists
 def test_fail_folder_do_not_exist():
     
-    with pytest.raises(FileNotFoundError) as excinfo:
-        ERA5(directory='DATA/WRONG/PATH/TO/NOWHERE/') 
+    with pytest.raises(FileNotFoundError):
+        ERA5(model=ERA5.models.reanalysis_single_level,
+             directory=Path('DATA/WRONG/PATH/TO/NOWHERE/')) 
         
         
 def test_fail_non_defined_var():
-    era5 = ERA5(directory='tests/ancillary/inputs/ERA5')
-    var = 'non_existing_var'
+    era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+                directory=Path('tests/ancillary/inputs/ERA5'))
     
-    with pytest.raises(KeyError) as excinfo:
-        era5.get(product='RASL', variables=[var], d=date(2013, 11, 23))
+    with pytest.raises(KeyError):
+        era5.get(variables=['non_existing_var'], d=date(2013, 11, 23))
     
     

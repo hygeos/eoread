@@ -1,4 +1,3 @@
-from eoread.fileutils import filegen
 from .nomenclature import Nomenclature
 from datetime import date
 from pathlib import Path
@@ -8,20 +7,24 @@ import eoread.ancillary.cdsapi_parser as cdsapi_parser
 import xarray as xr
 import pandas as pd
 import numpy as np
-import cdsapi
 import os
 
-import warnings
+from typing import Callable
+from .cams_models import CAMS_Models
+from eoread.ancillary.baseprovider import BaseProvider
+from eoread.static import interface
 
-class CAMS:
+class CAMS(BaseProvider):
     """
-    Ancillary data provider for CAMS products
+    Ancillary data provider for CAMS models
 
+    - model: valid CAMS models are listed in CAMS.models object
     - directory: local folder path, where to download files 
+    - nomenclature_file: local file path to a nomenclature CSV to be used by the nomenclature module
     - no_std: bypass the standardization to the nomenclature module, keeping the dataset as provided
-    
-    \n/!\ Currently only support Single-Levels
     """
+    
+    models = CAMS_Models
     
     def standardize(self, ds: xr.Dataset) -> xr.Dataset:
         '''
@@ -47,87 +50,39 @@ class CAMS:
         return eo.wrap(ds, 'longitude', -180, 180)
     
     
-    def __init__(self, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
-                
-        self.directory = Path(directory).resolve()
-        if not self.directory.exists():
-            raise FileNotFoundError(f'Directory "{self.directory}" does not exist. Use an existing directory.')
-            
-        self.offline = offline
-        self.verbose = verbose
-        self.no_std = no_std
+    def __init__(self, model: Callable, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
         
-        self.file_pattern = "CAMS_%s_%s_%s_%s.nc" # product, 'global'/'region', vars, date
-        self.client = None
+        name = 'CAMS'
+        # call superclass constructor 
+        BaseProvider.__init__(self, name=name, model=model, directory=directory, nomenclature_file=nomenclature_file, 
+                              offline=offline, verbose=verbose, no_std=no_std)
+        
+        self.client = None # cdsapi 
         
         # CAMS nomenclature (ads name: short name, etc..)
         cams_csv_file = Path(__file__).parent / 'cams.csv' # file path relative to the module
-        self.product_specs = pd.read_csv(Path(cams_csv_file).resolve(), skipinitialspace=True)               # read csv file
-        self.product_specs = self.product_specs.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
-        self.product_specs = self.product_specs[~self.product_specs['name'].astype(str).str.startswith('#')] # remove comment lines
+        self.model_specs = pd.read_csv(Path(cams_csv_file).resolve(), skipinitialspace=True)               # read csv file
+        self.model_specs = self.model_specs.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
+        self.model_specs = self.model_specs[~self.model_specs['name'].astype(str).str.startswith('#')] # remove comment lines
 
         # General variable nomenclature preparation
-        self.names = Nomenclature(provider='CAMS', csv_file=nomenclature_file)
+        self.names = Nomenclature(provider=name, csv_file=nomenclature_file)
                 
         # get credentials from .cdsapirc file
-        self._parse_cdsapirc()
-        
+        self.cdsapi_cfg = self._parse_cdsapirc()
     
-    def get(self, product:str, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    @interface
+    def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
         """
-        Download and apply post-process to CAMS global forecast product for the given date
-        Standardize the dataset according to the nomenclature module
-     
-        product example:   
-        https://ads.atmosphere.copernicus.eu/cdsapp#!/dataset/cams-global-atmospheric-composition-forecasts
-        https://confluence.ecmwf.int/display/CKB/CAMS%3A+Global+atmospheric+composition+forecast+data+documentation#heading-Table1SinglelevelFastaccessparameterslastreviewedon02Aug2023
-        
-        - product: CAMS string product 
-        - variables: list of strings of the CAMS variables short names to download ex: ['gtco3', 'aod550', 'parcs']
-        - d: date of the data (not datetime)
-        - area: [90, -180, -90, 180] -> [north, west, south, east]
-        
-        """
-            
-        filepath = self.download(product, variables, d, area)
-        
-        ds = xr.open_mfdataset(filepath)                      # open dataset
-        
-        # correctly wrap longitudes if full area requested
-        if area == [90, -180, -90, 180]:
-            ds = eo.wrap(ds, 'longitude', -180, 180)
-        
-        if self.no_std: # do not standardize, return as is
-            return ds
-        return self.standardize(ds) # standardize according to nomenclature file
-
-        
-    
-    def download(self, product: str, variables: list[str], d: date, area: list=[90, -180, -90, 180])  -> Path:
-        """
-        Download CAMS product for the given date
+        Download CAMS model for the given date
         
         https://ads.atmosphere.copernicus.eu/cdsapp#!/dataset/cams-global-atmospheric-composition-forecasts
         https://confluence.ecmwf.int/display/CKB/CAMS%3A+Global+atmospheric+composition+forecast+data+documentation#heading-Table1SinglelevelFastaccessparameterslastreviewedon02Aug2023
         
-        - product: CAMS string product 
         - variables: list of strings of the CAMS variables short names to download ex: ['gtco3', 'aod550', 'parcs']
         - d: date of the data (not datetime)
-         - area: [90, -180, -90, 180] -> [top, left, bot, right]
+         - area: [90, -180, -90, 180] -> [north, west, south, east]
         """
-        
-        # list of currently supported products
-        products = [
-            'global-atmospheric-composition-forecasts',
-            'GACF',
-        ]
-        
-        # list of currently supported products
-        supported = '' # better error messages
-        for p in products: supported += p + "\n"
-        
-        if product not in products: # error, invalid product
-            raise ValueError(f"product '{product}' is not currently supported, \n currently supported products: \n{supported}")
         
         file_path = None
         
@@ -136,78 +91,40 @@ class CAMS:
             for var in variables: # verify var nomenclature has been defined in csv, beforehand
                 self.names.assert_var_is_defined(var)
                 
-        self.variables = variables                                         # short names
         self.ads_variables = [self.get_ads_name(var) for var in variables] # get ads name equivalent from short name
         
         # verify beforehand that the var has been properly defined
         for var in variables: 
             self.names.assert_var_is_defined(var)
-            if var not in list(self.product_specs['short_name'].values):
+            if var not in list(self.model_specs['short_name'].values):
                 raise KeyError(f'Could not find short_name {var} in csv file')
         
-        # find corresponding functions to product
-        product_abrv = None
-        downloader = None
+        # transform function name to extract only the acronym
+        acronym = ''.join([i[0] for i  in self.model.__name__.upper().split('_')])
+        # ex: global_atmospheric_composition_forecast → 'GACF'
         
-        if product in ['GACF', 'global-atmospheric-composition-forecasts']:
-            product_abrv = "GACF" # <- 'cams-global-atmospheric-composition-forecasts'
-            downloader = self._download_GACF_file
+        # output file path
+        file_path = self.directory / Path(self._get_filename(variables, d, acronym, area)) # get file path
         
-        if downloader is None or product_abrv is None:
-            raise ValueError(f"product '{product}' is not currently supported, \n currently supported products: \n{supported}")
-        
-        # call download method
-        file_path = self.directory / Path(self._get_filename(d, product_abrv, area)) # get file path
-        
-        if file_path.exists():
-            if self.verbose:
-                print(f'found locally: {file_path.name}')
-        else:
-            if not self.offline:
-                downloader(file_path, d, area) # download if needed (uses filegen) 
-            else: # cannot download
+        if not file_path.exists():  # download if not already present
+            if self.offline:        # download needed but deactivated → raise error
                 raise ResourceWarning(f'Could not find local file {file_path}, offline mode is set')
                 
-            if self.verbose: 
+            if self.verbose:
                 print(f'downloading: {file_path.name}')
+            self.model(self, file_path, d, area) # download file
+            
+        elif self.verbose: # elif → file already exists
+            print(f'found locally: {file_path.name}')
                 
         return file_path
-    
-    
-    @filegen(1)
-    def _download_GACF_file(self, target: Path, d: date, area):
-        """
-        Download a single file, containing 24 times, hourly resolution
-        uses the CDS API. Uses a temporary file and avoid unnecessary download 
-        if it is already present, thanks to fileutil.filegen 
         
-        - target: path to the target file after download
-        - d: date of the dataset
-        """
-        
-        if self.client is None:
-            self.client = cdsapi.Client(url=self.cdsapi_cfg['url'], 
-                                        key=self.cdsapi_cfg['key'])
-            
-        self.client.retrieve(
-            'cams-global-atmospheric-composition-forecasts',
-            {
-                'date': str(d)+'/'+str(d),
-                'type': 'forecast',
-                'format': 'netcdf',
-                'variable': self.ads_variables,
-                'time': ['00:00', '12:00'],
-                'leadtime_hour': ['0', '1', '2', '3', '4', '5', 
-                                  '6', '7', '8', '9', '10', '11'],
-                'area': area,
-            }, target)
-            
             
     def get_ads_name(self, short_name):
         """
         Returns the variable's ADS name (used to querry the Atmospheric Data Store)
         """
-        return self.product_specs[self.product_specs['short_name'] == short_name]['ads_name'].values[0]
+        return self.model_specs[self.model_specs['short_name'] == short_name]['ads_name'].values[0]
     
     
     def _parse_cdsapirc(self):
@@ -219,25 +136,4 @@ class CAMS:
         dotrc = os.environ.get("CDSAPI_RC", os.path.expanduser("~/.cdsapirc"))
         config = cdsapi_parser.read_config('ads', dotrc) 
         # save the credentials as attributes
-        self.cdsapi_cfg = config
-    
-
-    def _get_filename(self, d: date, product: str, area) -> str:
-        """
-        Constructs and return the target filename according to the nomenclature specified
-        in the attribute 'filename_pattern'
-        """
-        
-        area_str = "global"
-        if area != [90, -180, -90, 180]:
-            area_str = "region"
-        
-        # construct chain of variables short name 
-        vars = list(self.variables) # sort alphabetically, so that variables order doesn't matter
-        vars.sort()
-        
-        vars_str = vars.pop(0)  # get first element without delimiter
-        for v in vars: vars_str += '_' + v # apply delimiter and names
-            
-        d = d.strftime('%Y%m%d')
-        return self.file_pattern % (product, area_str, vars_str, d)
+        return config

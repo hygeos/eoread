@@ -10,15 +10,24 @@ import pandas as pd
 import numpy as np
 import cdsapi
 
+from typing import Callable
+from .era5_models import ERA5_Models
+from eoread.ancillary.baseprovider import BaseProvider
 
+from eoread.static import interface
 
-class ERA5:
+class ERA5(BaseProvider):
     '''
     Ancillary data provider using ERA5
 
+    - model: valid ERA5 models are listed in ERA5.models object
     - directory: local folder path, where to download files 
+    - nomenclature_file: local file path to a nomenclature CSV to be used by the nomenclature module
+    - no_std: bypass the standardization to the nomenclature module, keeping the dataset as provided
 
     '''
+    
+    models = ERA5_Models
     
     def standardize(self, ds: xr.Dataset) -> xr.Dataset:
         '''
@@ -41,77 +50,34 @@ class ERA5:
         return ds
     
     
-    def __init__(self, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
+    def __init__(self, model: Callable, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):
         
-        self.directory = Path(directory).resolve()
-        if not self.directory.exists():
-            raise FileNotFoundError(f'Directory "{self.directory}" does not exist. Use an existing directory.')
-            
-        self.offline = offline
-        self.verbose = verbose
-        self.no_std = no_std
+        name = 'ERA5'
+        # call superclass constructor 
+        BaseProvider.__init__(self, name=name, model=model, directory=directory, nomenclature_file=nomenclature_file, 
+                              offline=offline, verbose=verbose, no_std=no_std)
         
-        self.file_pattern = "ERA5_%s_%s_%s_%s.nc" # product, 'global'/'region', vars and date
-        self.client = None
+        self.client = None # cdsapi 
 
         # ERA5 Reanalysis nomenclature (ads name: short name, etc..)
         era5_csv_file = Path(__file__).parent / 'era5.csv' # file path relative to the module
-        self.product_specs = pd.read_csv(Path(era5_csv_file).resolve(), skipinitialspace=True)               # read csv file
-        self.product_specs = self.product_specs.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
-        self.product_specs = self.product_specs[~self.product_specs['name'].astype(str).str.startswith('#')]                      # remove comment lines
+        self.model_specs = pd.read_csv(Path(era5_csv_file).resolve(), skipinitialspace=True)               # read csv file
+        self.model_specs = self.model_specs.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
+        self.model_specs = self.model_specs[~self.model_specs['name'].astype(str).str.startswith('#')]                      # remove comment lines
         
         # General variable nomenclature preparation
-        self.names = Nomenclature(provider='ERA5', csv_file=nomenclature_file)
+        self.names = Nomenclature(provider=name, csv_file=nomenclature_file)
 
-
-    def get(self, product:str, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    @interface
+    def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
         """
-        Download and apply post-process to ERA5 reanalysis product for the given date
+        Download ERA5 model for the given date
         
-        - product: ERA5 string product 
         - variables: list of strings of the CAMS variables short names to download ex: ['gtco3', 'aod550', 'parcs']
         - d: date of the data (not datetime)
-        - area: [90, -180, -90, 180] -> [top, left, bot, right]
+        - area: [90, -180, -90, 180] → [north, west, south, east]
         """
-        
-        filepath = self.download(product, variables, d, area)
-                  
-        ds = xr.open_mfdataset(filepath) # open dataset
-        
-        # correctly wrap longitudes if full area requested
-        if area == [90, -180, -90, 180]:
-            ds = eo.wrap(ds, 'longitude', -180, 180)
-        
-        if self.no_std:
-            return ds
-        return self.standardize(ds) # apply post process
 
-    
-    def download(self, product:str, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
-        """
-        Download ERA5 product for the given date
-        
-        - product: ERA5 string product 
-        - variables: list of strings of the CAMS variables short names to download ex: ['gtco3', 'aod550', 'parcs']
-        - d: date of the data (not datetime)
-        - area: [90, -180, -90, 180] -> [top, left, bot, right]
-        """
-        
-            # list of currently supported products
-        products = [
-            'reanalysis-era5-single-levels',
-            'RASL',
-            'reanalysis-era5-pressure-levels',
-            'RAPL',
-        ]
-        
-        # list of currently supported products
-        supported = '' # better error messages
-        for p in products: supported += p + "\n"
-        
-        if product not in products: # error, invalid product
-            raise ValueError(f"product '{product}' is not currently supported, \n currently supported products: \n{supported}")
-        
         file_path = None
         
         # prepare variable attributes
@@ -119,45 +85,31 @@ class ERA5:
             for var in variables: # verify var nomenclature has been defined in csv, beforehand
                 self.names.assert_var_is_defined(var)                
                 
-        self.variables = variables                                         # short names
         self.cds_variables = [self.get_cds_name(var) for var in variables] # get cds name equivalent from short name
         
         # verify beforehand that the var has been properly defined
         for var in variables: 
             self.names.assert_var_is_defined(var)
-            if var not in list(self.product_specs['short_name'].values):
+            if var not in list(self.model_specs['short_name'].values):
                 raise KeyError(f'Could not find short_name {var} in csv file')
         
-        # find corresponding functions to product
-        product_abrv = None
-        downloader = None
         
-        if product in ['RASL', 'reanalysis-era5-single-levels']:
-            product_abrv = 'RASL'
-            downloader = self._download_reanalysis_single_level
-            
-        elif product in ['RAPL', 'reanalysis-era5-pressure-levels']:
-            product_abrv = 'RAPL'
-            downloader = self._download_reanalysis_pressure_levels
+        # transform function name to extract only the acronym
+        acronym = ''.join([i[0] for i in self.model.__name__.upper().split('_')])
+        # ex: reanalysis_single_level → 'ESL'            
 
-            
-        if downloader is None or product_abrv is None:
-            raise ValueError(f"product '{product}' is not currently supported, \n currently supported products: \n{supported}")
-        
         # call download method
-        file_path = self.directory / Path(self._get_filename(d, product_abrv, area))    # get path
+        file_path = self.directory / Path(self._get_filename(variables, d, acronym, area))    # get path
         
-        if file_path.exists():
-            if self.verbose:
-                print(f'found locally: {file_path.name}')
-        else:
-            if not self.offline:
-                downloader(file_path, d, area) # download if needed (uses filegen) 
-            else: # cannot download
+        if not file_path.exists():  # download if not already present
+            if self.offline:        # download needed but deactivated → raise error
                 raise ResourceWarning(f'Could not find local file {file_path}, offline mode is set')
-                
-            if self.verbose: 
-                print(f'downloading: {file_path.name}')
+            
+            if self.verbose: print(f'downloading: {file_path.name}')
+            self.model(self, file_path, d, area) # download file
+            
+        elif self.verbose: # elif → file already exists
+            print(f'found locally: {file_path.name}')
                 
         return file_path
         
@@ -166,111 +118,5 @@ class ERA5:
         """
         Returns the variable's ADS name (used to querry the Atmospheric Data Store)
         """
-        return self.product_specs[self.product_specs['short_name'] == short_name]['cds_name'].values[0]
-
-
-    @filegen(1)
-    def _download_reanalysis_single_level(self, target, d, area):
-        """
-        Download a single file, containing 24 times, hourly resolution
-        uses the CDS API. Uses a temporary file and avoid unnecessary download 
-        if it is already present, thanks to fileutil.filegen 
-        
-        - target: path to the target file after download
-        - d: date of the dataset
-        """
-        if self.client is None:
-            self.client = cdsapi.Client()
-
-        print(f'Downloading {target}...')
-        self.client.retrieve(
-            'reanalysis-era5-single-levels',
-            {
-                'product_type': 'reanalysis',
-                'variable': self.cds_variables,
-                'year':[f'{d.year}'],
-                'month':[f'{d.month:02}'],
-                'day':[f'{d.day:02}'],
-                'time': ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', 
-                         '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', 
-                         '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', ],
-                'format':'netcdf',
-                'area': area,
-            },
-            target)
-    
-    
-    @filegen(1)
-    def _download_reanalysis_pressure_levels(self, target, d, area):
-        """
-        Download a single file, containing 24 times, hourly resolution
-        uses the CDS API. Uses a temporary file and avoid unnecessary download 
-        if it is already present, thanks to fileutil.filegen 
-        
-        - target: path to the target file after download
-        - d: date of the dataset
-        """
-        if self.client is None:
-            self.client = cdsapi.Client()
-
-        print(f'Downloading {target}...')
-        self.client.retrieve(
-            'reanalysis-era5-pressure-levels',
-            {
-                'product_type': 'reanalysis',
-                'format': 'netcdf',
-                'area': area,
-                'time': [
-                    '00:00', '01:00', '02:00',
-                    '03:00', '04:00', '05:00',
-                    '06:00', '07:00', '08:00',
-                    '09:00', '10:00', '11:00',
-                    '12:00', '13:00', '14:00',
-                    '15:00', '16:00', '17:00',
-                    '18:00', '19:00', '20:00',
-                    '21:00', '22:00', '23:00',
-                ],
-                'year':[f'{d.year}'],
-                'month':[f'{d.month:02}'],
-                'day':[f'{d.day:02}'],
-                'pressure_level': [
-                    '1', '2', '3',
-                    '5', '7', '10',
-                    '20', '30', '50',
-                    '70', '100', '125',
-                    '150', '175', '200',
-                    '225', '250', '300',
-                    '350', '400', '450',
-                    '500', '550', '600',
-                    '650', '700', '750',
-                    '775', '800', '825',
-                    '850', '875', '900',
-                    '925', '950', '975',
-                    '1000',
-                ],
-                'variable': self.cds_variables,
-            },
-            target
-        )
-    
-            
-    def _get_filename(self, d: date, product: str, area) -> str:
-        """
-        Constructs and return the target filename according to the nomenclature specified
-        in the attribute 'filename_pattern'
-        """
-        
-        area_str = "global"
-        if area != [90, -180, -90, 180]:
-            area_str = "region"
-        
-        # construct chain of variables short name 
-        vars = list(self.variables) # sort alphabetically, so that variables order doesn't matter
-        vars.sort()
-        
-        vars_str = vars.pop(0)  # get first element without delimiter
-        for v in vars: vars_str += '_' + v # apply delimiter and names
-            
-        d = d.strftime('%Y%m%d')
-        return self.file_pattern % (product, area_str, vars_str, d)
+        return self.model_specs[self.model_specs['short_name'] == short_name]['cds_name'].values[0]
     

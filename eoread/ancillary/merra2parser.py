@@ -80,7 +80,7 @@ class Merra2Parser:
         return generic_name
         
     
-    def get_products_specs(self, d: date):
+    def get_model_specs(self, d: date):
         """
         Returns a dictionnary containing every MERRA-2 product,
         its version, name, and variables contained
