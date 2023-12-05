@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 import shutil
 
@@ -63,7 +64,31 @@ class Nomenclature:
         return ds.rename(new_names)
     
     
-    def assert_var_is_defined(self, var: str) -> bool:
+    def get_shortname(self, variable: str):
+        
+        if not variable in self.names['VARIABLE'].values:
+            raise LookupError(f'Could not find any match for variable \'{variable}\' in column \'VARIABLE')
+            
+        if len(self.names[self.names['VARIABLE'] == variable].values) > 1:
+            raise LookupError(f'Amigous definition for var \'{variable}\' in column \'VARIABLE\'')
+            
+        short_name = self.names[self.names['VARIABLE'] == variable][self.provider].values
+        
+        if len(short_name) == 0:
+            raise LookupError(f'Could not find any match for variable \'{variable}\' in column \'CAMS\'')
+        
+        if len(short_name) > 1:
+            raise LookupError(f'Several definitions for var \'{variable}\' in column \'{self.provider}\'')
+        
+        short_name = short_name[0]
+        
+        if not type(short_name) == str:
+            raise LookupError(f'Could not find any match for variable \'{variable}\' in column \'{self.provider}\'')
+        
+        return short_name
+    
+    
+    def assert_shortname_is_defined(self, var: str) -> bool:
         """
         Check wether of not a variable was defined in the csv file, for the provider the class
         has been instanced with.

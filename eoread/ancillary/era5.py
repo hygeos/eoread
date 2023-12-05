@@ -77,35 +77,31 @@ class ERA5(BaseProvider):
         - d: date of the data (not datetime)
         - area: [90, -180, -90, 180] → [north, west, south, east]
         """
+        
+        shortnames = variables # true if no_std is true
 
-        file_path = None
-        
         # prepare variable attributes
-        if not self.no_std:
+        if self.no_std:
             for var in variables: # verify var nomenclature has been defined in csv, beforehand
-                self.names.assert_var_is_defined(var)                
-                
-        self.cds_variables = [self.get_cds_name(var) for var in variables] # get cds name equivalent from short name
-        
-        # verify beforehand that the var has been properly defined
-        for var in variables: 
-            self.names.assert_var_is_defined(var)
-            if var not in list(self.model_specs['short_name'].values):
-                raise KeyError(f'Could not find short_name {var} in csv file')
-        
-        
+                self.names.assert_shortname_is_defined(var)
+            self.cds_variables = [self.get_cds_name(var) for var in variables] # get ads name equivalent from short name
+        else:
+            shortnames = [self.names.get_shortname(var) for var in variables]
+            self.cds_variables = [self.get_cds_name(var) for var in shortnames] 
+            
         # transform function name to extract only the acronym
         acronym = ''.join([i[0] for i in self.model.__name__.upper().split('_')])
         # ex: reanalysis_single_level → 'ESL'            
 
-        # call download method
-        file_path = self.directory / Path(self._get_filename(variables, d, acronym, area))    # get path
+        # output file path
+        file_path = self.directory / Path(self._get_filename(shortnames, d, acronym, area))    # get path
         
         if not file_path.exists():  # download if not already present
             if self.offline:        # download needed but deactivated → raise error
                 raise ResourceWarning(f'Could not find local file {file_path}, offline mode is set')
             
-            if self.verbose: print(f'downloading: {file_path.name}')
+            if self.verbose: 
+                print(f'downloading: {file_path.name}')
             self.model(self, file_path, d, area) # download file
             
         elif self.verbose: # elif → file already exists
@@ -118,5 +114,9 @@ class ERA5(BaseProvider):
         """
         Returns the variable's ADS name (used to querry the Atmospheric Data Store)
         """
+        # verify beforehand that the var has been properly defined
+        if short_name not in list(self.model_specs['short_name'].values):
+            raise KeyError(f'Could not find short_name {short_name} in csv file')
+        
         return self.model_specs[self.model_specs['short_name'] == short_name]['cds_name'].values[0]
     

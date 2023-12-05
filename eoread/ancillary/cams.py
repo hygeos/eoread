@@ -64,12 +64,10 @@ class CAMS(BaseProvider):
         self.model_specs = pd.read_csv(Path(cams_csv_file).resolve(), skipinitialspace=True)               # read csv file
         self.model_specs = self.model_specs.apply(lambda x: x.str.strip() if x.dtype == 'object' else x) # remove trailing whitespaces
         self.model_specs = self.model_specs[~self.model_specs['name'].astype(str).str.startswith('#')] # remove comment lines
-
-        # General variable nomenclature preparation
-        self.names = Nomenclature(provider=name, csv_file=nomenclature_file)
                 
         # get credentials from .cdsapirc file
         self.cdsapi_cfg = self._parse_cdsapirc()
+    
     
     @interface
     def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
@@ -84,27 +82,23 @@ class CAMS(BaseProvider):
          - area: [90, -180, -90, 180] -> [north, west, south, east]
         """
         
-        file_path = None
+        shortnames = variables # true if no_std is true
         
         # prepare variable attributes
-        if not self.no_std:
+        if self.no_std:
             for var in variables: # verify var nomenclature has been defined in csv, beforehand
-                self.names.assert_var_is_defined(var)
-                
-        self.ads_variables = [self.get_ads_name(var) for var in variables] # get ads name equivalent from short name
-        
-        # verify beforehand that the var has been properly defined
-        for var in variables: 
-            self.names.assert_var_is_defined(var)
-            if var not in list(self.model_specs['short_name'].values):
-                raise KeyError(f'Could not find short_name {var} in csv file')
+                self.names.assert_shortname_is_defined(var)
+            self.ads_variables = [self.get_ads_name(var) for var in variables] # get ads name equivalent from short name
+        else:
+            shortnames = [self.names.get_shortname(var) for var in variables]
+            self.ads_variables = [self.get_ads_name(var) for var in shortnames] 
         
         # transform function name to extract only the acronym
         acronym = ''.join([i[0] for i  in self.model.__name__.upper().split('_')])
         # ex: global_atmospheric_composition_forecast → 'GACF'
         
         # output file path
-        file_path = self.directory / Path(self._get_filename(variables, d, acronym, area)) # get file path
+        file_path = self.directory / Path(self._get_filename(shortnames, d, acronym, area)) # get file path
         
         if not file_path.exists():  # download if not already present
             if self.offline:        # download needed but deactivated → raise error
@@ -122,8 +116,12 @@ class CAMS(BaseProvider):
             
     def get_ads_name(self, short_name):
         """
-        Returns the variable's ADS name (used to querry the Atmospheric Data Store)
+        Returns the variable's ADS name from the shortnames (ADS names are used to querry the Atmospheric Data Store)
         """
+        # verify beforehand that the var has been properly defined
+        if short_name not in list(self.model_specs['short_name'].values):
+            raise KeyError(f'Could not find short_name \'{short_name}\' in csv file')
+        
         return self.model_specs[self.model_specs['short_name'] == short_name]['ads_name'].values[0]
     
     

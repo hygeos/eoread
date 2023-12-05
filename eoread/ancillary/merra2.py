@@ -99,6 +99,9 @@ class MERRA2(BaseProvider):
         
         cfg = self.config[self.model]
         
+        if not self.no_std:
+            variables = [self.names.get_shortname(var) for var in variables]
+        
         for var in variables:
             if var not in cfg['variables']:
                 raise KeyError(f'Could not find variable {var} in model {self.model}')
@@ -113,29 +116,12 @@ class MERRA2(BaseProvider):
                 
             if self.verbose:
                 print(f'downloading: {file_path.name}')
-                self._download_file(file_path, variables, d)
+            self._download_file(file_path, variables, d)
         elif self.verbose:
                 print(f'found locally: {file_path.name}')
         
         return file_path
-                
-        
-    def get_range(self, variables: list[str], d1: date, d2: date) -> xr.Dataset:
-        """
-        Download, or just load if possible the according model, merge different days
-        between d1 and d2 both included into a single dataset object
-        """
-        
-        dates = [d1 + timedelta(days=dt_day) for dt_day in range((d2 - d1).days + 1)]
- 
-        ds = self.get(variables, dates.pop(0))
-        
-        # merge the rest of the dates
-        for d in dates:
-            ds = ds.merge(self.get(variables, d))
-        
-        return ds
-            
+
         
  
     def _assossiate_product(self, config, variables):
