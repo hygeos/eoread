@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-import xarray as xr
 from matplotlib import pyplot as plt
-from eoread.gsw import GSW, read_tile, fetch_gsw_tile
+from eoread.gsw import GSW, read_tile
 from tempfile import TemporaryDirectory
 from eoread.sample_products import get_sample_products
 from eoread.olci import Level1_OLCI

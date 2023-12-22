@@ -47,7 +47,7 @@ def test_download_missing():
     Behaviour in case of missing file
     '''
     with TemporaryDirectory() as tmpdir:
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(RuntimeError):
             nasa_download('ABCDEFG0123456789', tmpdir)
 
 

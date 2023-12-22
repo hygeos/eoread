@@ -3,7 +3,7 @@
 
 import pytest
 import rasterio
-import xarray as xr
+import rioxarray as rio
 import numpy as np
 from eoread.raster import ArrayLike_GDAL, gdal
 
@@ -19,7 +19,7 @@ def test_read_rasterio(filename):
 
 @pytest.mark.parametrize('filename', files)
 def test_read_xarray(filename):
-    xr.open_rasterio(filename).compute(scheduler='sync')
+    rio.open_rasterio(filename).compute(scheduler='sync')
 
 @pytest.mark.skipif(gdal is None, reason='GDAL is not installed')
 @pytest.mark.parametrize('filename', files)
@@ -37,7 +37,7 @@ def test_check(filename):
 
     data0 = ArrayLike_GDAL(filename)[s1, s2]
     data1 = rasterio.open(filename).read(window=(s1, s2))
-    data2 = xr.open_rasterio(filename).isel(band=0)[s1, s2].compute(scheduler='sync')
+    data2 = rio.open_rasterio(filename).isel(band=0)[s1, s2].compute(scheduler='sync')
 
     assert np.allclose(data0, data1)
     assert np.allclose(data0, data2)
