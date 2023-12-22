@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import xarray as xr
+import rioxarray as rio
 from lxml import objectify
 
 from . import eo
@@ -168,7 +169,7 @@ def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
         assert len(filenames) == 1
         filename = filenames[0]
 
-        arr = ((xr.open_rasterio(
+        arr = ((rio.open_rasterio(
             filename,
             chunks=chunks,
         ) + radio_add_offset[iband])/quantif).astype('float32')
@@ -307,6 +308,7 @@ class LATLON:
 
         code = geocoding.find('HORIZONTAL_CS_CODE').text
 
+        # self.proj = pyproj.Proj('EPSG:{}'.format(code))
         self.proj = pyproj.Proj('+init={}'.format(code))
 
         # lookup position in the UTM grid

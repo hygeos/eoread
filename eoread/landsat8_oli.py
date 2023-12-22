@@ -18,6 +18,8 @@ import datetime
 import tempfile
 import numpy as np
 import xarray as xr
+import rioxarray as rio
+import rasterio
 import dask.array as da
 import pyproj
 try:
@@ -367,13 +369,13 @@ class LATLON_NOGDAL:
             raise Exception('Invalid directory content ({})'.format(files_B1))
         file_B1 = files_B1[0]
 
-        data = xr.open_rasterio(file_B1)
+        data = rasterio.open(file_B1)
 
-        height = data.y.size
-        width = data.x.size
+        height = data.height
+        width = data.width
         self.shape = (height, width)
 
-        gt = data.attrs['transform']
+        gt = data.transform
         X0, X1 = (0, width-1)
         Y0, Y1 = (0, height-1)
         assert gt[1] == 0
@@ -387,7 +389,7 @@ class LATLON_NOGDAL:
         self.Y = np.linspace(Ymin, Ymax, height)
         self.dtype = np.dtype(dtype)
         
-        self.latlon = pyproj.Proj("+init=EPSG:4326")   # WGS84
+        self.latlon = pyproj.Proj("EPSG:4326")   # WGS84
         self.utm = pyproj.Proj(data.crs)
 
         if PYPROJ_VERSION >= 2:
@@ -453,7 +455,7 @@ class TOA_READ:
         if use_gdal:
             self.data = ArrayLike_GDAL(self.filename)
         else:
-            self.data = xr.open_rasterio(self.filename).isel(band=0)
+            self.data = rio.open_rasterio(self.filename).isel(band=0)
         
         if radiometry == 'reflectance' and b in bands_mir:
             self.K1 = data_mtl['TIRS_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]

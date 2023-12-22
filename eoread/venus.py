@@ -27,9 +27,9 @@ from lxml import objectify
 
 import dask.array as da
 import numpy as np
-import pandas as pd
 import pyproj
 import xarray as xr
+import rioxarray as rio
 
 from . import eo
 from .common import DataArray_from_array, Interpolator, Repeat
@@ -148,7 +148,7 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
         assert len(filenames) == 1
         filename = filenames[0]
 
-        arr = (xr.open_rasterio(
+        arr = (rio.open_rasterio(
             filename,
             chunks=chunks,
         )/quantif).astype('float32')

@@ -16,6 +16,7 @@ Create water mask
 
 import argparse
 import xarray as xr
+import rioxarray as rio
 import tempfile
 import numpy as np
 from pathlib import Path
@@ -144,7 +145,7 @@ def fetch_gsw_tile(tile_name, verbose=True, use_gdal=False):
         if use_gdal:
             data = ArrayLike_GDAL(t.name)[:, :]
         else:
-            data = xr.open_rasterio(t.name).isel(band=0).compute(scheduler='sync').values
+            data = rio.open_rasterio(t.name).isel(band=0).compute(scheduler='sync').values
 
     data[data == 255] = 100   # fill invalid data (assume water)
 
