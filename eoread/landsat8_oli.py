@@ -36,19 +36,22 @@ from eoread.raster import ArrayLike_GDAL
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
 
 
-bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200]
-band_index = { # Bands - wavelength (um) - resolution (m)
-    440: 1,    # Band 1 - Coastal aerosol	0.43 - 0.45	30
-    480: 2,    # Band 2 - Blue	0.45 - 0.51	30
-    560: 3,    # Band 3 - Green	0.53 - 0.59	30
-    655: 4,    # Band 4 - Red	0.64 - 0.67	30
-    865: 5,    # Band 5 - Near Infrared (NIR)	0.85 - 0.88	30
-    1610: 6,   # Band 6 - SWIR 1	1.57 - 1.65	30
-    2200: 7,   # Band 7 - SWIR 2	2.11 - 2.29	30
-               # Band 8 - Panchromatic	0.50 - 0.68	15
-    1375: 9,   # Band 9 - Cirrus	1.36 - 1.38	30
-               # Band 10 - Thermal Infrared (TIRS) 1	10.60 - 11.19	100 * (30)
-               # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	100 * (30)
+bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200, 11000, 12000]
+bands_vnir = bands_oli[:-2]
+bands_mir  = bands_oli[-2:]
+
+band_index = { # Bands                                - wavelength (um) - resolution (m)
+    440: 1,    # Band 1  - Coastal aerosol	            0.43 - 0.45	      30
+    480: 2,    # Band 2  - Blue	                        0.45 - 0.51	      30
+    560: 3,    # Band 3  - Green	                    0.53 - 0.59	      30
+    655: 4,    # Band 4  - Red	                        0.64 - 0.67	      30
+    865: 5,    # Band 5  - Near Infrared (NIR)	        0.85 - 0.88	      30
+    1610: 6,   # Band 6  - SWIR 1	                    1.57 - 1.65	      30
+    2200: 7,   # Band 7  - SWIR 2	                    2.11 - 2.29	      30
+    # 580 : 8,   # Band 8  - Panchromatic	                0.50 - 0.68	      15
+    1375: 9,   # Band 9  - Cirrus	                    1.36 - 1.38	      30
+    11000:10,  # Band 10 - Thermal Infrared (TIRS) 1	10.60 - 11.19	  100 * (30)
+    12000:11,  # Band 11 - Thermal Infrared (TIRS) 2	11.50 - 12.51	  100 * (30)
     }
 
 # Central wavelength
@@ -61,7 +64,10 @@ center_wavelengths = {
     865: 864.67,
     1610: 1608.86,
     2200: 2200.73,
+    # 580: 579,
     1375: 1373.43,
+    11000:10895,
+    12000:12050,
 }
 
 
@@ -71,6 +77,7 @@ def Level1_L8_OLI(dirname,
                   split=False,
                   chunks=500,
                   use_gdal=False,
+                  angle_data=True,
                   ):
     '''
     Landsat-8 OLI reader.
@@ -114,7 +121,10 @@ def Level1_L8_OLI(dirname,
     ).isoformat()
 
     read_coordinates(ds, dirname, chunks, use_gdal)
-    read_geometry(ds, dirname, l8_angles)
+    if angle_data:
+        read_geometry(ds, dirname, l8_angles)
+    else:
+        radiometry = 'radiance'
     ds = read_radiometry(
         ds, dirname, split, data_mtl, radiometry, chunks, use_gdal)
 
@@ -436,9 +446,6 @@ class TOA_READ:
         else:
             raise Exception('TOA_READ: `kind` should be `radiance` or `reflectance`')
 
-        self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
-        self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
-
         self.filename = os.path.join(
             dirname,
             data_mtl['PRODUCT_METADATA']['FILE_NAME_BAND_{}'.format(band_index[b])])
@@ -447,6 +454,15 @@ class TOA_READ:
             self.data = ArrayLike_GDAL(self.filename)
         else:
             self.data = xr.open_rasterio(self.filename).isel(band=0)
+        
+        if radiometry == 'reflectance' and b in bands_mir:
+            self.K1 = data_mtl['TIRS_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.K2 = data_mtl['TIRS_THERMAL_CONSTANTS']['K2_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.data = self.K2/np.log(self.K1/self.data + 1)
+        else:
+            self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
+            self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
+            self.data  = self.M * self.data + self.A
 
         self.dtype = np.dtype(dtype)
         self.shape = self.data.shape
@@ -454,9 +470,7 @@ class TOA_READ:
 
     def __getitem__(self, keys):
         data = self.data[keys]
-
-        r = self.M*data + self.A
-        return r.astype(self.dtype)
+        return data.astype(self.dtype)
 
 
 def node(raw, data):
@@ -493,7 +507,9 @@ def leaf(raw):
         value = tmp
     else:
         try:
-            if '.' in value: #float
+            if ':' in value:
+                pass
+            elif '.' in value: #float
                 value = float(value)
             else:
                 value = int(value)
