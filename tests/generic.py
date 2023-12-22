@@ -47,7 +47,7 @@ def indices(request):
     return request.param
 
 
-def test_main(ds):
+def test_main(ds, angle_data=True):
 
     # test chunks consistency
     ds.chunks
@@ -56,7 +56,10 @@ def test_main(ds):
     # check dimensions
     assert n.rows in ds.dims
     assert n.columns in ds.dims
-    assert ds[n.Rtoa].dims == n.dim3
+    if angle_data:
+        assert ds[n.Rtoa].dims == n.dim3
+    else:
+        assert ds[n.Ltoa].dims == n.dim3
 
     # spectral data
     # either just provide wav (per-band central wavelength)
