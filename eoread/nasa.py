@@ -35,7 +35,12 @@ def check_nasa_download(filename):
     'Please provide authentication through .netrc. See more information on ' \
     'https://support.earthdata.nasa.gov/index.php?/Knowledgebase/Article/View/43/21/how-to-access-urs-gated-data-with-curl-and-wget'
     with open(filename, 'rb') as fp:
-        assert not fp.read(100).startswith(b'<!DOCTYPE html>'), errormsg
+        filehead = fp.read(100)
+        assert not filehead.startswith(b'<!DOCTYPE html>'), errormsg
+
+        # may be the case after Oct 2023 when NASA changed the APIs
+        if filehead.startswith((b'404 Error', b'403 Error')):
+            raise FileNotFoundError(filehead.decode('utf-8'))
 
 
 def nasa_download(product, dirname, tmpdir=None, verbose=True):

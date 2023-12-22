@@ -46,8 +46,9 @@ def download_url(url, dirname, wget_opts='',
     @filegen(**kwargs)
     def download_target(path):
         cmd = f'wget {wget_opts} {url} -O {path}'
+        # Detect access problem
         if subprocess.call(cmd.split()):
-            raise FileNotFoundError(f'Error running command "{cmd}"')
+            raise RuntimeError(f'Authentification issue : "{cmd}"')
 
         if check_function is not None:
             check_function(path)

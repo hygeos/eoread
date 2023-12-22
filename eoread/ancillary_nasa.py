@@ -134,6 +134,9 @@ class Ancillary_NASA:
                 except FileNotFoundError:
                     if self.verbose:
                         print(f'Trying file {target} : NOT FOUND [ONLINE]')
+                except RuntimeError:
+                    if self.verbose:
+                        print('Authentification issue : Please check your login in .netrc')
                     raise
                 if self.verbose:
                     print(f'Trying file {target} : FOUND [ONLINE]')
