@@ -2,10 +2,6 @@ import pytest
 
 from eoread.ancillary.nomenclature import Nomenclature
 
-def test_temporary():
-    nm = Nomenclature(provider = 'CAMS')
-    nm.get_shortnames(['organic_carbon_aerosol_optical_depth_550nm', 'total_column_ozone'])
-
 def test_get_var_std_name():
     
     # test for MERRA2
