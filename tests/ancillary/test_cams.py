@@ -10,9 +10,6 @@ from tempfile import TemporaryDirectory
 
 def test_get_datetime():
     
-    CAMS_Models.global_atmospheric_composition_forecast
-    
-    
     with TemporaryDirectory() as tmpdir:
     
         cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
@@ -40,9 +37,6 @@ def test_get_datetime():
 
 def test_get_date():
     
-    CAMS_Models.global_atmospheric_composition_forecast
-    
-    
     with TemporaryDirectory() as tmpdir:
     
         cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
@@ -66,6 +60,17 @@ def test_get_date():
         
         # check that the time interpolation did not occur
         assert len(np.atleast_1d(ds.time.values)) == 24
+
+
+def test_get_range():
+
+    with TemporaryDirectory() as tmpdir:
+        cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
+                    directory=Path(tmpdir))
+        ds = cams.get_range(variables=['total_aerosol_optical_depth_469nm', 'total_aerosol_optical_depth_670nm'],
+                      date_start=date(2020, 3, 22), date_end=date(2020, 3, 23))
+        
+        assert len(ds.time == 48)
 
 
 def test_get_local_var_def_file():

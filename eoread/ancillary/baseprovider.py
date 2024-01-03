@@ -89,6 +89,33 @@ class BaseProvider:
         return self.standardize(ds) # standardize according to nomenclature file
     
     
+    @interface
+    def get_range(self, variables: list[str], date_start: date, date_end: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+        """
+        Download and apply post-process to the downloaded data for the dates between date_start and date_end
+        Standardize the dataset according to the nomenclature module
+     
+        - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
+        - d: datetime of desired the data
+        - area: [90, -180, -90, 180] → [north, west, south, east]
+        """
+        
+        days_delta: int = (date_end - date_start).days
+        
+        assert days_delta >= 0, 'date_start must be anterior to date_end'
+        
+        ds = self.get_day(variables, date=date_start, area=area)
+        
+        for i in range(1, days_delta+1):
+            cday = date_start + timedelta(days=i)
+        
+            ds_day = self.get_day(variables, date=cday, area=area)
+            
+            ds = xr.concat([ds, ds_day], dim='time')
+        
+        return ds
+        
+        
     @abstract # to be defined by subclasses
     def standardize(self, ds: xr.Dataset) -> xr.Dataset:
         pass
