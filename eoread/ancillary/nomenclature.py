@@ -10,7 +10,7 @@ class Nomenclature:
     """
     Convert names according to a nomenclature csv file of the form:
     
-    new_names, provider1, prodiver2, ..., provider7 [, Unit]
+    new_names, provider1, prodiver2, ..., providerX
     must be initialized with a provider name
     """
     
@@ -57,10 +57,6 @@ class Nomenclature:
         for var in list(ds):
             new_names[var] = self.get_new_name(var)
         
-        error, logs = self.verify_units(ds)
-        # invalid unit, conversion needed
-        if error: raise ValueError(f'Invalid units encountered after post-processing \n{logs}')
-        
         return ds.rename(new_names)
     
     
@@ -100,68 +96,7 @@ class Nomenclature:
         
         return 
         
-    def verify_units(self, ds):
-        logs = ''
-        err_logs = ''
-        encountered_error = False
         
-        for var in list(ds):
-            expected = str(self.names[self.names[self.provider] == var]['UNITS'].values[0]).strip()
-            actual = ''
-            
-            logs += '\n'
-            
-            # get actual unit
-            if hasattr(ds[var], 'units'): 
-                actual = ds[var].units
-                actual = actual.strip()
-                
-                # -- REMOVE CASE SENSITIVITY --  
-                # actual = actual.lower()
-                # expected = expected.lower()
-            
-            unit = actual # unit string to compare
-            
-            # expected dimensionless
-            if expected == 'nan':
-                
-                if not hasattr(ds[var], 'units'): # valid # TODO Error when no units attribute ??
-                    logs += f'[valid] {var}:\t units: dimensionless (no units attrs)'
-                
-                # dimensionless value variations
-                elif (   unit == '~' # CAMS            
-                      or unit == 'dimensionless'
-                      or unit == '(0 - 1)' # ERA5
-                      or unit == '1'       # MERRA2
-                ):
-                    logs += f'[valid] {var}:\t units: dimensionless'
-                
-                else: # invalid 
-                    logs     += f'[ERROR] {var}:\t units: expected dimensionless got: {actual}, maybe you forgot to specify the expected unit'
-                    err_logs += f'[ERROR] {var}:\t units: expected dimensionless got: {actual}, maybe you forgot to specify the expected unit'
-                    encountered_error = True
-                
-            else: # dimensions are expected
-                unit = actual.strip().replace('**', '') # (era5) kg m**-2 ==  (merra2) kg m-2
-                
-                if unit == expected:
-                    logs += f'[valid] {var}:\t units: {expected}'
-                else:
-                    logs     += f'[ERROR] {var}:\t units: expected {expected} got: {actual}'
-                    err_logs += f'[ERROR] {var}:\t units: expected {expected} got: {actual}'
-                    encountered_error = True
-        
-        if self.log: # only log if path provided
-            with open(self.log, 'a+') as myfile:
-                myfile.write(f'\n\n-------[{self.provider}]-------')    
-                myfile.write(logs)
-        
-        # also use standard output to print errors
-        if encountered_error: print(err_logs)
-        
-        return encountered_error, err_logs
-    
-    
     def get_new_name(self, var: str) -> str:
         """
         Return the corresponding new name for a variable depending on the provider

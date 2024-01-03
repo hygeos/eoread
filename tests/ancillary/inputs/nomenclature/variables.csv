@@ -1,11 +1,8 @@
 
+VARIABLE,                                           MERRA2,         CAMS,       ERA5
 
-VARIABLE,                                           MERRA2,         CAMS,       ERA5,       UNITS
-        
-local_temperature_at_10m,                           T10M,           ,           ,           K
-local_u_wind_at_10m,                                U10M,           u10,        ,           m.s-1
-local_v_wind_at_10m,                                V10M,           v10,        ,           m.s-1
-local_surface_wind_speed,                           SPEED,          ,           ,           m.s-1
-local_total_column_ozone,                           TO3,            gtco3,      tco3,       Dobsons
-
-end, end, end, end, end
+local_temperature_at_10m,                           T10M,           ,           
+local_u_wind_at_10m,                                U10M,           u10,        
+local_v_wind_at_10m,                                V10M,           v10,        
+local_surface_wind_speed,                           SPEED,          ,           
+local_total_column_ozone,                           TO3,            gtco3,      tco3
