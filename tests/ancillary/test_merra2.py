@@ -52,7 +52,7 @@ def test_get_date():
                     config_file=Path('tests/ancillary/inputs/merra2.json'),
                     )
         
-        ds = merra.get(variables=['total_cloud_cover', 'total_cloud_optical_depth'], dt=date(2023, 9, 10))
+        ds = merra.get_day(variables=['total_cloud_cover', 'total_cloud_optical_depth'], date=date(2023, 9, 10))
         
         # check that the variables have been correctly renamed
         variables = list(ds)

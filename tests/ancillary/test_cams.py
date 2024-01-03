@@ -47,8 +47,8 @@ def test_get_date():
     
         cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
                     directory=Path(tmpdir))
-        ds = cams.get(variables=['total_aerosol_optical_depth_469nm', 'total_aerosol_optical_depth_670nm'], 
-                      dt=date(2020, 3, 22))
+        ds = cams.get_day(variables=['total_aerosol_optical_depth_469nm', 'total_aerosol_optical_depth_670nm'], 
+                      date=date(2020, 3, 22))
     
         # check that the variables have been correctly renamed
         variables = list(ds)
@@ -107,10 +107,6 @@ def test_get_no_std():
         # check that the constructed variable has not been computed
         assert 'total_aerosol_optical_depth_550nm' not in variables
         
-        # test wrap
-        assert np.max(ds.longitude.values) == 180.0
-        assert np.min(ds.longitude.values) == -180.0
-
 
 def test_fail_get_offline():
 

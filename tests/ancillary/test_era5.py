@@ -39,7 +39,7 @@ def test_get_date():
         
         era5 = ERA5(model=ERA5.models.reanalysis_single_level,
             directory=Path(tmpdir))
-        ds = era5.get(variables=['mid_cloud_cover', 'total_column_ozone'], dt=date(2019, 11, 30)) # download dataset
+        ds = era5.get_day(variables=['mid_cloud_cover', 'total_column_ozone'], date=date(2019, 11, 30)) # download dataset
     
         variables = list(ds) # get dataset variables as list of str
         

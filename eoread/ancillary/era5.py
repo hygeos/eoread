@@ -47,7 +47,7 @@ class ERA5(BaseProvider):
         
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
         
-        return ds
+        return eo.wrap(ds, 'longitude', -180, 180)
     
     
     def __init__(self, model: Callable, directory: Path, nomenclature_file=None, offline: bool=False, verbose: bool=True, no_std: bool=False):

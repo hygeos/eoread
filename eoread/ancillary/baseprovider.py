@@ -37,35 +37,52 @@ class BaseProvider:
         self.names = Nomenclature(provider=name, csv_file=nomenclature_file)
     
     @interface
-    def get(self, variables: list[str], dt: date|datetime, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    def get_day(self, variables: list[str], date: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
         """
         Download and apply post-process to the downloaded data for the given date
         Standardize the dataset according to the nomenclature module
-        Return the dataset interpolated on time if type(dt) == datetime
+        Return data of the full day
      
         - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
-        - d: date (or datetime) of desired the data
+        - d: date of desired the data
         - area: [90, -180, -90, 180] → [north, west, south, east]
         """
         
-        day = date(dt.year, dt.month, dt.day) # get the day wether dt is a datetime or a date
+        # day = date(day.year, day.month, day.day) # get the day wether dt is a datetime or a date
         
-        filepath = self.download(variables, day, area)
+        filepath = self.download(variables, date, area)
         ds = xr.open_mfdataset(filepath)                      # open dataset
         
-        # correctly wrap longitudes if full area requested
-        if self.name == 'CAMS' or self.name == 'ERA5' and area == [90, -180, -90, 180]:
-            ds = eo.wrap(ds, 'longitude', -180, 180)
+        if self.no_std: # do not standardize, return as is
+            return ds
+        return self.standardize(ds) # standardize according to nomenclature file
+    
+    
+    @interface
+    def get(self, variables: list[str], dt: datetime, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+        """
+        Download and apply post-process to the downloaded data for the given date
+        Standardize the dataset according to the nomenclature module
+        Return data interpolated on time=dt
+     
+        - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
+        - d: datetime of desired the data
+        - area: [90, -180, -90, 180] → [north, west, south, east]
+        """
         
-        if type(dt) == datetime:
-            # download next day if necessary
-            if dt.hour == 23:
-                next_day = dt + timedelta(days=1)
-                filepath = self.download(variables, next_day.date(), area) # download next day
-                ds2 = xr.open_mfdataset(filepath)                           # open dataset
-                ds = xr.concat([ds, ds2], dim='time') # concatenate
-            
-            ds = ds.interp(time=dt) # interpolate on time
+        # get data
+        day = date(dt.year, dt.month, dt.day) # get the day wether dt is a datetime or a datetime
+        filepath = self.download(variables, day, area)
+        ds = xr.open_mfdataset(filepath)   
+        
+        # download next day if necessary
+        if dt.hour == 23:
+            next_day = day + timedelta(days=1)
+            filepath = self.download(variables, next_day.date(), area) # download next day
+            ds2 = xr.open_mfdataset(filepath)                           # open dataset
+            ds = xr.concat([ds, ds2], dim='time') # concatenate
+        
+        ds = ds.interp(time=dt) # interpolate on time
         
         if self.no_std: # do not standardize, return as is
             return ds
