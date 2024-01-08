@@ -178,6 +178,10 @@ class BaseProvider:
             # get function and call it with ds (which contains the params, which are dependencies)
             func, params = self.computables[short_name]
             ds = func(ds, short_name)
+            
+            ds[short_name].attrs['origin'] = f'Computed from {params} provided by {self.name}'
+            ds[short_name].attrs['history'] = f'Computed from {params} by function \'{func.__name__}\' called by provider class \'{self.name}\' from package \'eoread.ancillary\''
+            
         return ds
     
     
