@@ -34,8 +34,9 @@ class Nomenclature:
         self.provider = provider
         self.log = log
         
-    
-    def copy_table(target_dir='.'):
+        
+    @staticmethod
+    def copy_nomenclature_csv(target_dir='.'):
         """
         Create a local copy of the nomenclature CSV table, to the specified directory
         """
@@ -62,7 +63,7 @@ class Nomenclature:
     
     def get_shortname(self, variable: str):
         
-        if not variable in self.names['VARIABLE'].values:
+        if variable not in self.names['VARIABLE'].values:
             raise LookupError(f'Could not find any match for variable \'{variable}\' in column \'VARIABLE')
             
         if len(self.names[self.names['VARIABLE'] == variable].values) > 1:

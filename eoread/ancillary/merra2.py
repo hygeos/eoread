@@ -85,13 +85,16 @@ class MERRA2(BaseProvider):
         self.names = Nomenclature(provider='MERRA2', csv_file=nomenclature_file)
     
     @interface
-    def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
+    def download(self, variables: list[str], d: date, area: None|list=None) -> Path:
         """
         Download the model if necessary, returns the corresponding file Path
         
         - variables: list of strings of the MERRA2 vars to download (merra2 names) ex: ['TO3', 'TQV', 'SLP']
         - d: date of the data (not datetime)
         """
+        
+        if area is None:
+            area = [90, -180, -90, 180]
         
         # TODO implement
         if area != [90, -180, -90, 180]:

@@ -18,6 +18,10 @@ class ERA5_Models:
         - target: path to the target file after download
         - d: date of the dataset
         """
+        
+        if area is None:
+            area = [90, -180, -90, 180]
+        
         if era5.client is None:
             era5.client = cdsapi.Client()
 
@@ -50,6 +54,10 @@ class ERA5_Models:
         - target: path to the target file after download
         - d: date of the dataset
         """
+        
+        if area is None:
+            area = [90, -180, -90, 180]
+        
         if era5.client is None:
             era5.client = cdsapi.Client()
 

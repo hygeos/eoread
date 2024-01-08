@@ -35,16 +35,6 @@ class ERA5(BaseProvider):
         with the other ancillary data sources
         '''
         
-        # convert total_column_ozone to Dobsons
-        # cf https://sacs.aeronomie.be/info/dobson.php
-        if 'tco3' in ds:
-            ds['tco3'] = (2.1415 * 10**-5) * ds['tco3'] #  kg.m^-2 -> Dobsons
-            ds['tco3'].attrs['units'] = 'Dobsons'
-        
-        # if wind components, aggregate them as the mathematical norm
-        if 'u10' in ds and 'v10' in ds:
-            ds['horizontal_wind'] = np.sqrt(ds.u10**2 + ds.v10**2)
-        
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
         
         return eo.wrap(ds, 'longitude', -180, 180)
@@ -67,9 +57,21 @@ class ERA5(BaseProvider):
         
         # General variable nomenclature preparation
         self.names = Nomenclature(provider=name, csv_file=nomenclature_file)
+        
+        # computables variables and their requirements
+        # functions needs to have the same parameters: (ds, new_var)
+        self.computables['#windspeed'] = (ERA5.compute_windspeed, ['u10', 'v10'])
+        
+        
+    # ----{ computed variables }----
+    @staticmethod
+    def compute_windspeed(ds, new_var) -> xr.Dataset:
+        ds[new_var] = np.sqrt(ds.u10**2 + ds.v10**2)
+        return ds
+    # ------------------------------
 
     @interface
-    def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
+    def download(self, variables: list[str], d: date, area: None|list=None) -> Path:
         """
         Download ERA5 model for the given date
         

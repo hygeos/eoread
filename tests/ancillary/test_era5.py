@@ -6,7 +6,7 @@ import pytest
 
 import tempfile
 
-from eoread.ancillary.era5 import ERA5
+from eoread.ancillary import ERA5
 
 from tempfile import TemporaryDirectory
 
@@ -31,6 +31,22 @@ def test_get_datetime():
         
         # check that the time interpolation occured
         assert len(np.atleast_1d(ds.time.values)) == 1
+
+
+def test_get_computed():
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        
+        era5 = ERA5(model=ERA5.models.reanalysis_single_level,
+            directory=Path(tmpdir))
+        ds = era5.get(variables=['surface_wind_speed'],
+                      dt=datetime(2023, 3, 22, 14, 35))
+                      
+        # check that the variables have been correctly renamed
+        variables = list(ds)
+
+        # check that the constructed variable has been computed
+        assert 'surface_wind_speed' in variables
 
 
 def test_get_date():

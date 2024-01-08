@@ -24,6 +24,9 @@ class CAMS_Models:
         - d: date of the dataset
         """
         
+        if area is None:
+            area = [90, -180, -90, 180]
+        
         if cams.client is None:
             cams.client = cdsapi.Client(url=cams.cdsapi_cfg['url'], 
                                         key=cams.cdsapi_cfg['key'])

@@ -32,20 +32,6 @@ class CAMS(BaseProvider):
         with the other ancillary data sources
         '''
         
-        # convert total_column_ozone to Dobsons
-        # cf https://sacs.aeronomie.be/info/dobson.php
-        if 'gtco3' in ds:
-            ds['gtco3'] = (2.1415 * 10**-5) * ds['gtco3'] #  kg.m^-2 -> Dobsons
-            ds['gtco3'].attrs['units'] = 'Dobsons'
-        
-        # if wind components, aggregate them as the mathematical norm
-        if '10u' in ds and '10v' in ds:
-            ds['surface_wind_speed'] = np.sqrt(ds.u10**2 + ds.v10**2)
-        
-        if 'aod469' in ds and 'aod670' in ds:
-            ds['aod550'] = \
-                - np.log(ds['aod469']/ds['aod670']) /  np.log(469.0/670.0)
-
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
         return eo.wrap(ds, 'longitude', -180, 180)
     
@@ -68,9 +54,26 @@ class CAMS(BaseProvider):
         # get credentials from .cdsapirc file
         self.cdsapi_cfg = self._parse_cdsapirc()
     
+        # computables variables and their requirements
+        # functions needs to have the same parameters: (ds, new_var)
+        self.computables['#totangstr'] = (CAMS.compute_totangstr, ['aod469', 'aod670'])
+        self.computables['#windspeed'] = (CAMS.compute_windspeed, ['u10', 'v10'])
+        
+    
+    # ----{ computed variables }----
+    @staticmethod
+    def compute_totangstr(ds, new_var) -> xr.Dataset:
+        ds[new_var] = -np.log(ds.aod469/ds.aod670) /  np.log(469.0/670.0)
+        return ds
+    
+    @staticmethod
+    def compute_windspeed(ds, new_var) -> xr.Dataset:
+        ds[new_var] = np.sqrt(ds.u10**2 + ds.v10**2)
+        return ds
+    # ------------------------------
     
     @interface
-    def download(self, variables: list[str], d: date, area: list=[90, -180, -90, 180]) -> Path:
+    def download(self, variables: list[str], d: date, area: None|list=None) -> Path:
         """
         Download CAMS model for the given date
         
@@ -82,7 +85,7 @@ class CAMS(BaseProvider):
          - area: [90, -180, -90, 180] -> [north, west, south, east]
         """
         
-        shortnames = variables # true if no_std is true
+        shortnames = variables.copy() # true if no_std is true
         
         # prepare variable attributes
         if self.no_std:

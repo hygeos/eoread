@@ -7,8 +7,8 @@ name, units, ads_name, short_name, paramid, access_type, fc, an, note
 # Single level Fast access parameters 
 #-------------------------------------
 
-10 metre U wind component,m s-1,10m_u_component_of_wind,10u,165.00,Fast access,X,X,
-10 metre V wind component,m s-1,10m_v_component_of_wind,10v,166.00,Fast access,X,X,
+10 metre U wind component,m s-1,10m_u_component_of_wind,u10,165.00,Fast access,X,X,
+10 metre V wind component,m s-1,10m_v_component_of_wind,v10,166.00,Fast access,X,X,
 2 metre dewpoint temperature,K,2m_dewpoint_temperature,2d,168.00,Fast access,X,X,
 2 metre temperature,K,2m_temperature,2t,167.00,Fast access,X,X,
 Ammonium aerosol optical depth at 550 nm,dimensionless,ammonium_aerosol_optical_depth_550nm,amaod550,210251.00,Fast access,,X,Only available from 9 July 2019 00UTC

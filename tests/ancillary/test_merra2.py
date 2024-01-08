@@ -1,5 +1,5 @@
 
-from eoread.ancillary.merra2 import MERRA2
+from eoread.ancillary import MERRA2
 
 from pathlib import Path
 from datetime import datetime, date

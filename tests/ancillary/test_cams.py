@@ -4,8 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from eoread.ancillary.cams_models import CAMS_Models
-from eoread.ancillary.cams import CAMS
+from eoread.ancillary import CAMS
 from tempfile import TemporaryDirectory
 
 def test_get_datetime():
@@ -14,7 +13,8 @@ def test_get_datetime():
     
         cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
                     directory=Path(tmpdir))
-        ds = cams.get(variables=['total_aerosol_optical_depth_469nm', 'total_aerosol_optical_depth_670nm'],
+        ds = cams.get(variables=['total_aerosol_optical_depth_469nm', 
+                                 'total_aerosol_optical_depth_670nm'],
                       dt=datetime(2020, 3, 22, 14, 35))
     
         # check that the variables have been correctly renamed
@@ -25,7 +25,7 @@ def test_get_datetime():
         assert 'total_aerosol_optical_depth_670nm' in variables
         
         # check that the constructed variable has been computed
-        assert 'total_aerosol_optical_depth_550nm' in variables
+        assert 'total_aerosol_angstrom_coefficient_550nm' in variables
         
         # test wrap
         assert np.max(ds.longitude.values) == 180.0
@@ -35,14 +35,32 @@ def test_get_datetime():
         assert len(np.atleast_1d(ds.time.values)) == 1
         
 
+def test_get_computed():
+    with TemporaryDirectory() as tmpdir:
+    
+        cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
+                    directory=Path(tmpdir))
+        ds = cams.get(variables=['surface_wind_speed', 
+                                 'total_aerosol_angstrom_coefficient_550nm'],
+                      dt=datetime(2023, 3, 22, 14, 35))
+                      
+        # check that the variables have been correctly renamed
+        variables = list(ds)
+
+        # check that the constructed variable has been computed
+        assert 'total_aerosol_angstrom_coefficient_550nm' in variables
+        assert 'surface_wind_speed' in variables
+        
+
 def test_get_date():
     
     with TemporaryDirectory() as tmpdir:
     
         cams = CAMS(model=CAMS.models.global_atmospheric_composition_forecast,
                     directory=Path(tmpdir))
-        ds = cams.get_day(variables=['total_aerosol_optical_depth_469nm', 'total_aerosol_optical_depth_670nm'], 
-                      date=date(2020, 3, 22))
+        ds = cams.get_day(variables=['total_aerosol_optical_depth_469nm', 
+                                 'total_aerosol_optical_depth_670nm'],
+                     date=date(2020, 3, 22))
     
         # check that the variables have been correctly renamed
         variables = list(ds)
@@ -52,7 +70,7 @@ def test_get_date():
         assert 'total_aerosol_optical_depth_670nm' in variables
         
         # check that the constructed variable has been computed
-        assert 'total_aerosol_optical_depth_550nm' in variables
+        assert 'total_aerosol_angstrom_coefficient_550nm' in variables
         
         # test wrap
         assert np.max(ds.longitude.values) == 180.0
