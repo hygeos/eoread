@@ -90,8 +90,8 @@ class BaseProvider:
         # download next day if necessary
         if dt.hour == 23:
             next_day = day + timedelta(days=1)
-            filepath = self.download(vars_to_query, next_day.date(), area) # download next day
-            ds2 = xr.open_mfdataset(filepath)                           # open dataset
+            filepath = self.download(vars_to_query, next_day, area) # download next day
+            ds2 = xr.open_mfdataset(filepath) # open dataset
             ds = xr.concat([ds, ds2], dim='time') # concatenate
         
         ds = ds.interp(time=dt) # interpolate on time

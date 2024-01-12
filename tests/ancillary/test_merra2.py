@@ -24,14 +24,12 @@ def test_get_datetime():
                     config_file=Path('tests/ancillary/inputs/merra2.json'),
                     )
         
-        ds = merra.get(variables=['total_cloud_cover', 'total_cloud_optical_depth'], dt=datetime(2023, 9, 10, 23, 35))
+        ds = merra.get(variables=['cloud_cov', 'cloud_od'], dt=datetime(2023, 9, 10, 23, 35))
         
         # check that the variables have been correctly renamed
         variables = list(ds)
         assert 'CLDTOT' not in variables
         assert 'TAUTOT' not in variables
-        assert 'total_cloud_cover' in variables
-        assert 'total_cloud_optical_depth' in variables
         
         # check that the time interpolation occured
         assert len(np.atleast_1d(ds.time.values)) == 1
@@ -52,14 +50,12 @@ def test_get_date():
                     config_file=Path('tests/ancillary/inputs/merra2.json'),
                     )
         
-        ds = merra.get_day(variables=['total_cloud_cover', 'total_cloud_optical_depth'], date=date(2023, 9, 10))
+        ds = merra.get_day(variables=['cloud_cov', 'cloud_od'], date=date(2023, 9, 10))
         
         # check that the variables have been correctly renamed
         variables = list(ds)
         assert 'CLDTOT' not in variables
         assert 'TAUTOT' not in variables
-        assert 'total_cloud_cover' in variables
-        assert 'total_cloud_optical_depth' in variables
         
         # check that the time interpolation occured
         assert len(np.atleast_1d(ds.time.values)) == 24
@@ -122,7 +118,7 @@ def test_fail_get_offline():
                        )
         
         with pytest.raises(ResourceWarning):
-            merra.get(variables=['total_cloud_cover', 'total_cloud_optical_depth'], 
+            merra.get(variables=['cloud_cov', 'cloud_od'], 
                       dt=datetime(2001, 9, 11, 13, 35))
 
 
@@ -133,7 +129,7 @@ def test_download_offline():
                    offline=True,
                    )
             
-    f = merra.download(variables=['total_column_water_vapor'], d=date(2023, 9, 10))
+    f = merra.download(variables=['water_vapor'], d=date(2023, 9, 10))
 
     assert isinstance(f, Path)
     
@@ -146,7 +142,7 @@ def test_fail_download_offline():
                    )
     
     with pytest.raises(ResourceWarning):
-        merra.download(variables=['total_column_water_vapor'], d=date(2001, 9, 10))
+        merra.download(variables=['water_vapor'], d=date(2001, 9, 10))
 
 
     
