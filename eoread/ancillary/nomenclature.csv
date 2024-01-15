@@ -3,8 +3,8 @@
 VARIABLE,                   CAMS,           ERA5,           MERRA2,         DESCRIPTION,
 ----------------------------------------------------------------------------------------------------------------
 temp_10m,                   ,               ,               T10M,           temperature at 10m,
-wind_10u,                   u10,            v10,            U10M,           u wind at 10m,
-wind_10v,                   v10,            u10,            V10M,           v wind at 10m,
+wind_10u,                   u10,            u10,            U10M,           u wind at 10m,
+wind_10v,                   v10,            v10,            V10M,           v wind at 10m,
 surf_wind,                  #windspeed,     #windspeed,     SPEED,          surface wind speed,
 planetary_bound,            m,              m,              PBLH,           planetary boundary layer height,
 surf_pressure,              sp,             sp,             PS,             surface pressure, 

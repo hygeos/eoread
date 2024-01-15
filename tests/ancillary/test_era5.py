@@ -60,7 +60,7 @@ def test_get_date():
 
         assert "mcc" not in variables
         assert "tco3" not in variables
-        assert "mid_cld_cov" in variables
+        assert "mid_cloud_cov" in variables
         assert "ozone" in variables
 
         # test wrap

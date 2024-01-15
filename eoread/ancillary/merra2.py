@@ -93,13 +93,6 @@ class MERRA2(BaseProvider):
         - d: date of the data (not datetime)
         """
         
-        if area is None:
-            area = [90, -180, -90, 180]
-        
-        # TODO implement
-        if area != [90, -180, -90, 180]:
-            raise NotImplementedError(f'Parameter area not yet implemented, currently defaulting to full globe')
-        
         cfg = self.config[self.model]
         
         if not self.no_std:
@@ -119,7 +112,7 @@ class MERRA2(BaseProvider):
                 
             if self.verbose:
                 print(f'downloading: {file_path.name}')
-            self._download_file(file_path, variables, d)
+            self._download_file(file_path, variables, d, area)
         elif self.verbose:
                 print(f'found locally: {file_path.name}')
         
@@ -161,7 +154,7 @@ class MERRA2(BaseProvider):
         
     
     @filegen(1)
-    def _download_file(self, target: Path, variables: list[str], d: date):
+    def _download_file(self, target: Path, variables: list[str], d: date,  area: None|list=None):
         '''
         Download a single file, contains a day of the correcsponding MERRA-2 product's data 
         uses OPeNDAP protocol. Uses a temporary file and avoid unnecessary download 
@@ -171,10 +164,9 @@ class MERRA2(BaseProvider):
         - product: string representing the merra2 product e.g 'M2T1NXSLV'
         - d: date of the dataset
         '''
-        
+                
         if isinstance(d, datetime): # TODO change
             d = d.date()
-        
         
         # build file OPeNDAP url
         # 'https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXAER.5.12.4/2015/07/MERRA2_400.tavg1_2d_aer_Nx.20150705.nc4'
@@ -190,5 +182,8 @@ class MERRA2(BaseProvider):
         ds = xr.open_dataset(store)
         
         ds = ds[variables] # trim dataset to only keep desired variables
+        
+        if area is not None:
+            ds = ds.sel(lat=slice(area[2],area[0]), lon=slice(area[1],area[3]))
         
         ds.to_netcdf(target)
