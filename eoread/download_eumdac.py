@@ -59,6 +59,12 @@ def download_eumdac(target: Path,
             collections = ['EO:EUM:DAT:0409', 'EO:EUM:DAT:0577']
         elif '_OL_1_ERR____' in target.name:
             collections = ['EO:EUM:DAT:0410', 'EO:EUM:DAT:0578']
+        elif '_OL_2_WFR____' in target.name:
+            collections = [
+                'EO:EUM:DAT:0407', # https://data.eumetsat.int/data/map/EO:EUM:DAT:0407
+                'EO:EUM:DAT:0592', # https://data.eumetsat.int/data/map/EO:EUM:DAT:0592
+                'EO:EUM:DAT:0556', # https://data.eumetsat.int/data/map/EO:EUM:DAT:0556
+                ]
         else:
             raise ValueError()
     
