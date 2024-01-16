@@ -141,6 +141,10 @@ def read_OLCI(dirname,
     '''
     ds = xr.Dataset()
 
+    dirname = Path(dirname)
+    if (dirname/dirname.name).exists():
+        dirname = (dirname/dirname.name)
+
     # read manifest file for file names and footprint
     manifest = read_manifest(dirname)
     ds.attrs[naming.footprint_lat] = manifest['footprint_lat']
