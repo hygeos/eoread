@@ -6,6 +6,7 @@ Define and download test products defined in products.py
 """
 
 from pathlib import Path
+from eoread.naming import naming
 from eoread.download import download_multi
 
 
@@ -36,8 +37,7 @@ def get_sample_products(dir_samples=None):
     """
     # TODO: don't use this function in the tests. Use a fixture based on product_getter instead
     if dir_samples is None:
-        dir_base = Path(__file__).resolve().parent.parent
-        dir_samples = dir_base/'SAMPLE_DATA'
+        dir_samples = naming.dir_samples
     else:
         dir_samples = Path(dir_samples)
 
