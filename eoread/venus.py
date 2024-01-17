@@ -27,9 +27,13 @@ from lxml import objectify
 
 import dask.array as da
 import numpy as np
+import pandas as pd
 import pyproj
 import xarray as xr
 import rioxarray as rio
+from eoread.download import download_url
+
+from eoread.fileutils import mdir
 
 from . import eo
 from .common import DataArray_from_array, Interpolator, Repeat
@@ -313,3 +317,33 @@ class LATLON:
                 return lon.astype(self.dtype)
             else:
                 return np.array(lon, dtype=self.dtype)
+
+
+def get_SRF() -> xr.Dataset:
+    """
+    Load Venµs spectral response functions (SRF)
+    """
+    dir_data = mdir(naming.dir_static/'venus')
+    url = 'https://labo.obs-mip.fr/wp-content-labo/uploads/sites/19/2018/09/rep6S.txt'
+    srf_file = download_url(url, dir_data)
+    nbands = 12
+    ibands = range(1, nbands+1)
+    df = pd.read_csv(
+        srf_file,
+        sep=None,
+        names=['wav_um', *ibands])
+    
+    ds = xr.Dataset()
+    ds.attrs["desc"] = 'Spectral response functions for VENµS'
+
+    for bid in ibands:
+        ds[bid] = xr.DataArray(
+            df[bid].values,
+            dims=["wav"],
+            attrs={"band_info": f"VENUS band {bid}"},
+        )
+    
+    ds = ds.assign_coords(wav=df['wav_um'].values*1000)
+    ds['wav'].attrs["units"] = "nm"
+
+    return ds

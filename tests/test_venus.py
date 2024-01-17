@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from eoread.venus import Level1_VENUS
+from eoread.utils.graphics import plot_srf
+from eoread.venus import Level1_VENUS, get_SRF
 from . import generic
 from eoread import eo
 from . import conftest
@@ -86,3 +87,9 @@ def test_plot(request):
     plt.colorbar()
 
     conftest.savefig(request)
+
+
+def test_srf(request):
+    srf = get_SRF()
+    plot_srf(srf)
+    conftest.savefig(request, bbox_inches="tight")
