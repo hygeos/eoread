@@ -106,7 +106,7 @@ class Naming:
         #
 
         # root for storing data files (can link to any path in the filesystem)
-        self.dir_data = Path('data')
+        self.dir_data = Path.cwd()/'data'
 
         # static data files, required for processing
         # can be common, or per-sensor
