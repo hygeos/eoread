@@ -54,6 +54,20 @@ def test_filegen_class(if_exists):
         M.method(target)  # second call skips existing file
 
 
+def test_dirgen():
+    """
+    Test filegen on function that create directories
+    """
+    @filegen()
+    def create_dir(directory: Path):
+        mdir(directory)
+
+    with TemporaryDirectory() as tmpdir:
+        target_dir = Path(tmpdir)/'test'
+        create_dir(target_dir)
+        assert target_dir.exists()
+
+
 def test_mdir():
     with TemporaryDirectory() as tmpdir:
         for _ in range(2):
