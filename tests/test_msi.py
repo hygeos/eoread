@@ -6,20 +6,19 @@ from pathlib import Path
 import pytest
 import xarray as xr
 from eoread.download import download_S2_google, download_sentinelapi
-from eoread.msi import Level1_MSI, Level2_MSI
-from eoread.sample_products import product_getter
+from eoread.msi import Level1_MSI, get_sample
 from . import generic
 from eoread import eo
 from . import conftest
 from matplotlib import pyplot as plt
+from .generic import param, indices  # noqa
 
 resolutions = ['10', '20', '60']
 
 
-product = pytest.fixture(params=[
-    'prod_S2_L1_20190419',
-    # 'prod_S2_L1_20220202',
-])(product_getter)
+@pytest.fixture
+def level1_msi() -> Path:
+    return get_sample()
 
 @pytest.fixture(params=resolutions)
 def resolution(request):
@@ -30,13 +29,13 @@ def chunks(request):
     return request.param
 
 @pytest.fixture
-def S2_product(product, resolution, chunks):
-    return Level1_MSI(product['path'], resolution, chunks=chunks)
+def S2_product(level1_msi, resolution, chunks):
+    return Level1_MSI(level1_msi, resolution, chunks=chunks)
 
 
 @pytest.mark.parametrize('split', [True, False])
-def test_instantiation(product, resolution, split, chunks):
-    Level1_MSI(product['path'], resolution, split=split, chunks=chunks)
+def test_instantiation(level1_msi, resolution, split, chunks):
+    Level1_MSI(level1_msi, resolution, split=split, chunks=chunks)
 
 
 @pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
@@ -66,8 +65,8 @@ def test_msi_merged(S2_product, param):
 
 
 @pytest.mark.parametrize('band', ['Rtoa_443', 'Rtoa_490', 'Rtoa_865'])
-def test_msi_split(product, band, resolution):
-    l1 = Level1_MSI(product['path'], resolution, split=True)
+def test_msi_split(level1_msi, band, resolution):
+    l1 = Level1_MSI(level1_msi, resolution, split=True)
     print(l1)
     assert 'Rtoa_443' in l1
     assert 'Rtoa' not in l1
@@ -98,8 +97,8 @@ def test_subset(S2_product):
     generic.test_subset(S2_product)
 
 
-def test_plot(request, product):
-    l1 = Level1_MSI(product['path'])
+def test_plot(request, level1_msi):
+    l1 = Level1_MSI(level1_msi)
     plt.imshow(
         l1.Rtoa.sel(bands=865),
         vmin=0, vmax=0.5)
