@@ -16,6 +16,11 @@ def Level1(path: Path, **kwargs) -> xr.Dataset:
 
         return Level1_OLCI(path, **kwargs)
 
+    elif re.match("^S2[AB]_MSIL1C_.*", path.name):
+        from eoread.msi import Level1_MSI
+
+        return Level1_MSI(path, **kwargs)
+
     else:
         raise ValueError(f"Could not detect Level1 type for {path.name}")
 

@@ -230,7 +230,7 @@ def get_S2_google_url(filename):
 
     return url
 
-def download_S2_google(product, dirname, **kwargs):
+def download_S2_google(product, dirname, **kwargs) -> Path:
     target = Path(dirname)/(product+'.SAFE')
     @filegen(**kwargs)
     def down_S2(path):

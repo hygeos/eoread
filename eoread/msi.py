@@ -358,6 +358,6 @@ def Level2_MSI(dirname):
     raise NotImplementedError
     
 
-def get_sample():
+def get_sample() -> Path:
     product_name = 'S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656'
     return download_S2_google(product_name, naming.dir_samples)
