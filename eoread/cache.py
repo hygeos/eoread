@@ -11,7 +11,7 @@ from eoread import eo
 from eoread.fileutils import filegen, safe_move
 
 
-def cachefunc(cache_file: Path,
+def cachefunc(cache_file: Path|str,
               reader: Callable,
               writer: Callable,
               checker: Optional[Callable] = None,
@@ -29,6 +29,7 @@ def cachefunc(cache_file: Path,
         (defaults to ==)
     fg_kwargs: kwargs passed to filegen (ex: lock_timeout=-1)
     """
+    cache_file = Path(cache_file)
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
@@ -64,7 +65,7 @@ def cachefunc(cache_file: Path,
     return decorator
 
 
-def cache_dataframe(cache_file: Path):
+def cache_dataframe(cache_file: Path|str):
     return cachefunc(
         cache_file,
         writer=lambda filename, df: df.to_csv(filename, index=False),
@@ -73,7 +74,7 @@ def cache_dataframe(cache_file: Path):
     )
 
 
-def cache_json(cache_file: Path):
+def cache_json(cache_file: Path|str):
 
     def reader(filename):
         with open(filename) as fp:
@@ -90,7 +91,7 @@ def cache_json(cache_file: Path):
     )
 
 
-def cache_pickle(cache_file: Path):
+def cache_pickle(cache_file: Path|str):
 
     def reader(filename):
         with open(filename, 'rb') as fp:
@@ -106,7 +107,7 @@ def cache_pickle(cache_file: Path):
     )
 
 
-def cache_dataset(cache_file,
+def cache_dataset(cache_file: Path|str,
                   attrs=None,
                   **kwargs):
     """
