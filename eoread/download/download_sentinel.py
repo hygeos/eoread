@@ -9,7 +9,7 @@ from zipfile import ZipFile
 from datetime import datetime, timedelta
 from shapely.geometry import Polygon
 
-from src.download_base import DownloadBase
+from eoread.download.download_base import DownloadBase
 
 
 class DownloadSentinel(DownloadBase):

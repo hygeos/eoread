@@ -2,10 +2,10 @@
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from src.download_sentinel import DownloadSentinel
-from src.download_landsat import DownloadLandsat
-from src.download_modis import DownloadModis
-from src.download_eumdac import DownloadEumetsat
+from eoread.download.download_sentinel import DownloadSentinel
+from eoread.download.download_landsat import DownloadLandsat
+from eoread.download.download_modis import DownloadModis
+from eoread.download.download_eumdac import DownloadEumetsat
 
 
 possible_collection  = ['SENTINEL-1',

@@ -2,8 +2,8 @@ import pytest
 
 from os.path import exists
 from tempfile import TemporaryDirectory
-from src.download import DownloadSatellite
-from src.download_eumdac import DownloadEumetsat
+from eoread.download import DownloadSatellite
+from eoread.download import DownloadEumetsat
 
 
 @pytest.mark.parametrize('product',[

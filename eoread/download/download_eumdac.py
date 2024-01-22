@@ -7,7 +7,7 @@ from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime, timedelta
 
-from src.download_base import DownloadBase, UnauthorizedError
+from eoread.download.download_base import DownloadBase, UnauthorizedError
 
 
 class DownloadEumetsat(DownloadBase):

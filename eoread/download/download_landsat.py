@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin
 # from landsatxplore.earthexplorer import EarthExplorer, EarthExplorerError
 
-from src.download_base import DownloadBase, UnauthorizedError
+from eoread.download.download_base import DownloadBase, UnauthorizedError
 
 
 # BASED ON : https://github.com/yannforget/landsatxplore/tree/master/landsatxplore

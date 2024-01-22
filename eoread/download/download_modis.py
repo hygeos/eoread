@@ -2,10 +2,10 @@ import requests
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from modis_tools.resources import CollectionApi, GranuleApi
-from modis_tools.granule_handler import GranuleHandler
+# from modis_tools.resources import CollectionApi, GranuleApi
+# from modis_tools.granule_handler import GranuleHandler
 
-from src.download_base import DownloadBase
+from eoread.download.download_base import DownloadBase
 
 
 # BASED ON : https://github.com/fraymio/modis-tools/

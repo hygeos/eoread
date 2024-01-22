@@ -9,7 +9,7 @@ from xml.dom.minidom import parseString
 from datetime import datetime
 from pathlib import Path
 
-from eoread.fileutils import mdir
+from eoread.utils.fileutils import mdir
 
 from ..eo import init_Rtoa
 from ..utils.tools import getflags, raiseflag
