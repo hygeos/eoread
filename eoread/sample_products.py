@@ -41,9 +41,6 @@ def get_sample_products(dir_samples=None):
     else:
         dir_samples = Path(dir_samples)
 
-    if not dir_samples.exists():
-        raise IOError(f'{dir_samples} does not exist. Please create it or link it before proceeding.')
-
     products = {
         # Sentinel-2 MSI
         'prod_S2_L1_20190419': {

@@ -121,7 +121,6 @@ class Ancillary_NASA:
                 nasa_download(filename, target_dir)
             
         assert target.exists()
-        target = verify(target)   # TODO: not relevant anymore ?
 
         return target
 
@@ -168,17 +167,3 @@ class Ancillary_NASA:
 
         else:
             return interpolated
-
-
-def verify(filename):
-    '''
-    Fix files with wrong extension from NASA
-    -> HDF files with bz2 extension
-    '''
-    if filename.name.endswith('.bz2') and system(f'bzip2 -t {filename}'):
-        target = filename.parent/filename.name[:-4]
-        rename(filename, target)
-        filename = target
-
-    return filename
-

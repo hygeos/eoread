@@ -23,6 +23,7 @@ B12  Water vapor 910nm      20nm      5m
 # https://www.eoportal.org/satellite-missions/venus#vssc-ven%C2%B5s-superspectral-camera
 
 from pathlib import Path
+from typing import Optional
 from lxml import objectify
 
 import dask.array as da
@@ -32,6 +33,8 @@ import pyproj
 import xarray as xr
 import rioxarray as rio
 from eoread.download_legacy import download_url
+from eoread.utils.fileutils import mdir
+from eoread.utils.config import load_config
 
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.tools import raiseflag, merge
@@ -317,11 +320,13 @@ class LATLON:
                 return np.array(lon, dtype=self.dtype)
 
 
-def get_SRF() -> xr.Dataset:
+def get_SRF(dir_data: Optional[Path]=None) -> xr.Dataset:
     """
     Load Venµs spectral response functions (SRF)
     """
-    dir_data = mdir(naming.dir_static/'venus')
+    if dir_data is None:
+        dir_data = mdir(load_config()['dir_static']/'venus')
+
     url = 'https://labo.obs-mip.fr/wp-content-labo/uploads/sites/19/2018/09/rep6S.txt'
     srf_file = download_url(url, dir_data)
     nbands = 12
