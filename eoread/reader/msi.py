@@ -36,6 +36,8 @@ import xarray as xr
 import rioxarray as rio
 from lxml import objectify
 
+from eoread.download import download_S2_google
+
 from ..utils.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.naming import naming, flags
@@ -354,4 +356,9 @@ def Level2_MSI(dirname):
     Read an MSI level2 product as xarray.Dataset
     """
     raise NotImplementedError
+
+
+def get_sample() -> Path:
+    product_name = 'S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656'
+    return download_S2_google(product_name, naming.dir_samples)
     
