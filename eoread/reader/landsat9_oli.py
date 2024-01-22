@@ -424,9 +424,9 @@ class LATLON_NOGDAL:
         X, Y = np.meshgrid(x, y)
 
         if PYPROJ_VERSION >= 2:
-            lon, lat = self.transformer.transform(X, Y)
+            lat, lon = self.transformer.transform(X, Y)
         else:
-            lon, lat = pyproj.transform(self.utm, self.latlon, X, Y)
+            lat, lon = pyproj.transform(self.utm, self.latlon, X, Y)
 
 
         if self.kind == 'lat':
