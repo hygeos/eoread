@@ -47,8 +47,15 @@ def test_download_missing():
     Behaviour in case of missing file
     '''
     with TemporaryDirectory() as tmpdir:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(FileNotFoundError):
             nasa_download('ABCDEFG0123456789', tmpdir)
+
+
+def test_auth_error():
+    with TemporaryDirectory() as tmpdir:
+        with pytest.raises(RuntimeError):
+            nasa_download('GMAO_MERRA2.20230119T140000.MET.nc', tmpdir,
+                          wget_extra='--no-netrc')
 
 
 def test_ftp_download():
