@@ -191,6 +191,6 @@ def Level1_GOESNG(file_1km,
 
     # assign integer coords to preserve selected coordinates
     return ds.assign_coords(
-        rows=range(len(ds.rows)),
-        columns=range(len(ds.columns)),
+        y=range(len(ds.rows)),
+        x=range(len(ds.columns)),
     )

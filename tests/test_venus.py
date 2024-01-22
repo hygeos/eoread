@@ -37,13 +37,13 @@ def test_msi_merged(S2_product, param):
     # check parameter consistency through windowing
     xr.testing.assert_allclose(
         l1[param][1000, 500],
-        l1.isel(rows=slice(1000, None),
-                columns=slice(500, None))[param][0, 0])
+        l1.isel(y=slice(1000, None),
+                x=slice(500, None))[param][0, 0])
 
     xr.testing.assert_allclose(
         l1[param][1000:1010, 500:510],
-        l1.isel(rows=slice(1000, None),
-                columns=slice(500, None))[param][:10, :10])
+        l1.isel(y=slice(1000, None),
+                x=slice(500, None))[param][:10, :10])
 
 
 @pytest.mark.parametrize('band', ['Rtoa_420', 'Rtoa_490', 'Rtoa_865'])
@@ -57,7 +57,7 @@ def test_msi_split(band):
 
     xr.testing.assert_allclose(
             l1[band][:600, :600].compute()[500:550, 450:550],
-            l1.sel(rows=slice(500, 550), columns=slice(450, 550))[band],
+            l1.sel(y=slice(500, 550), x=slice(450, 550))[band],
             )
 
 

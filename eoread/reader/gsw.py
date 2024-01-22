@@ -11,7 +11,7 @@ Example:
 
 >>> gsw = GSW(agg=8)
 Create water mask
->>> mask = gsw.sel(lat=lat, lon=lon, method='nearest') > 50
+>>> mask = gsw.sel(latitude=lat, longitude=lon, method='nearest') > 50
 """
 
 import argparse
@@ -20,12 +20,13 @@ import rioxarray as rio
 import tempfile
 import numpy as np
 from pathlib import Path
-from dask import array as da, delayed
+from dask import array as da
 from urllib.request import urlopen
 from threading import Lock
 from ..common import bin_centers
 from ..raster import ArrayLike_GDAL
 from ..utils.save import to_netcdf
+from ..utils.naming import naming
 
 lock = Lock()
 
@@ -193,10 +194,10 @@ def GSW(directory='data_landmask_gsw',
     return xr.DataArray(
         gsw,
         name='occurrence',
-        dims=('lat', 'lon'),
+        dims=(naming.lat, naming.lon),
         coords={
-            'lat': bin_centers(gsw.shape[0], 80, -60),
-            'lon': bin_centers(gsw.shape[1], -180, 180),
+            naming.lat: bin_centers(gsw.shape[0], 80, -60),
+            naming.lon: bin_centers(gsw.shape[1], -180, 180),
         }
     )
 

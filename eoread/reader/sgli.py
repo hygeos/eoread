@@ -208,7 +208,7 @@ def calc_central_wavelength():
         index_col=False,
     )
 
-    rsr = rsr.rename(columns=dict(zip(
+    rsr = rsr.rename(x=dict(zip(
         [x for x in rsr.columns if x.startswith('WL')],
         [x.replace('RSR_', 'WL_') for x in rsr.columns if x.startswith('RSR')],
     )))

@@ -49,8 +49,8 @@ def test_processing(product):
     ds['Rtoa_calib'], ds['flags'] = Calib(ds.bands).calc(ds.Rtoa)
 
     sub = ds.isel(
-        rows=slice(0, 1000),
-        columns=slice(0, 1000),
+        y=slice(0, 1000),
+        x=slice(0, 1000),
     )
     with tempfile.NamedTemporaryFile(suffix='.nc') as tmpf, ProgressBar():
         sub.to_netcdf(tmpf.name)

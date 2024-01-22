@@ -95,7 +95,7 @@ def test_read(ds, param, indices, scheduler):
         # v = da.compute()
         expected_dtype = np.dtype(n.expected_dtypes[param])
 
-        res = ds[param].sel(rows=idx1, columns=idx2).compute()
+        res = ds[param].sel(y=idx1, x=idx2).compute()
         assert ds[param].dtype == expected_dtype,\
             f'Dtype error: expected {expected_dtype}, found {ds[param].dtype}'
         assert res.dtype == expected_dtype,\
@@ -104,18 +104,18 @@ def test_read(ds, param, indices, scheduler):
         # for the "stepped" indices, check that result is consistent with "non-stepped"
         # (also with an offset)
         if (isinstance(idx1, slice) and isinstance(idx2, slice) and idx1.step and idx2.step):
-            A = ds[param].sel(rows=idx1, columns=idx2).compute()
+            A = ds[param].sel(y=idx1, x=idx2).compute()
             B = ds[param].sel(
-                    rows=slice(idx1.start-1, idx1.stop),
-                    columns=slice(idx2.start-1, idx2.stop),
+                    y=slice(idx1.start-1, idx1.stop),
+                    x=slice(idx2.start-1, idx2.stop),
                 ).compute()[..., 1::idx1.step, 1::idx2.step]
             np.testing.assert_allclose(A, B)
 
 
 def test_subset(ds):
     sub = ds.isel(
-        rows=slice(300, 400),
-        columns=slice(500, 570))
+        y=slice(300, 400),
+        x=slice(500, 570))
 
     with tempfile.TemporaryDirectory() as tmpdir,\
             dask.config.set(scheduler='single-threaded'):

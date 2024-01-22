@@ -46,8 +46,8 @@ def test_index(request):
     product = p['prod_S3_L1_20190430']
     l1 = Level1_OLCI(product['path'])
     l1 = l1.isel(
-        rows=slice(None, None, 10),
-        columns=slice(None, None, 10))
+        y=slice(None, None, 10),
+        x=slice(None, None, 10))
 
     plt.figure()
     plt.imshow(l1.Ltoa.sel(bands=865))
@@ -57,8 +57,8 @@ def test_index(request):
 
     # water mask
     mask = gsw.sel(
-        lat=l1.latitude,
-        lon=l1.longitude,
+        latitude=l1.latitude,
+        longitude=l1.longitude,
         method='nearest') > 50
     print(mask)
     mask = mask.compute(scheduler='sync')

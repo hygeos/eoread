@@ -46,8 +46,8 @@ def test_preview(request, var):
     l1 = Level1_GOESNG(local_config.goes_sample_file)
     print(l1)
     l1 = l1.isel(
-        rows=slice(None, None, 100),
-        columns=slice(None, None, 100),
+        y=slice(None, None, 100),
+        x=slice(None, None, 100),
         )
 
     plt.imshow(l1[var])
@@ -59,8 +59,8 @@ def test_clouds(request):
     l1 = Level1_GOESNG(local_config.goes_sample_file, cloudmask=True)
     print(l1)
     l1 = l1.isel(
-        rows=slice(4000, 4900),
-        columns=slice(5000, 6100),
+        y=slice(4000, 4900),
+        x=slice(5000, 6100),
         )
 
     plt.imshow(l1['VIS_004'])

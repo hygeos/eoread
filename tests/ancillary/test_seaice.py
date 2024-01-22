@@ -21,7 +21,7 @@ def test_download_and_interpolate():
     
         date_nrt = date.today() - timedelta(days=15)
     
-        ds_si = seaice.get(d=date_nrt, lat=ds_in.Latitude, lon=ds_in.Longitude) 
+        ds_si = seaice.get(d=date_nrt, latitude=ds_in.Latitude, longitude=ds_in.Longitude) 
         ds_si.to_netcdf(Path(tmpdir)/'interpolated_sea_ice.nc')
 
         assert ds_in.dims['x'] == ds_si.dims['x']
@@ -38,7 +38,7 @@ def test_fail_file_not_found_offline():
         dummy_lon = np.ones((40, 50))
         
         with pytest.raises(FileNotFoundError):   
-            seaice.get(d=date(1792, 7, 14), lat=dummy_lat, lon=dummy_lon)
+            seaice.get(d=date(1792, 7, 14), latitude=dummy_lat, longitude=dummy_lon)
     
     
 # should fail because no files exists for this date
@@ -53,7 +53,7 @@ def test_fail_file_not_found_online():
         dummy_lon = np.ones((40, 50)) # so no need to load real values
         
         with pytest.raises(FileNotFoundError):
-            seaice.get(d=date(1792, 7, 14), lat=dummy_lat, lon=dummy_lon)
+            seaice.get(d=date(1792, 7, 14), latitude=dummy_lat, longitude=dummy_lon)
 
 
 # should fail  because the specified local folder doesn't exist

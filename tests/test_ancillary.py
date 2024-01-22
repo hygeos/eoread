@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
-from datetime import datetime
+from datetime import datetime as dt
 from matplotlib import pyplot as plt
-import numpy as np
+
 import pytest
 
 from eoread.era5 import ERA5
@@ -27,8 +27,8 @@ def variable(request):
     return request.param
 
 @pytest.mark.parametrize('ancillary,args', [
-        (ERA5, (datetime(2010, 1, 1, 1, 0, 0),)),
-        (Ancillary_NASA, (closest(datetime.now(), 6), 'N%Y%j%H_MET_NCEP_1440x0721_f012.hdf')),
+        (ERA5, (dt(2010, 1, 1, 1, 0, 0),)),
+        (Ancillary_NASA, (closest(dt.now(), 6), 'N%Y%j%H_MET_NCEP_1440x0721_f012.hdf')),
         ])
 def test_download(request, args, ancillary, variable):
     """
@@ -49,16 +49,16 @@ def test_download(request, args, ancillary, variable):
     conftest.savefig(request)
 
 
-@pytest.mark.parametrize('ancillary,dt', [
-        (ERA5, datetime(2010, 1, 1, 1, 30, 0)),
-        (Ancillary_NASA, datetime.now()),
-        (Ancillary_NASA, datetime(2010, 1, 1, 0, 0, 0)),
+@pytest.mark.parametrize('ancillary,date', [
+        (ERA5, dt(2010, 1, 1, 1, 30, 0)),
+        (Ancillary_NASA, dt.now()),
+        (Ancillary_NASA, dt(2010, 1, 1, 0, 0, 0)),
         ])
-def test_get_single(request, dt, ancillary, variable):
+def test_get_single(request, date, ancillary, variable):
     """
     Download and interpolate between bracketing files
     """
-    anc = ancillary().get(dt)
+    anc = ancillary().get(date)
     assert not 'time' in anc.dims
     anc[variable].plot()
     plt.title(variable)
@@ -82,7 +82,7 @@ def test_interp(request, method, ancillary, variable):
             return '<unit not available>'
         
     l1 = Level1_MERIS(p['prod_meris_L1_20080701']['path']).sel(
-        rows=slice(2000, 2600),
+        y=slice(2000, 2600),
         )
 
     anc = ancillary().get(datetime(l1))
