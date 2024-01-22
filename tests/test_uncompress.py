@@ -7,7 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from eoread.uncompress import CacheDir, duration
+from eoread.utils.uncompress import CacheDir, duration
 
 
 def test_uncompress_cache():

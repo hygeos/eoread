@@ -5,7 +5,7 @@ import eumdac
 from eoread import download
 from eoread.utils.fileutils import filegen
 import shutil
-from eoread.uncompress import uncompress
+from eoread.utils.uncompress import uncompress
 
 
 

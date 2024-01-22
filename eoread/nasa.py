@@ -18,7 +18,7 @@ import numpy as np
 from datetime import datetime
 import subprocess
 
-from .uncompress import uncompress_decorator
+from .utils.uncompress import uncompress_decorator
 from .download import download_url
 from .utils.naming import naming, flags
 from .common import DataArray_from_array

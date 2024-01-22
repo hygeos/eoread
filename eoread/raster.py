@@ -14,7 +14,7 @@ class ArrayLike_GDAL:
     """
     Read a file (eg GeoTIFF) with Gdal as an array-like
     """
-    def __init__(self, filename):
+    def __init__(self, filename: str):
         assert Path(filename).exists()
         if gdal is None:
             raise Exception('Error, gdal is not available.')
@@ -31,7 +31,7 @@ class ArrayLike_GDAL:
             win_ysize=0,
         ).dtype
 
-    def __getitem__(self, keys):
+    def __getitem__(self, keys: list):
         ystart = int(keys[0].start) if keys[0].start is not None else 0
         xstart = int(keys[1].start) if keys[1].start is not None else 0
         ystop = int(keys[0].stop) if keys[0].stop is not None else self.shape[0]

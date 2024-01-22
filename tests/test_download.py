@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from eoread.download import download_S2_google
 from eoread import download
 from eoread.nasa import nasa_download, nasa_download_uncompress
-from eoread.uncompress import uncompress
+from eoread.utils.uncompress import uncompress
 from ftplib import FTP
 
 @pytest.mark.parametrize('product_name', [

@@ -17,7 +17,7 @@ from typing import Union
 from tqdm import tqdm
 
 from eoread.download_S2 import get_sentinel2_image
-from eoread.uncompress import uncompress as uncomp, uncompress_decorator
+from eoread.utils.uncompress import uncompress as uncomp
 from ftplib import FTP, error_perm
 import fnmatch
 from .common import timeit

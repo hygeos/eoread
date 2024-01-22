@@ -3,14 +3,13 @@
 
 
 import zipfile
-from urllib.request import urlopen
-from urllib.error import HTTPError
 import numpy as np
 import io
-from os.path import exists, join
-from os import makedirs, rename
 import sys
 
+from urllib.request import urlopen
+from os.path import exists, join
+from os import rename
 
 
 def read_hgt(filename):

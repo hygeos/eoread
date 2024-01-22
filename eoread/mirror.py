@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import fs
 from fs.osfs import OSFS
 from fs.base import FS
-from .uncompress import uncompress as uncomp
+from .utils.uncompress import uncompress as uncomp
 
 
 class Mirror_Uncompress:

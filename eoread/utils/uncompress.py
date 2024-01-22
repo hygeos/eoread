@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 
 
-from functools import wraps
-from zipfile import ZipFile
 import bz2
 import gzip
 import shutil
 import tarfile
 import subprocess
-from pathlib import Path
 import json
 import getpass
+
+from pathlib import Path
+from functools import wraps
+from zipfile import ZipFile
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory, gettempdir, mkdtemp
 
-from .utils.fileutils import LockFile
+from .fileutils import LockFile
 
 class ErrorUncompressed(Exception):
     """

@@ -18,7 +18,7 @@ import numpy as np
 from .utils.datetime_utils import round_date
 from .nasa import nasa_download
 from .utils.naming import naming
-from .uncompress import uncompress
+from .utils.uncompress import uncompress
 from .utils import hdf4
 
 
