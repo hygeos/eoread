@@ -9,8 +9,10 @@ but it is complex to install.
 """
 
 import xarray as xr
-from pyhdf.SD import SD, SDC
 import numpy as np
+
+from pyhdf.SD import SD, SDC
+
 from ..common import DataArray_from_array
 from .. import eo
 

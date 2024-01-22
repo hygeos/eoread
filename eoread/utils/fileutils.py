@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
-from os import remove
 import os
-from pathlib import Path
 import shutil
-from tempfile import TemporaryDirectory
-from time import sleep
 import json
-from functools import wraps
 import fcntl
-from typing import Union
-from datetime import datetime
 import getpass
 import subprocess
 import inspect
 
+from os import remove
+from typing import Union
+from datetime import datetime
+from functools import wraps
+from tempfile import TemporaryDirectory
+from time import sleep
+from pathlib import Path
 
 cfg = {
     # module-wide configuration

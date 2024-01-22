@@ -22,11 +22,10 @@ import numpy as np
 from pathlib import Path
 from dask import array as da, delayed
 from urllib.request import urlopen
-from urllib.error import HTTPError
 from threading import Lock
-from .. import eo
 from ..common import bin_centers
 from ..raster import ArrayLike_GDAL
+from ..utils.save import to_netcdf
 
 lock = Lock()
 
@@ -72,7 +71,7 @@ class GSW_tile:
             ds.attrs['source_file'] = url_tile(self.tile_name)
 
             # write nc file
-            eo.to_netcdf(
+            to_netcdf(
                 ds,
                 filename=self.filename)
 

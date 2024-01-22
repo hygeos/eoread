@@ -35,8 +35,8 @@ from eoread.download import download_url
 
 from eoread.fileutils import mdir
 
-from .. import eo
 from ..common import DataArray_from_array, Interpolator, Repeat
+from ..utils.tools import raiseflag, merge
 from ..utils.naming import naming, flags
 
 venus_band_names = {
@@ -121,7 +121,7 @@ def Level1_VENUS(dirname,
     ds[naming.flags] = xr.zeros_like(
         ds.vza,
         dtype=naming.flags_dtype)
-    eo.raiseflag(
+    raiseflag(
         ds[naming.flags],
         'L1_INVALID',
         flags['L1_INVALID'],
@@ -188,7 +188,7 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
         ds[naming.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=naming.bands)
 
     return ds
 

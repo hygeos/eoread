@@ -3,14 +3,14 @@
 
 
 import xarray as xr
-import dask.array as da
 import os
 import numpy as np
-from xml.dom.minidom import parse, parseString
+from xml.dom.minidom import parseString
 from datetime import datetime
 
-from .. import eo
-from ..common import Interpolator, AtIndex
+from ..eo import init_Rtoa
+from ..utils.tools import getflags, raiseflag
+from ..common import Interpolator
 from ..utils.naming import naming, flags
 from ..common import DataArray_from_array
 
@@ -65,7 +65,7 @@ def Level1_OLCI(dirname,
                    )
 
     if init_reflectance:
-        eo.init_Rtoa(ds)
+        init_Rtoa(ds)
 
     return ds.unify_chunks()
 
@@ -339,12 +339,12 @@ def read_OLCI(dirname,
         ds[naming.flags] = xr.zeros_like(
             ds.vza,
             dtype=naming.flags_dtype)
-        qf = eo.getflags(ds.quality_flags)
-        eo.raiseflag(ds[naming.flags],
+        qf = getflags(ds.quality_flags)
+        raiseflag(ds[naming.flags],
                     'LAND',
                     flags['LAND'],
                     ds.quality_flags & qf['land'])
-        eo.raiseflag(ds[naming.flags],
+        raiseflag(ds[naming.flags],
                     'L1_INVALID',
                     flags['L1_INVALID'],
                     ds.quality_flags & qf['invalid'])
@@ -417,7 +417,7 @@ def get_valid_l2_pixels(wqsf, flags=[
     Get valid standard level2 pixels with a given flag set
     '''
     bval = 0
-    L2_FLAGS = eo.getflags(wqsf)
+    L2_FLAGS = getflags(wqsf)
     for flag in flags:
         bval += int(L2_FLAGS[flag])
 

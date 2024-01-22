@@ -36,7 +36,7 @@ import xarray as xr
 import rioxarray as rio
 from lxml import objectify
 
-from .. import eo
+from ..utils.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.naming import naming, flags
 
@@ -138,7 +138,7 @@ def Level1_MSI(dirname,
     ds[naming.flags] = xr.zeros_like(
         ds.vza,
         dtype=naming.flags_dtype)
-    eo.raiseflag(
+    raiseflag(
         ds[naming.flags],
         'L1_INVALID',
         flags['L1_INVALID'],
@@ -205,7 +205,7 @@ def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
         ds[naming.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=naming.bands)
 
     return ds
 

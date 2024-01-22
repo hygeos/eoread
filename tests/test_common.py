@@ -11,7 +11,7 @@ from eoread.common import AtIndex, Repeat
 from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array, timeit
 from eoread.utils.fileutils import PersistentList
-from eoread import eo
+from eoread.utils.tools import split, merge, wrap, raiseflag, convert, locate
 from time import sleep
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -69,7 +69,7 @@ def make_dataset(shp=(10, 12), chunks=6):
 def test_split():
     l1 = make_dataset()
     print(l1)
-    l1s = eo.split(l1, 'bands')
+    l1s = split(l1, 'bands')
     assert 'rho_toa_412' in l1s
     assert 'rho_w_412' in l1s
     assert 'rho_toa' not in l1s
@@ -81,7 +81,7 @@ def test_split():
 
 def test_split_dataarray():
     l1 = make_dataset()
-    l1s = eo.split(l1.rho_w, 'bands')
+    l1s = split(l1.rho_w, 'bands')
     print(l1s)
 
 
@@ -89,11 +89,11 @@ def test_split_without_coords():
     l1 = make_dataset()
 
     with pytest.raises(AssertionError):
-        eo.split(l1.rho_w, 'unknown_dim')
+        split(l1.rho_w, 'unknown_dim')
 
     l1 = l1.drop('bands')
     with pytest.raises(AssertionError):
-        eo.split(l1.rho_w, 'bands')
+        split(l1.rho_w, 'bands')
 
 
 def test_merge():
@@ -102,8 +102,8 @@ def test_merge():
     """
     # create a dataset
     l1 = make_dataset()
-    l1s = eo.split(l1, 'bands')
-    l1m = eo.merge(l1s)
+    l1s = split(l1, 'bands')
+    l1m = merge(l1s)
     print('Original:', l1)
     print('Merged:', l1m)
     assert l1m.equals(l1)
@@ -113,8 +113,8 @@ def test_merge2():
     Merge a single variable
     """
     l1 = make_dataset()
-    l1s = eo.split(l1, 'bands')
-    l1m = eo.merge(l1s,
+    l1s = split(l1, 'bands')
+    l1m = merge(l1s,
         dim='bands',
         varname='rho_w',
         pattern=r'rho_w_(\d+)')
@@ -124,11 +124,11 @@ def test_merge2():
 
 def test_merge_inconsistent_dimension():
     l1 = make_dataset()
-    l1s = eo.split(l1, 'bands')
-    eo.merge(l1s, 'bands')
+    l1s = split(l1, 'bands')
+    merge(l1s, 'bands')
     l1s = l1s.rename({'rho_w_412': 'rho_w_413'})
     with pytest.raises(AssertionError):
-        eo.merge(l1s, 'bands')
+        merge(l1s, 'bands')
 
 
 @pytest.mark.parametrize('A,rep', [
@@ -269,19 +269,19 @@ def test_raiseflag(use_dask):
 
     assert (A & 3).any()
     assert not flags.any()
-    eo.raiseflag(flags, 'FLAG_1', 1, A & 3)
+    raiseflag(flags, 'FLAG_1', 1, A & 3)
     assert flags.any()
 
     # raising a second flag with same value raises an error
     with pytest.raises(AssertionError):
-        eo.raiseflag(flags, 'FLAG_2', 1, A > 0)
+        raiseflag(flags, 'FLAG_2', 1, A > 0)
 
     # raising the same flag with a different value raises an error
     with pytest.raises(AssertionError):
-        eo.raiseflag(flags, 'FLAG_1', 2, A > 0)
+        raiseflag(flags, 'FLAG_1', 2, A > 0)
 
     # raise a second flag
-    eo.raiseflag(flags, 'FLAG_2', 4, A > 1)
+    raiseflag(flags, 'FLAG_2', 4, A > 1)
 
     assert (flags > 0).any()
 
@@ -308,7 +308,7 @@ def test_wrap(vmin1,vmax1,vmin2,vmax2):
                            dims=['lon'],
                            coords=[np.arange(vmin1, vmax1)])
     print(ds.lon)
-    res = eo.wrap(ds, 'lon', vmin2, vmax2)
+    res = wrap(ds, 'lon', vmin2, vmax2)
     print(res.lon)
 
     assert (np.diff(res.lon) > 0).all()
@@ -318,13 +318,13 @@ def test_wrap(vmin1,vmax1,vmin2,vmax2):
 
 def test_convert():
     A = xr.DataArray(300., attrs={'units': 'DU'})
-    eo.convert(A, unit_to='kg/m2')
+    convert(A, unit_to='kg/m2')
 
     A = xr.DataArray(1., attrs={'units': 'kg'})
-    assert eo.convert(A, unit_to='g', converter={'g': 1000, 'kg': 1}) == 1000.
+    assert convert(A, unit_to='g', converter={'g': 1000, 'kg': 1}) == 1000.
 
     with pytest.raises(ValueError):
-        eo.convert(A, unit_to='g', converter={})
+        convert(A, unit_to='g', converter={})
 
 def test_locate():
     lat_min = 0
@@ -335,12 +335,12 @@ def test_locate():
         xr.DataArray(np.linspace(lat_min, lat_max, 100), dims=['lat']),
         xr.DataArray(np.linspace(lon_min, lon_max, 100), dims=['lon']),
     )
-    eo.locate(lat, lon, 5., 5.)
-    eo.locate(lat, lon, 15., 15.)
+    locate(lat, lon, 5., 5.)
+    locate(lat, lon, 15., 15.)
 
-    eo.locate(lat, lon, 5., 5., dist_min_km=10)
+    locate(lat, lon, 5., 5., dist_min_km=10)
     with pytest.raises(ValueError):
-        eo.locate(lat, lon, 15., 15., dist_min_km=10)
+        locate(lat, lon, 15., 15., dist_min_km=10)
 
 
 @pytest.mark.parametrize('concurrent', [True, False])

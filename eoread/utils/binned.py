@@ -1,6 +1,6 @@
 import xarray as xr
 import numpy as np
-from matplotlib import pyplot as plt
+
 
 """
 Interface with binned L3 products (GSFC)

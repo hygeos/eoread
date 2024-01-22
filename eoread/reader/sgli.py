@@ -11,8 +11,9 @@ import xarray as xr
 from datetime import datetime
 
 from ..common import Interpolator, DataArray_from_array
+from ..utils.tools import raiseflag, merge
 from ..utils.naming import naming, flags
-from .. import eo
+from ..eo import init_geometry as init_geo
 
 
 sgli_bands = [
@@ -64,7 +65,7 @@ def Level1_SGLI(filename,
 
     init_geometry(ds, filename, shp, chunks)
 
-    eo.init_geometry(ds)
+    init_geo(ds)
 
     ds = init_toa(ds, imdata, split)
 
@@ -91,7 +92,7 @@ def Level1_SGLI(filename,
         ds.vza,
         dtype=naming.flags_dtype)
 
-    eo.raiseflag(
+    raiseflag(
         ds[naming.flags],
         'LAND',
         flags['LAND'],
@@ -120,7 +121,7 @@ def init_toa(ds, imdata, split):
         ds[naming.Rtoa+f'_{b}'] = Rtoa
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=naming.bands)
 
     return ds
 

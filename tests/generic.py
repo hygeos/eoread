@@ -13,7 +13,7 @@ import dask
 import numpy as np
 import pytest
 
-from eoread import eo
+from eoread.utils.tools import datetime
 from eoread.utils.naming import naming as n
 
 
@@ -74,7 +74,7 @@ def test_main(ds, angle_data=True):
 
     # check that attributes exist and are not empty
     assert ds.datetime
-    eo.datetime(ds)
+    datetime(ds)
     assert ds.platform
     assert ds.sensor
     assert ds.product_name

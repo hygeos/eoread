@@ -1,13 +1,15 @@
-from functools import wraps
 import json
-from pathlib import Path
 import pickle
-from tempfile import TemporaryDirectory
-from typing import Callable, Optional
 import pandas as pd
 import xarray as xr
+
+from functools import wraps
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Callable, Optional
 from pandas.testing import assert_frame_equal
-from .. import eo
+
+from .save import to_netcdf
 from .fileutils import filegen, safe_move
 
 
@@ -131,7 +133,7 @@ def cache_dataset(cache_file: Path|str,
     def writer(filename, ds):
         if attrs is not None:
             ds.attrs.update(attrs)
-        eo.to_netcdf(ds, filename=filename)
+        to_netcdf(ds, filename=filename)
 
     return cachefunc(
         cache_file,

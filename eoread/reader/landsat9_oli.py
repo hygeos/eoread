@@ -32,7 +32,7 @@ except ModuleNotFoundError:
     gdal_major_version = None
 from .. import common
 from ..utils.naming import naming
-from .. import eo
+from ..utils.tools import merge
 from ..raster import ArrayLike_GDAL
 
 
@@ -270,7 +270,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks, use_gdal):
         ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=naming.bands)
     
     bnames = []
     for b in bands_tir:
@@ -283,7 +283,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks, use_gdal):
         )
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands_tir)
+        ds = merge(ds, dim=naming.bands_tir)
 
     return ds
 

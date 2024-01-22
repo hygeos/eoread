@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .. import eo
+from ..utils.tools import merge, raiseflag
 from ..common import AtIndex, DataArray_from_array, len_slice, convert_for_nc
 from ..utils.naming import naming, flags
 
@@ -129,7 +129,7 @@ def Level1_MERIS(filename,
         )
 
     if not split:
-        ds = eo.merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=naming.bands)
 
     ds = ds.assign_coords(bands=BANDS_MERIS)
 
@@ -187,7 +187,7 @@ def Level1_MERIS(filename,
             ('LAND', 'l1_flags.LAND_OCEAN'),
             ('L1_INVALID', '(l1_flags.INVALID) OR (l1_flags.SUSPECT) OR (l1_flags.COSMETIC)'),
         ]:
-        eo.raiseflag(
+        raiseflag(
             ds[naming.flags],
             flag,
             flags[flag],

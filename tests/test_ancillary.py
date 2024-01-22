@@ -6,12 +6,13 @@ from datetime import datetime
 from matplotlib import pyplot as plt
 import numpy as np
 import pytest
-from eoread import eo
+
 from eoread.era5 import ERA5
 from eoread.ancillary_nasa import Ancillary_NASA
 from eoread.reader.meris import Level1_MERIS
 from eoread.sample_products import get_sample_products
 from eoread.utils.datetime_utils import closest
+from eoread.utils.tools import datetime
 from . import conftest
 
 p = get_sample_products()
@@ -84,7 +85,7 @@ def test_interp(request, method, ancillary, variable):
         rows=slice(2000, 2600),
         )
 
-    anc = ancillary().get(eo.datetime(l1))
+    anc = ancillary().get(datetime(l1))
     figsize = (7, 7)
 
     # plot longitude
