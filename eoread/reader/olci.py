@@ -303,7 +303,7 @@ def read_OLCI(dirname,
         'humidity',
         naming.sea_level_pressure,
         naming.total_columnar_water_vapour,
-        naming.total_ozone]
+        naming.total_column_ozone]
     for var in variables:
         ds[var] = DataArray_from_array(
             Interpolator(shape2, tie[var]),

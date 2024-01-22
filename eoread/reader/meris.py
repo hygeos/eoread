@@ -175,7 +175,7 @@ def Level1_MERIS(filename,
 
     ds[naming.horizontal_wind] = np.sqrt(
         aux['zonal_wind']**2 + aux['merid_wind']**2)
-    ds[naming.total_ozone] = aux['ozone']
+    ds[naming.total_column_ozone] = aux['ozone']
     ds[naming.sea_level_pressure] = aux['atm_press']
 
     #

@@ -97,7 +97,7 @@ class Naming:
         self.bands_tir = 'bands_tir'
 
         # Ancillary data
-        self.total_ozone = 'total_ozone'
+        self.total_column_ozone = 'total_column_ozone'
         self.sea_level_pressure = 'sea_level_pressure'
         self.total_columnar_water_vapour = 'total_columnar_water_vapour'
         self.horizontal_wind = 'horizontal_wind'
