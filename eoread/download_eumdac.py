@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from typing import Optional
 import eumdac
 from eoread import download
-from eoread.fileutils import filegen
+from eoread.utils.fileutils import filegen
 import shutil
 from eoread.uncompress import uncompress
 
