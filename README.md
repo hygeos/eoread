@@ -31,8 +31,8 @@ eo.init_Rtoa(l1)
 xarray Datasets allow easy subsetting:
 ```python
 # product subsetting based on rows and columns indices
-sub = l1.isel(rows=slice(500, 600),
-              columns=slice(400, 500))
+sub = l1.isel(y=slice(500, 600),
+              x=slice(400, 500))
 ```
 
 With geographical coordinates:
