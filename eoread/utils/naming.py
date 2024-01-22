@@ -113,23 +113,6 @@ class Naming:
             self.flags: 'uint16',
         }
 
-        #
-        # Paths
-        #
-
-        # root for storing data files (can link to any path in the filesystem)
-        self.dir_data = Path.cwd()/'data'
-
-        # static data files, required for processing
-        # can be common, or per-sensor
-        self.dir_static = self.dir_data/'static'
-
-        # sample products, used for testing
-        self.dir_samples = self.dir_data/'sample_products'
-
-        # ancillary data (downloaded on the fly)
-        self.dir_ancillary = self.dir_data/'ancillary'
-
 
     def name(self, name):
         assert name in self.__dict__
