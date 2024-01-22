@@ -8,10 +8,9 @@ from matplotlib import pyplot as plt
 import pytest
 
 from eoread.era5 import ERA5
-from eoread.ancillary_nasa import Ancillary_NASA
+from eoread.ancillary_nasa import Ancillary_NASA, open_NASA
 from eoread.reader.meris import Level1_MERIS
 from eoread.sample_products import get_sample_products
-from eoread.utils.datetime_utils import closest
 from eoread.utils.tools import datetime
 from . import conftest
 
@@ -20,21 +19,23 @@ p = get_sample_products()
 
 
 @pytest.fixture(params=[
-    'total_ozone',
+    'total_column_ozone',
     'sea_level_pressure',
     'horizontal_wind'])
 def variable(request):
     return request.param
 
 @pytest.mark.parametrize('ancillary,args', [
-        (ERA5, (dt(2010, 1, 1, 1, 0, 0),)),
-        (Ancillary_NASA, (closest(dt.now(), 6), 'N%Y%j%H_MET_NCEP_1440x0721_f012.hdf')),
+        (ERA5, [dt(2010, 1, 1, 1, 0, 0)]),
+        (Ancillary_NASA, [dt(2023,1,1,0,0,0),
+                          'GMAO_MERRA2.%Y%m%dT000000.MET.nc']),
         ])
 def test_download(request, args, ancillary, variable):
     """
     Download a single file
     """
-    anc = ancillary().download(*args)
+    f = ancillary().download(*args)
+    anc = open_NASA(f)
 
     # check that it is properly wrapped
     assert anc.latitude.min() == -90
@@ -51,7 +52,7 @@ def test_download(request, args, ancillary, variable):
 
 @pytest.mark.parametrize('ancillary,date', [
         (ERA5, dt(2010, 1, 1, 1, 30, 0)),
-        (Ancillary_NASA, dt.now()-timedelta(hours=6)),
+        (Ancillary_NASA, dt.now()-timedelta(hours=12)),
         (Ancillary_NASA, dt(2005, 1, 1, 0, 0, 0)),
         (Ancillary_NASA, dt(2010, 1, 1, 11, 11, 11)),
         ])

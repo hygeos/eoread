@@ -6,7 +6,6 @@ NASA ancillary data provider
 
 https://oceancolor.gsfc.nasa.gov/docs/ancillary/
 
-(currently limited to NCEP GFS Forecast Meteorological data)
 '''
 
 from tempfile import TemporaryDirectory
@@ -18,105 +17,96 @@ import numpy as np
 from .utils.datetime_utils import round_date
 from .nasa import nasa_download
 from .utils.naming import naming
-from .utils.uncompress import uncompress
-from .utils import hdf4
+from dateutil.parser import parse
+
+from eoread.utils.config import load_config
 
 
 # resources are a list of functions taking the date, and returning the list
 # of file patterns and dates
 forecast_resources = [
-    lambda date: [('N%Y%j%H_MET_NCEP_1440x0721_f{}.hdf'.format(
-                   '012' if (d.hour % 2 == 0) else '015'), d)
-                  for d in round_date(date, 3)]
+    lambda date: [("GMAO_FP.%Y%m%dT%H0000.MET.NRT.nc", d) for d in round_date(date, 3)],
 ]
 
-default_met_resources = [
-    lambda date: [('N%Y%j%H_MET_NCEPR2_6h.hdf.bz2', d) for d in round_date(date, 6)],
-    lambda date: [('N%Y%j%H_MET_NCEP_6h.hdf.bz2', d) for d in round_date(date, 6)],
-    lambda date: [('N%Y%j%H_MET_NCEP_6h.hdf', d) for d in round_date(date, 6)],
-]
-
-default_oz_resources = [
-    lambda date: [('N%Y%j00_O3_AURAOMI_24h.hdf', d) for d in round_date(date, 24)],
-    lambda date: [('N%Y%j00_O3_TOMSOMI_24h.hdf', d) for d in round_date(date, 24)],
-    lambda date: [('S%Y%j00%j23_TOAST.OZONE', d) for d in round_date(date, 24)],
-    lambda date: [('S%Y%j00%j23_TOVS.OZONE', d) for d in round_date(date, 24)],
+default_resources = [
+    lambda date: [("GMAO_MERRA2.%Y%m%dT%H0000.MET.nc", d) for d in round_date(date, 1)],
 ]
 
 
-def wrap(da, dim):
+def wrap_lon(da, dim='longitude'):
     '''
     returns a wrapped dataarray along dimension `dim`, whereby
     the first element of dim is duplicated to the last position
     '''
-    return xr.concat([da, da.isel({dim: 0})], dim=dim)
+    merid = da.isel({dim: 0})
+    assert merid.longitude == -180
+    return xr.concat([da, merid.assign_coords(longitude=180)], dim=dim)
 
 
-def open_NASA(target):
-    with TemporaryDirectory() as tmpdir:
+def open_NASA(target: Path) -> xr.Dataset:
+    """
+    Open an ancillary file
 
-        uncompressed = uncompress(
-            target,
-            tmpdir,
-            on_uncompressed='bypass')
+    Warning: not all variables are considered
+    """
+    ds = xr.open_dataset(target, chunks={})
 
-        if uncompressed.name.endswith('.hdf'):
-            ds = hdf4.load_hdf4(uncompressed)
-        else:
-            ds = xr.open_dataset(uncompressed, chunks={})
+    out = xr.Dataset()
+    out.attrs.update(ds.attrs)
 
-        out = xr.Dataset()
-        out.attrs.update(ds.attrs)
+    ds = ds.rename(
+        lat=naming.lat,
+        lon=naming.lon)
+    
+    out[naming.horizontal_wind] = wrap_lon(np.sqrt(ds['U10M']**2 + ds['V10M']**2))
+    out[naming.horizontal_wind].attrs.update({
+        'units': ds['U10M'].units,
+    })
 
-        for v in ds:
-            ds[v] = ds[v].rename(dict(zip(ds[v].dims, ('latitude', 'longitude'))))
-        
-        nlat = ds.latitude.size
-        nlon = ds.longitude.size
-        assert nlat < nlon
+    out[naming.sea_level_pressure] = wrap_lon(ds['SLP'])
 
-        if ('z_wind' in ds) and ('m_wind' in ds):
-            out[naming.horizontal_wind] = wrap(np.sqrt(np.sqrt(ds.z_wind**2 + ds.m_wind**2)),
-                                            dim='longitude')
-        if 'press' in ds:
-            out[naming.sea_level_pressure] = wrap(ds.press, dim='longitude')
-        if 'ozone' in ds:
-            out[naming.total_ozone] = wrap(ds.ozone, dim='longitude')
-        out = out.assign_coords(
-            latitude=np.linspace(90, -90, nlat),
-            longitude=np.linspace(-180, 180, nlon+1),
-        )
+    out[naming.total_column_ozone] = wrap_lon(ds['TO3'])
 
-        dt = datetime.strptime(out.attrs['Start Time'][:13], '%Y%j%H%M%S')
-        out.attrs['filename'] = target.name
+    dt = parse(out.attrs['time_coverage_start']).replace(tzinfo=None)
+    dtend = parse(out.attrs['time_coverage_end']).replace(tzinfo=None)
+    assert dtend == dt
+    out.attrs['filename'] = target.name
 
-        return out.assign_coords(time=dt)
+    return out.assign_coords(time=dt)
 
 
 class Ancillary_NASA:
     def __init__(self,
-                 directory='ANCILLARY/Meteorological/',
+                 directory=None,
                  allow_forecast=True,
                  offline=False,
                  verbose=False,
                  ):
-        self.directory = Path(directory)
-        self.met_resources = default_met_resources
-        self.oz_resources = default_oz_resources
+        """
+        Initialize a provider for NASA ancillary data
+        (https://oceancolor.gsfc.nasa.gov/docs/ancillary/)
+
+        - directory: base directory for storing ancillary data.
+          defaults to <dir_ancillary>/NASA (see config.py)
+        """
+        if directory is None:
+            self.directory = load_config()['dir_ancillary']/'NASA'
+        else:
+            self.directory = Path(directory)
+
+        self.resources = default_resources
         if allow_forecast:
-            self.met_resources += forecast_resources
-            self.oz_resources += forecast_resources
+            self.resources += forecast_resources
         self.offline = offline
         self.verbose = verbose
 
-    def download(self, dt: datetime, pattern: str,
+    def download(self,
+                 dt: datetime,
+                 pattern: str,
                  offline: bool = False):
         '''
         Download ancillary product at a given time (where product exists)
         '''
-        assert dt.minute == 0
-        assert dt.second == 0
-        assert dt.hour % 3 == 0
 
         filename = dt.strftime(pattern)
 
@@ -124,44 +114,28 @@ class Ancillary_NASA:
         target = target_dir/filename
         if not target.exists():
             if offline:
-                if self.verbose:
-                    print(f'Trying file {target} : NOT FOUND [OFFLINE]')
                 raise FileNotFoundError(
-                    f'Error, file {target} is not available and offline mode is set.')
+                    f"Error, file {target} is not available and offline mode is set."
+                )
             else:
-                try:
-                    nasa_download(filename, target_dir)
-                except FileNotFoundError:
-                    if self.verbose:
-                        print(f'Trying file {target} : NOT FOUND [ONLINE]')
-                except RuntimeError:
-                    if self.verbose:
-                        print('Authentification issue : Please check your login in .netrc')
-                    raise
-                if self.verbose:
-                    print(f'Trying file {target} : FOUND [ONLINE]')
-        else:
-            if self.verbose:
-                print(f'Trying file {target} : FOUND [OFFLINE]')
+                nasa_download(filename, target_dir)
             
         assert target.exists()
-        target = verify(target)
+        target = verify(target)   # TODO: not relevant anymore ?
 
-        return open_NASA(target)
+        return target
 
-    def get(self, dt: datetime, resources=None):
+    def get(self, dt: datetime):
         '''
         Interpolate two brackting products at the given `dt`
         '''
-        resources = resources or self.met_resources
-
         list_ds = None
         for offline in ([True] if self.offline else [True, False]):
-            for res in resources:
+            for res in self.resources:
                 if list_ds is not None:
                     break
                 try:
-                    list_ds = [self.download(d, p, offline)
+                    list_ds = [open_NASA(self.download(d, p, offline))
                                for (p, d) in res(dt)]
                 except FileNotFoundError:
                     # when either product is not available
@@ -169,20 +143,17 @@ class Ancillary_NASA:
 
         assert list_ds is not None, f'Error: no valid product was found for {dt} (offline={self.offline})'
 
-        list_ds[0].attrs['filename_met_1'] = list_ds[0].attrs['filename']
-        list_ds[1].attrs['filename_met_2'] = list_ds[1].attrs['filename']
+        list_ds[-1].attrs['ancillary_file_1'] = list_ds[-1].attrs['filename']
+        list_ds[1].attrs['ancillary_file_2'] = list_ds[1].attrs['filename']
 
         concatenated = xr.concat(
             list_ds, dim='time',
             combine_attrs='drop_conflicts')
 
-        if len(list_ds) == 1:
-            interpolated = concatenated
-        else:
-            interpolated = concatenated.interp(time=dt)
+        interpolated = concatenated.interp(time=dt)
 
         # download ozone
-        if naming.total_ozone not in interpolated:
+        if naming.total_column_ozone not in interpolated:
             # try oz resources (recursively)
             oz = self.get(dt, self.oz_resources).interp(
                 latitude=interpolated.latitude,
