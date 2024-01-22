@@ -42,13 +42,13 @@ class BaseProvider:
         
     
     @interface
-    def get_day(self, variables: list[str], date: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    def get_day(self, variables: list[str], date: date, area: list|None=None) -> xr.Dataset:
         """
         Download and apply post-process to the downloaded data for the given date
         Standardize the dataset according to the nomenclature module
         Return data of the full day
      
-        - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
+        - variables: list of variables names to download
         - d: date of desired the data
         - area: [90, -180, -90, 180] → [north, west, south, east]
         """
@@ -68,13 +68,13 @@ class BaseProvider:
     
     
     @interface
-    def get(self, variables: list[str], dt: datetime, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    def get(self, variables: list[str], dt: datetime, area: list|None=None) -> xr.Dataset:
         """
         Download and apply post-process to the downloaded data for the given date
         Standardize the dataset according to the nomenclature module
         Return data interpolated on time=dt
      
-        - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
+        - variables: list of variables names to download
         - d: datetime of desired the data
         - area: [90, -180, -90, 180] → [north, west, south, east]
         """
@@ -106,12 +106,12 @@ class BaseProvider:
     
     
     @interface
-    def get_range(self, variables: list[str], date_start: date, date_end: date, area: list=[90, -180, -90, 180]) -> xr.Dataset:
+    def get_range(self, variables: list[str], date_start: date, date_end: date, area: list|None=None) -> xr.Dataset:
         """
         Download and apply post-process to the downloaded data for the dates between date_start and date_end
         Standardize the dataset according to the nomenclature module
      
-        - variables: list of strings of the model variables short names to download ex: ['gtco3', 'aod550', 'parcs'] TODO change
+        - variables: list of variables names to download
         - d: datetime of desired the data
         - area: [90, -180, -90, 180] → [north, west, south, east]
         """
@@ -190,7 +190,7 @@ class BaseProvider:
         pass
         
     
-    def _get_filename(self, variables: list[str], d: date, acronym: str, area: None|list) -> str:
+    def _get_filename(self, variables: list[str], d: date, acronym: str, area: list|None) -> str:
         """
         Constructs and return the target filename according to the nomenclature specified
         in the attribute 'filename_pattern'

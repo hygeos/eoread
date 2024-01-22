@@ -32,6 +32,33 @@ def test_get_datetime():
 
         # check that the time interpolation occured
         assert len(np.atleast_1d(ds.time.values)) == 1
+        
+
+def test_get_datetime_area():
+    with TemporaryDirectory() as tmpdir:
+        cams = CAMS(
+            model=CAMS.models.global_atmospheric_composition_forecast,
+            directory=Path(tmpdir),
+        )
+        
+        ds = cams.get(
+            variables=["aod_469nm", "aod_670nm"], dt=datetime(2020, 3, 22, 14, 35),
+            area=[10, -10, 9, -9]
+        )
+
+        # check that the variables have been correctly renamed
+        variables = list(ds)
+        assert "aod670" not in variables
+        assert "aod469" not in variables
+        assert "aod_469nm" in variables
+        assert "aod_670nm" in variables
+
+        # test wrap
+        assert np.max(ds.longitude.values) != 180.0
+        assert np.min(ds.longitude.values) != -180.0
+
+        # check that the time interpolation occured
+        assert len(np.atleast_1d(ds.time.values)) == 1
 
 
 def test_get_computed():
@@ -159,6 +186,21 @@ def test_download_offline():
     )
 
     f = cams.download(variables=["ozone"], d=date(2009, 3, 22))
+
+    assert f.exists()
+
+
+
+# downloading offline an already locally existing product should work
+def test_download_offline_area():
+    # empy file but with correct nomenclature
+    cams = CAMS(
+        model=CAMS.models.global_atmospheric_composition_forecast,
+        directory=Path("tests/ancillary/inputs/CAMS/"),
+        offline=True,
+    )
+
+    f = cams.download(variables=["aod_469nm", "aod_670nm"], d=date(2020, 3, 22), area=[10, -10, 9, -9])
 
     assert f.exists()
 
