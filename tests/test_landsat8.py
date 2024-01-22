@@ -63,8 +63,7 @@ def test_instantiate(split):
 
 
 @pytest.mark.parametrize('path, angle', [
-    (sample_landsat8_oli, True),
-    (Path('/archive2/proj/QTIS_TRISHNA/Brockmann_data/L1_L8/LC81960302014022LGN00'), False)])
+    (sample_landsat8_oli, True)])
 def test_main(path, angle):
     l1 = Level1_L8_OLI(path, angle_data=angle)
     generic.test_main(l1, angle)
@@ -75,7 +74,13 @@ def test_read(param, indices, scheduler, use_gdal):
     eo.init_geometry(l1)
     generic.test_read(l1, param, indices, scheduler)
 
-
 def test_subset():
     l1 = Level1_L8_OLI(sample_landsat8_oli)
     generic.test_subset(l1)
+
+@pytest.mark.parametrize('radio, angle', [
+    ('radiance', False),
+    ('reflectance', True)])
+def test_radiometry(radio, angle):
+    l1 = Level1_L8_OLI(sample_landsat8_oli, radiometry=radio)
+    generic.test_main(l1, angle)

@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 
 
 p = get_sample_products()
-sample_landsat9_oli = "/archive2/proj/QTIS_TRISHNA/L8L9/LC09_L1TP_014034_20220618_20230411_02_T1"
+sample_landsat9_oli = "/archive2/proj/QTIS_TRISHNA/L8L9/USA/LC09_L1TP_014034_20220618_20230411_02_T1"
 
 @pytest.mark.parametrize('lat_or_lon', ['lat', 'lon'])
 def test_latlon(lat_or_lon):
@@ -72,7 +72,13 @@ def test_read(param, indices, scheduler, use_gdal):
     eo.init_geometry(l1)
     generic.test_read(l1, param, indices, scheduler)
 
-
 def test_subset():
     l1 = Level1_L9_OLI(sample_landsat9_oli)
     generic.test_subset(l1)
+
+@pytest.mark.parametrize('radio, angle', [
+    ('radiance', False),
+    ('reflectance', True)])
+def test_radiometry(radio, angle):
+    l1 = Level1_L9_OLI(sample_landsat9_oli, radiometry=radio)
+    generic.test_main(l1, angle)
