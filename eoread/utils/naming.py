@@ -23,11 +23,20 @@ class Naming:
         self.Ltoa = 'Ltoa'
         self.Ltoa_desc = 'Top of Atmosphere radiance'
 
+        self.Ltoa_tir = 'Ltoa_tir'
+        self.Ltoa_tir_desc = 'Top of Atmosphere radiance for thermal bands'
+
+        self.BT = 'BT'
+        self.BT_desc = 'Brightness Temperature'
+
         self.Rw = 'Rw'
         self.Rw_desc = 'Water reflectance'
 
         self.wav = 'wav'
         self.wav_desc = 'Effective wavelength'
+
+        self.wav_tir = 'wav_tir'
+        self.wav_tir_desc = 'Effective wavelength for thermal bands'
 
         self.cwav = 'cwav'
         self.cwav_desc = 'Central (nominal) wavelength'
@@ -83,6 +92,9 @@ class Naming:
         for k, v in kwargs.items():
             assert k in self.__dict__
             self.__dict__[k] = v
+
+        # Specific dimensions
+        self.bands_tir = 'bands_tir'
 
         # Ancillary data
         self.total_ozone = 'total_ozone'

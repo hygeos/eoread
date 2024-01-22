@@ -38,9 +38,9 @@ from ..raster import ArrayLike_GDAL
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
 
 
-bands_oli = [440, 480, 560, 655, 865, 1375, 1610, 2200, 11000, 12000]
-bands_vnir = bands_oli[:-2]
-bands_mir  = bands_oli[-2:]
+bands_oli  = np.array([440, 480, 560, 655, 865, 1375, 1610, 2200, 11000, 12000])
+bands_vis  = bands_oli[bands_oli < 3000]
+bands_tir  = bands_oli[bands_oli > 3000]
 
 band_index = { # Bands                                - wavelength (um) - resolution (m)
     440: 1,    # Band 1  - Coastal aerosol	            0.43 - 0.45	      30
@@ -132,9 +132,14 @@ def Level1_L8_OLI(dirname,
 
     # add center wavelengths
     ds[naming.wav] = xr.DataArray(
-        da.from_array(np.array([center_wavelengths[b] for b in bands_oli],
+        da.from_array(np.array([center_wavelengths[b] for b in bands_vis],
                                dtype='float32')),
         dims=(naming.bands),
+    )
+    ds[naming.wav_tir] = xr.DataArray(
+        da.from_array(np.array([center_wavelengths[b] for b in bands_tir],
+                               dtype='float32')),
+        dims=(naming.bands_tir),
     )
 
     # add flags
@@ -235,22 +240,35 @@ def read_geometry(ds, dirname, l8_angles):
 
 
 def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks, use_gdal):
-    param = {'reflectance': naming.Rtoa,
-             'radiance': naming.Ltoa}[radiometry]
+    param = {'radiance':   (naming.Ltoa, naming.Ltoa_tir),
+             'reflectance':(naming.Rtoa, naming.BT)}[radiometry]
+
     bnames = []
-    for b in bands_oli:
-        bname = (param+'_{}').format(b)
+    for b in bands_vis:
+        bname = (param[0]+'_{}').format(b)
         bnames.append(bname)
         ds[bname] = common.DataArray_from_array(
             TOA_READ(b, dirname, radiometry, data_mtl, use_gdal=use_gdal),
             naming.dim2,
             chunks=chunks,
         )
-        if radiometry == 'reflectance' and b not in bands_mir:
-            ds[bname] /= da.cos(da.radians(ds.sza))
+        ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
         ds = eo.merge(ds, dim=naming.bands)
+    
+    bnames = []
+    for b in bands_tir:
+        bname = (param[1]+'_{}').format(b)
+        bnames.append(bname)
+        ds[bname] = common.DataArray_from_array(
+            BT_READ(b, dirname, radiometry, data_mtl, use_gdal=use_gdal),
+            naming.dim2,
+            chunks=chunks,
+        )
+
+    if not split:
+        ds = eo.merge(ds, dim=naming.bands_tir)
 
     return ds
 
@@ -456,18 +474,59 @@ class TOA_READ:
             self.data = ArrayLike_GDAL(self.filename)
         else:
             self.data = rio.open_rasterio(self.filename).isel(band=0)
-        
-        if radiometry == 'reflectance' and b in bands_mir:
-            self.M = data_mtl['LEVEL1_RADIOMETRIC_RESCALING']['RADIANCE_MULT_BAND_{}'.format(band_index[b])]
-            self.A = data_mtl['LEVEL1_RADIOMETRIC_RESCALING']['RADIANCE_ADD_BAND_{}'.format(band_index[b])]
-            self.data  = self.M * self.data + self.A
-            self.K1 = data_mtl['LEVEL1_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]
-            self.K2 = data_mtl['LEVEL1_THERMAL_CONSTANTS']['K2_CONSTANT_BAND_{}'.format(band_index[b])]
-            self.data = self.K2/np.log(self.K1/self.data + 1)
+
+        self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
+        self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
+        self.data  = self.M * self.data + self.A
+
+        self.dtype = np.dtype(dtype)
+        self.shape = self.data.shape
+        self.ndim = 2
+
+    def __getitem__(self, keys):
+        data = self.data[keys]
+        return data.astype(self.dtype)
+
+class BT_READ:
+    '''
+    An array-like to read Landsat-8 OLI TOA reflectance
+    (have to be divided by cos(sza) - radiance and reflectance
+    in L1 are independent of the geometry)
+
+    Arguments:
+        b: band identifier (440, 480, 560, 655, 865)
+        kind: 'radiance' or 'reflectance'
+    '''
+    def __init__(self,
+                 b,
+                 dirname,
+                 radiometry='reflectance',
+                 data_mtl=None,
+                 use_gdal=False,
+                 dtype='float32'):
+        if data_mtl is None:
+            data_mtl = read_metadata(dirname)
+
+        param_mult = 'RADIANCE_MULT_BAND_{}'
+        param_add = 'RADIANCE_ADD_BAND_{}'
+
+        self.filename = os.path.join(
+            dirname,
+            data_mtl['PRODUCT_METADATA']['FILE_NAME_BAND_{}'.format(band_index[b])])
+
+        if use_gdal:
+            self.data = ArrayLike_GDAL(self.filename)
         else:
-            self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
-            self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
-            self.data  = self.M * self.data + self.A
+            self.data = rio.open_rasterio(self.filename).isel(band=0)
+
+        self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
+        self.A = data_mtl['RADIOMETRIC_RESCALING'][param_add.format(band_index[b])]
+        self.data  = self.M * self.data + self.A
+
+        if radiometry == 'reflectance':
+            self.K1 = data_mtl['TIRS_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.K2 = data_mtl['TIRS_THERMAL_CONSTANTS']['K2_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.data = self.K2/np.log(self.K1/self.data + 1)
 
         self.dtype = np.dtype(dtype)
         self.shape = self.data.shape
