@@ -36,14 +36,15 @@ def check_nasa_download(filename):
     'https://support.earthdata.nasa.gov/index.php?/Knowledgebase/Article/View/43/21/how-to-access-urs-gated-data-with-curl-and-wget'
     with open(filename, 'rb') as fp:
         filehead = fp.read(100)
-        assert not filehead.startswith(b'<!DOCTYPE html>'), errormsg
+        if filehead.startswith((
+            b'<!DOCTYPE html>',
+            # may be the case after Oct 2023 when NASA changed the APIs
+            b'404 Error',
+            b'403 Error')):
+            raise RuntimeError(errormsg)
 
-        # may be the case after Oct 2023 when NASA changed the APIs
-        if filehead.startswith((b'404 Error', b'403 Error')):
-            raise FileNotFoundError(filehead.decode('utf-8'))
 
-
-def nasa_download(product, dirname, tmpdir=None, verbose=True):
+def nasa_download(product, dirname, tmpdir=None, verbose=True, wget_extra=""):
     '''
     Download a product on oceandata.sci.gsfc.nasa.gov
 
@@ -57,14 +58,15 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True):
     elif product.startswith('S3'):
         url= f'https://oceandata.sci.gsfc.nasa.gov/sentinel/getfile/{product}.zip'
     else:
-        url = f'https://oceandata.sci.gsfc.nasa.gov/ob/getfile/{product}'
+        url = f'https://oceandata.sci.gsfc.nasa.gov/getfile/{product}'
 
     return download_url(
         url,
         dirname,
         verbose=verbose,
         tmpdir=tmpdir,
-        wget_opts='-nv --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --keep-session-cookies --auth-no-challenge',
+        wget_opts='-nv --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies ' \
+                  '--keep-session-cookies --auth-no-challenge '+wget_extra,
         check_function=check_nasa_download,
         lock_timeout=3600,
         if_exists='skip',
