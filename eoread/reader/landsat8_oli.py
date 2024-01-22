@@ -246,7 +246,7 @@ def read_radiometry(ds, dirname, split, data_mtl, radiometry, chunks, use_gdal):
             naming.dim2,
             chunks=chunks,
         )
-        if radiometry == 'reflectance':
+        if radiometry == 'reflectance' and b not in bands_mir:
             ds[bname] /= da.cos(da.radians(ds.sza))
 
     if not split:
@@ -458,8 +458,11 @@ class TOA_READ:
             self.data = rio.open_rasterio(self.filename).isel(band=0)
         
         if radiometry == 'reflectance' and b in bands_mir:
-            self.K1 = data_mtl['TIRS_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]
-            self.K2 = data_mtl['TIRS_THERMAL_CONSTANTS']['K2_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.M = data_mtl['LEVEL1_RADIOMETRIC_RESCALING']['RADIANCE_MULT_BAND_{}'.format(band_index[b])]
+            self.A = data_mtl['LEVEL1_RADIOMETRIC_RESCALING']['RADIANCE_ADD_BAND_{}'.format(band_index[b])]
+            self.data  = self.M * self.data + self.A
+            self.K1 = data_mtl['LEVEL1_THERMAL_CONSTANTS']['K1_CONSTANT_BAND_{}'.format(band_index[b])]
+            self.K2 = data_mtl['LEVEL1_THERMAL_CONSTANTS']['K2_CONSTANT_BAND_{}'.format(band_index[b])]
             self.data = self.K2/np.log(self.K1/self.data + 1)
         else:
             self.M = data_mtl['RADIOMETRIC_RESCALING'][param_mult.format(band_index[b])]
