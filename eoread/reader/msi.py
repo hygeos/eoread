@@ -36,7 +36,7 @@ import xarray as xr
 import rioxarray as rio
 from lxml import objectify
 
-from eoread.download import download_S2_google
+from eoread.download_legacy import download_S2_google
 
 from ..utils.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat

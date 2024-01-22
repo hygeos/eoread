@@ -31,9 +31,7 @@ import pandas as pd
 import pyproj
 import xarray as xr
 import rioxarray as rio
-from eoread.download import download_url
-
-from eoread.utils.fileutils import mdir
+from eoread.download_legacy import download_url
 
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.tools import raiseflag, merge

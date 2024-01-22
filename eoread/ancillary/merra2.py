@@ -1,13 +1,13 @@
 from pydap.cas.urs import setup_session
 import xarray as xr
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from pathlib import Path
 import requests
 
 from ..utils.fileutils import filegen
 from ..utils.cache import cache_json 
-from .. import download as dl
+from .. import download_legacy as dl
 
 from .nomenclature import Nomenclature
 from .merra2parser import Merra2Parser

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 from matplotlib import pyplot as plt
 
 import pytest
@@ -51,8 +51,9 @@ def test_download(request, args, ancillary, variable):
 
 @pytest.mark.parametrize('ancillary,date', [
         (ERA5, dt(2010, 1, 1, 1, 30, 0)),
-        (Ancillary_NASA, dt.now()),
-        (Ancillary_NASA, dt(2010, 1, 1, 0, 0, 0)),
+        (Ancillary_NASA, dt.now()-timedelta(hours=6)),
+        (Ancillary_NASA, dt(2005, 1, 1, 0, 0, 0)),
+        (Ancillary_NASA, dt(2010, 1, 1, 11, 11, 11)),
         ])
 def test_get_single(request, date, ancillary, variable):
     """

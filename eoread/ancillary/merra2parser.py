@@ -4,7 +4,7 @@ from pydap.client import open_url
 from datetime import date
 import subprocess
 
-from .. import download as dl
+from .. import download_legacy as dl
 
 class Merra2Parser:
     """
