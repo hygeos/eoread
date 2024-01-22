@@ -179,8 +179,8 @@ def read_coordinates(ds, dirname, chunks, use_gdal):
         naming.dim2,
         chunks=chunks,
     )
-    ds.attrs[naming.totalheight] = ds.rows.size
-    ds.attrs[naming.totalwidth] = ds.columns.size
+    ds.attrs[naming.totalheight] = ds.y.size
+    ds.attrs[naming.totalwidth] = ds.x.size
 
 
 def gen_l8_angles(dirname, l8_angles=None):

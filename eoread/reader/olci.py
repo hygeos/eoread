@@ -199,10 +199,10 @@ def read_OLCI(dirname,
                 tie_columns=np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows=np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
-    assert tie_ds.tie_columns[0] == ds.columns[0]
-    assert tie_ds.tie_columns[-1] == ds.columns[-1]
-    assert tie_ds.tie_rows[0] == ds.rows[0]
-    assert tie_ds.tie_rows[-1] == ds.rows[-1]
+    assert tie_ds.tie_columns[0] == ds.x[0]
+    assert tie_ds.tie_columns[-1] == ds.x[-1]
+    assert tie_ds.tie_rows[0] == ds.y[0]
+    assert tie_ds.tie_rows[-1] == ds.y[-1]
 
     if interp_angles == 'linear':
         interp_aa = 'linear'
@@ -251,10 +251,10 @@ def read_OLCI(dirname,
                 tie_columns = np.arange(tie.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows = np.arange(tie.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
-    assert tie.tie_columns[0] == ds.columns[0]
-    assert tie.tie_columns[-1] == ds.columns[-1]
-    assert tie.tie_rows[0] == ds.rows[0]
-    assert tie.tie_rows[-1] == ds.rows[-1]
+    assert tie.tie_columns[0] == ds.x[0]
+    assert tie.tie_columns[-1] == ds.x[-1]
+    assert tie.tie_rows[0] == ds.y[0]
+    assert tie.tie_rows[-1] == ds.y[-1]
     
     wind0 = DataArray_from_array(
         Interpolator(
