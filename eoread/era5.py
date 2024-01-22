@@ -7,7 +7,10 @@ ERA5 Ancillary data provider
 '''
 
 import argparse
-from .utils.fileutils import filegen
+
+from eoread.utils.config import load_config
+from eoread.utils.tools import wrap
+from .utils.fileutils import filegen, mdir
 from pathlib import Path
 from datetime import datetime, timedelta
 from .utils.naming import naming
@@ -29,9 +32,9 @@ def open_ERA5(filename):
     ds[naming.horizontal_wind] = np.sqrt(ds.u10**2 + ds.v10**2)
     ds = ds.rename({
         'sp': naming.sea_level_pressure,
-        'tco3': naming.total_ozone,
+        'tco3': naming.total_column_ozone,
     }).squeeze()
-    return eo.wrap(ds, 'longitude', -180, 180)
+    return wrap(ds, 'longitude', -180, 180)
 
 
 class ERA5:
@@ -52,7 +55,7 @@ class ERA5:
 
     '''
     def __init__(self,
-                 directory='ANCILLARY/ERA5/',
+                 directory=None,
                  pattern='%Y/%m/%d/era5_%Y%m%d_%H%M%S.nc',
                  time_resolution=timedelta(hours=1),
                  offline=False,
@@ -65,7 +68,11 @@ class ERA5:
                  ],
                  verbose=False,
                  ):
-        self.directory = Path(directory).resolve()
+        if directory is None:
+            self.directory = mdir(load_config()['dir_ancillary']/'ERA5')
+        else:
+            self.directory = Path(directory)
+
         self.pattern = pattern
         self.time_resolution = time_resolution
         self.client = None
