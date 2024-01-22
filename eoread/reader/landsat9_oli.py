@@ -31,10 +31,11 @@ except ModuleNotFoundError:
     osr = None
     gdal = None
     gdal_major_version = None
-from . import common
-from .naming import naming
-from . import eo
-from eoread.raster import ArrayLike_GDAL
+from .. import common
+from ..utils.naming import naming
+from .. import eo
+from ..raster import ArrayLike_GDAL
+
 
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
 

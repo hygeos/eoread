@@ -12,7 +12,7 @@ from pathlib import Path
 from eoread.sample_products import get_sample_products
 
 from eoread import eo
-from eoread.landsat9_oli import LATLON_GDAL, LATLON_NOGDAL, TOA_READ, Level1_L9_OLI
+from eoread.reader.landsat9_oli import LATLON_GDAL, LATLON_NOGDAL, TOA_READ, Level1_L9_OLI
 
 from . import generic
 from .generic import indices, param, scheduler

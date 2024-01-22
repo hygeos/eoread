@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
-from eoread.cache import cache_dataset
-from eoread import cache
+from eoread.utils.cache import cache_dataset
+from eoread.utils import cache
 from xarray.tutorial import open_dataset
 from tempfile import TemporaryDirectory
 

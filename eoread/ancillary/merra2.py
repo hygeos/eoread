@@ -5,9 +5,9 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 import requests
 
-from eoread.fileutils import filegen
-from eoread.cache import cache_json 
-from eoread import download as dl
+from ..utils.fileutils import filegen
+from ..utils.cache import cache_json 
+from .. import download as dl
 
 from .nomenclature import Nomenclature
 from .merra2parser import Merra2Parser
@@ -16,9 +16,9 @@ from typing import Callable
 
 # from typing import Callable
 from .merra2_models import MERRA2_Models
-from eoread.ancillary.baseprovider import BaseProvider
+from ..ancillary.baseprovider import BaseProvider
 
-from eoread.static import interface
+from ..utils.static import interface
 
 class MERRA2(BaseProvider):
     '''

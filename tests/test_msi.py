@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import xarray as xr
 from eoread.download import download_S2_google, download_sentinelapi
-from eoread.msi import Level1_MSI, get_sample
+from eoread.reader.msi import Level1_MSI, get_sample
 from . import generic
 from eoread import eo
 from . import conftest

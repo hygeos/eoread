@@ -4,8 +4,8 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from eoread.goesng import Level1_GOESNG, config
-from eoread.hdf4 import load_hdf4
+from eoread.reader.goesng import Level1_GOESNG, config
+from eoread.utils.hdf4 import load_hdf4
 from eoread import eo
 from . import conftest
 # from . import local_config

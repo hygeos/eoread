@@ -9,9 +9,9 @@ import pytest
 from eoread import eo
 from eoread.era5 import ERA5
 from eoread.ancillary_nasa import Ancillary_NASA
-from eoread.meris import Level1_MERIS
+from eoread.reader.meris import Level1_MERIS
 from eoread.sample_products import get_sample_products
-from eoread.datetime_utils import closest
+from eoread.utils.datetime_utils import closest
 from . import conftest
 
 p = get_sample_products()

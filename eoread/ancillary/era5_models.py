@@ -1,4 +1,4 @@
-from eoread.fileutils import filegen
+from ..utils.fileutils import filegen
 
 from datetime import date
 from pathlib import Path

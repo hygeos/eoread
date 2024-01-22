@@ -11,8 +11,8 @@ but it is complex to install.
 import xarray as xr
 from pyhdf.SD import SD, SDC
 import numpy as np
-from eoread.common import DataArray_from_array
-from eoread import eo
+from ..common import DataArray_from_array
+from .. import eo
 
 
 def clean_attrs(A):

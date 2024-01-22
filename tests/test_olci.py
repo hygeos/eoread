@@ -4,8 +4,8 @@
 import pytest
 from matplotlib import pyplot as plt
 from eoread.autodetect import Level1, Level2
-from eoread.olci import get_valid_l2_pixels
-from eoread import olci
+from eoread.reader.olci import get_valid_l2_pixels
+from eoread.reader import olci
 from eoread import eo
 from . import generic
 from .generic import param, indices, scheduler  # noqa (fixtures)

@@ -8,7 +8,7 @@ Copernicus ancillary data provider for Sea-Ice-Concentration
 from pathlib import Path
 from datetime import date # no need for time interpolation, and therefore no need for datetime
 
-from eoread import download as dl
+from .. import download as dl
 from ftplib import FTP
 
 import xarray as xr

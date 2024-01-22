@@ -1,8 +1,8 @@
-from eoread.fileutils import filegen
+from ..utils.fileutils import filegen
 from .nomenclature import Nomenclature
 from datetime import date
 from pathlib import Path
-from eoread import eo
+from .. import eo
 
 # import ancillary.cdsapi_parser as cdsapi_parser
 import xarray as xr
@@ -12,9 +12,9 @@ import cdsapi
 
 from typing import Callable
 from .era5_models import ERA5_Models
-from eoread.ancillary.baseprovider import BaseProvider
+from ..ancillary.baseprovider import BaseProvider
 
-from eoread.static import interface
+from ..utils.static import interface
 
 class ERA5(BaseProvider):
     '''

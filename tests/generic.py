@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from eoread import eo
-from eoread.naming import naming as n
+from eoread.utils.naming import naming as n
 
 
 @pytest.fixture(params=[

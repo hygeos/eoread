@@ -3,10 +3,10 @@
 
 import pytest
 from matplotlib import pyplot as plt
-from eoread.gsw import GSW, read_tile
+from eoread.reader.gsw import GSW, read_tile
 from tempfile import TemporaryDirectory
 from eoread.sample_products import get_sample_products
-from eoread.olci import Level1_OLCI
+from eoread.reader.olci import Level1_OLCI
 from . import conftest
 
 p = get_sample_products()

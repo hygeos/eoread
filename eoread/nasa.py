@@ -18,9 +18,9 @@ import numpy as np
 from datetime import datetime
 import subprocess
 
-from eoread.uncompress import uncompress_decorator
+from .uncompress import uncompress_decorator
 from .download import download_url
-from .naming import naming, flags
+from .utils.naming import naming, flags
 from .common import DataArray_from_array
 from . import eo
 

@@ -6,7 +6,7 @@ import pytest
 from matplotlib import pyplot as plt
 from eoread.sample_products import product_getter
 from eoread import eo
-from eoread.meris import Level1_MERIS
+from eoread.reader.meris import Level1_MERIS
 
 from . import generic
 from .generic import indices, param

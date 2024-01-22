@@ -10,9 +10,9 @@ import pandas as pd
 import xarray as xr
 from datetime import datetime
 
-from .common import Interpolator, DataArray_from_array
-from .naming import naming, flags
-from . import eo
+from ..common import Interpolator, DataArray_from_array
+from ..utils.naming import naming, flags
+from .. import eo
 
 
 sgli_bands = [

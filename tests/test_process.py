@@ -5,8 +5,8 @@
 import tempfile
 import numpy as np
 import pytest
-from eoread.olci import Level1_OLCI
-from eoread.msi import Level1_MSI
+from eoread.reader.olci import Level1_OLCI
+from eoread.reader.msi import Level1_MSI
 from eoread.sample_products import get_sample_products
 from eoread.process import blockwise_method
 from dask.diagnostics import ProgressBar

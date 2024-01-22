@@ -21,7 +21,7 @@ from numpy import arcsin as asin
 from numpy import cos, radians, sin, sqrt, where
 from shapely.geometry import Point, Polygon
 
-from .naming import naming
+from .utils.naming import naming
 
 
 def datetime(ds, attribute='datetime'):

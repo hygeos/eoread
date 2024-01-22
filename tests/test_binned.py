@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 from matplotlib import pyplot as plt
 from eoread.sample_products import get_sample_products
-from eoread.binned import read_binned, ncols, Binner, to_2dim
+from eoread.utils.binned import read_binned, ncols, Binner, to_2dim
 from . import conftest
 
 p = get_sample_products()

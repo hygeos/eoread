@@ -7,8 +7,8 @@ from typing import Callable, Optional
 import pandas as pd
 import xarray as xr
 from pandas.testing import assert_frame_equal
-from eoread import eo
-from eoread.fileutils import filegen, safe_move
+from .. import eo
+from .fileutils import filegen, safe_move
 
 
 def cachefunc(cache_file: Path|str,

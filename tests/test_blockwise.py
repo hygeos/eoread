@@ -8,7 +8,7 @@ import xarray as xr
 import numpy as np
 from tests.test_common import make_dataset
 from eoread.process import Blockwise
-from eoread.olci import Level1_OLCI
+from eoread.reader.olci import Level1_OLCI
 from eoread.process import coerce_dtype, blockwise_method, blockwise_function
 import eoread
 dask.config.set(scheduler='single-threaded')

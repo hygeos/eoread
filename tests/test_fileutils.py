@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 from time import sleep
-from eoread.fileutils import LockFile, filegen, get_git_commit, mdir
+from eoread.utils.fileutils import LockFile, filegen, get_git_commit, mdir
 
 def f(file_lock, interval):
     print(f'Started at {datetime.now()}')

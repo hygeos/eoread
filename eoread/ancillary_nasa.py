@@ -15,11 +15,11 @@ from pathlib import Path
 from os import system, rename
 import xarray as xr
 import numpy as np
-from eoread.datetime_utils import round_date
-from eoread.nasa import nasa_download
-from eoread.naming import naming
-from eoread.uncompress import uncompress
-from eoread import hdf4
+from .utils.datetime_utils import round_date
+from .nasa import nasa_download
+from .utils.naming import naming
+from .uncompress import uncompress
+from .utils import hdf4
 
 
 # resources are a list of functions taking the date, and returning the list

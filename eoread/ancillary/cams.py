@@ -1,18 +1,18 @@
 from .nomenclature import Nomenclature
 from datetime import date
 from pathlib import Path
-from eoread import eo
+from .. import eo
 
-import eoread.ancillary.cdsapi_parser as cdsapi_parser
 import xarray as xr
 import pandas as pd
 import numpy as np
 import os
 
 from typing import Callable
+from . import cdsapi_parser 
 from .cams_models import CAMS_Models
-from eoread.ancillary.baseprovider import BaseProvider
-from eoread.static import interface
+from ..ancillary.baseprovider import BaseProvider
+from ..utils.static import interface
 
 class CAMS(BaseProvider):
     """

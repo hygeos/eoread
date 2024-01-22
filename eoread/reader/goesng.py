@@ -5,12 +5,12 @@
 from datetime import datetime
 from dateutil import parser
 import numpy as np
-from eoread.process import map_blocks
+from ..process import map_blocks
 from pathlib import Path
-from eoread.hdf4 import load_hdf4
-from eoread import eo
+from ..utils.hdf4 import load_hdf4
+from .. import eo
 import xarray as xr
-from eoread.naming import naming, flags
+from ..utils.naming import naming, flags
 import pysolar.solar as pysol
 from dask.array import map_blocks
 from dask import array as da

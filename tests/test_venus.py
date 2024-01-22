@@ -3,7 +3,7 @@
 
 from pathlib import Path
 from eoread.utils.graphics import plot_srf
-from eoread.venus import Level1_VENUS, get_SRF
+from eoread.reader.venus import Level1_VENUS, get_SRF
 from . import generic
 from eoread import eo
 from . import conftest

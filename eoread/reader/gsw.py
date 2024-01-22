@@ -24,9 +24,9 @@ from dask import array as da, delayed
 from urllib.request import urlopen
 from urllib.error import HTTPError
 from threading import Lock
-from . import eo
-from .common import bin_centers
-from .raster import ArrayLike_GDAL
+from .. import eo
+from ..common import bin_centers
+from ..raster import ArrayLike_GDAL
 
 lock = Lock()
 

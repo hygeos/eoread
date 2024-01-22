@@ -2,28 +2,31 @@
 # -*- coding: utf-8 -*-
 
 '''
-List of VENµs bands:
+List of MSI bands:
 -----------------
 
-Band Use         Wavelength Bandwidth Resolution
-B1   Atmo Correc 420nm      40nm      5m
-B2   Aerosol     443nm      40nm      5m
-B3   Water       490nm      40nm      5m
-B4   Land        555nm      40nm      5m
-B5   Vege Index  620nm      40nm      5m
-B6   Image quali 620nm      40nm      5m
-B7   Red Edge 1  667nm      30nm      5m
-B8   Red Edge 2  702nm      24nm      5m
-B9   Red Edge 3  742nm      16nm      5m
-B10  Red Edge 4  782nm      16nm      5m
-B11  Vege Index  865nm      40nm      5m
-B12  Water vapor 910nm      20nm      5m
+Band Use         Wavelength Resolution
+B1   Aerosols    443nm      60m
+B2   Blue        490nm      10m
+B3   Green       560nm      10m
+B4   Red         665nm      10m
+B5   Red Edge 1  705nm      20m
+B6   Red Edge 2  740nm      20m
+B7   Red Edge 3  783nm      20m
+B8   NIR         842nm      10m
+B8a  Red Edge 4  865nm      20m
+B9   Water vapor 940nm      60m
+B10  Cirrus      1375nm     60m
+B11  SWIR 1      1610nm     20m
+B12  SWIR 2      2190nm     20m
 '''
 
-# https://www.eoportal.org/satellite-missions/venus#vssc-ven%C2%B5s-superspectral-camera
+
+# Update processing baseline 4.00
+# https://sentinels.copernicus.eu/web/sentinel/-/copernicus-sentinel-2-major-products-upgrade-upcoming
+
 
 from pathlib import Path
-from lxml import objectify
 
 import dask.array as da
 import numpy as np
@@ -31,91 +34,105 @@ import pandas as pd
 import pyproj
 import xarray as xr
 import rioxarray as rio
-from eoread.download import download_url
+from lxml import objectify
 
-from eoread.fileutils import mdir
+from .. import eo
+from ..common import DataArray_from_array, Interpolator, Repeat
+from ..utils.naming import naming, flags
 
-from . import eo
-from .common import DataArray_from_array, Interpolator, Repeat
-from .naming import naming, flags
-
-venus_band_names = {
-        420 : 'B1', 443 : 'B2',
-        490 : 'B3', 555 : 'B4',
-        620 : 'B5', 622 : 'B6',
-        667 : 'B7', 702 : 'B8',
-        742 : 'B9', 782 : 'B10', 
-        865 : 'B11', 910 : 'B12',
+msi_band_names = {
+        443 : 'B01', 490 : 'B02',
+        560 : 'B03', 665 : 'B04',
+        705 : 'B05', 740 : 'B06',
+        783 : 'B07', 842 : 'B08',
+        865 : 'B8A', 945 : 'B09',
+        1375: 'B10', 1610: 'B11',
+        2190: 'B12',
         }
 
 
-def Level1_VENUS(dirname,
+def Level1_MSI(dirname,
+               resolution='60',
                geometry=True,
                chunks=500,
                split=False):
     '''
-    Read an VENµs Level1 product as an xarray.Dataset
-    Formats the Dataset so that it contains the TOA reflectances,
+    Read an MSI Level1 product as an xarray.Dataset
+    Formats the Dataset so that it contains the TOA radiances, reflectances,
     the angles on the full grid, etc.
 
     Arguments:
-        resolution: '5' (in m)
+        resolution: '60', '20' or '10' (in m)
         geometry: whether to read the geometry
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds = xr.Dataset()
     dirname = Path(dirname).resolve()
+    assert isinstance(resolution, str)
+
+    if list(dirname.glob('GRANULE')):
+        granules = list((dirname/'GRANULE').glob('*'))
+        assert len(granules) == 1
+        granule_dir = granules[0]
+    else:
+        granule_dir = dirname
 
     # load xml file
-    xmlfiles = list((dirname/'DATA').glob('*.xml'))
-    assert len(xmlfiles) == 1
-    xmlfile = xmlfiles[0]
-    xmlroot = objectify.parse(str(xmlfile)).getroot()
-
-    # load main xml file
-    xmlfiles = list(dirname.glob('*.xml'))
+    xmlfiles = list(granule_dir.glob('*.xml'))
     assert len(xmlfiles) == 1
     xmlfile = xmlfiles[0]
     xmlgranule = objectify.parse(str(xmlfile)).getroot()
 
-    radiometric_info = xmlgranule.Radiometric_Informations
-    quantif = float(radiometric_info.REFLECTANCE_QUANTIFICATION_VALUE)
-    resolution = int(xmlgranule.Radiometric_Informations.Spectral_Band_Informations_List.Spectral_Band_Informations.SPATIAL_RESOLUTION)
+    # load main xml file
+    xmlfile = granule_dir.parent.parent/'MTD_MSIL1C.xml'
+    xmlroot = objectify.parse(str(xmlfile)).getroot()
+    product_image_characteristics = xmlroot.General_Info.find('Product_Image_Characteristics')
+    quantif = float(product_image_characteristics.QUANTIFICATION_VALUE)
+    processing_baseline = xmlroot.General_Info.find('Product_Info').PROCESSING_BASELINE.text
+    if float(processing_baseline) >= 4:
+        radio_offset_list = [
+            int(x)
+            for x in product_image_characteristics.Radiometric_Offset_List.RADIO_ADD_OFFSET]
+    else:
+        radio_offset_list = [0]*len(msi_band_names)
+
     # read date
-    ds.attrs['datetime'] = str(xmlgranule.Product_Characteristics.ACQUISITION_DATE)
-    geocoding = xmlgranule.Geoposition_Informations
-    tileangles = xmlgranule.Geometric_Informations.Angles_Grids_List
+    ds.attrs['datetime'] = str(xmlgranule.General_Info.find('SENSING_TIME'))
+    geocoding = xmlgranule.Geometric_Info.find('Tile_Geocoding')
+    tileangles = xmlgranule.Geometric_Info.find('Tile_Angles')
 
     # get platform
-    ds.attrs['tile_id'] = xmlroot.Scene_Useful_Image_Informations.SCENE_ID.text
-    # ds.attrs['crs'] = xmlgranule.Geoposition_Informations.Coordinate_Reference_System
-    platform = xmlgranule.Product_Characteristics.PLATFORM.text
-    assert platform in ['VENUS']
+    tile_id = str(xmlgranule.General_Info.find('TILE_ID')[0])
+    platform = tile_id[:3]
+    assert platform in ['S2A', 'S2B']
 
     # read image size for current resolution
-    shape_info = xmlgranule.Geoposition_Informations.Geopositioning.Group_Geopositioning_List
-    ds.attrs[naming.totalheight] = int(shape_info.Group_Geopositioning.NROWS)
-    ds.attrs[naming.totalwidth] = int(shape_info.Group_Geopositioning.NCOLS)
+    for e in geocoding.findall('Size'):
+        if e.attrib['resolution'] == str(resolution):
+            ds.attrs[naming.totalheight] = int(e.find('NROWS').text)
+            ds.attrs[naming.totalwidth] = int(e.find('NCOLS').text)
+            break
 
     # attributes
     ds.attrs[naming.platform] = platform
     ds.attrs['resolution'] = resolution
-    ds.attrs[naming.sensor] = 'VENUS'
+    ds.attrs[naming.sensor] = 'MSI'
     ds.attrs[naming.product_name] = dirname.name
     ds.attrs[naming.input_directory] = str(dirname.parent)
 
     # lat-lon
-    venus_read_latlon(ds, geocoding, chunks)
+    msi_read_latlon(ds, geocoding, chunks)
 
-    # venus_read_geometry
+    # msi_read_geometry
     if geometry:
-        venus_read_geometry(ds, tileangles, chunks)
+        msi_read_geometry(ds, tileangles, chunks)
 
-    # venus_read_toa
-    ds = venus_read_toa(ds, dirname, quantif, split, chunks)
+    # msi_read_toa
+    ds = msi_read_toa(ds, granule_dir, quantif,
+                      radio_offset_list, split, chunks)
 
     # read spectral information
-    venus_read_spectral(ds, radiometric_info)
+    msi_read_spectral(ds)
 
     # flags
     ds[naming.flags] = xr.zeros_like(
@@ -131,7 +148,7 @@ def Level1_VENUS(dirname,
     return ds
 
 
-def venus_read_latlon(ds, geocoding, chunks):
+def msi_read_latlon(ds, geocoding, chunks):
     ds[naming.lat] = DataArray_from_array(
         LATLON(geocoding, 'lat', ds),
         naming.dim2,
@@ -145,17 +162,17 @@ def venus_read_latlon(ds, geocoding, chunks):
     )
 
 
-def venus_read_toa(ds, granule_dir, quantif, split, chunks):
+def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
 
-    for k, v in venus_band_names.items():
-        filenames = list(granule_dir.glob(f'*REF_{v}.tif'))
+    for iband, (k, v) in enumerate(msi_band_names.items()):
+        filenames = list((granule_dir/'IMG_DATA').glob(f'*_{v}.jp2'))
         assert len(filenames) == 1
         filename = filenames[0]
 
-        arr = (rio.open_rasterio(
+        arr = ((rio.open_rasterio(
             filename,
             chunks=chunks,
-        )/quantif).astype('float32')
+        ) + radio_add_offset[iband])/quantif).astype('float32')
         arr = arr.squeeze('band')
         arr = arr.drop('x').drop('y')
 
@@ -193,11 +210,23 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
     return ds
 
 
-def venus_read_spectral(ds, radiometric_info):
+def msi_read_spectral(ds):
+    # read srf
+    dir_aux_msi = Path(__file__).parent/'auxdata'/'msi'
+    platform = ds.attrs['platform']
+    srf_file = dir_aux_msi/f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv'
+
+    assert srf_file.exists(), srf_file
+
+    srf_data = pd.read_csv(srf_file)
+    wav = srf_data.SR_WL
+
     wav_data = []
 
-    for s in radiometric_info.Spectral_Band_Informations_List.Spectral_Band_Informations:
-        wav_eq = int(s.Wavelength.CENTRAL)
+    for b, bn in msi_band_names.items():
+        col = platform + '_SR_AV_' + bn.replace('B0', 'B')
+        srf = srf_data[col]
+        wav_eq = np.trapz(wav*srf)/np.trapz(srf)
         wav_data.append(wav_eq)
 
     ds['wav'] = xr.DataArray(
@@ -206,23 +235,22 @@ def venus_read_spectral(ds, radiometric_info):
     ).chunk({naming.bands: 1})
 
 
-def venus_read_geometry(ds, tileangles, chunks):
+def msi_read_geometry(ds, tileangles, chunks):
 
     # read solar angles at tiepoints
-    sza = read_xml_block(tileangles.find('Sun_Angles_Grids').find('Zenith').find('Values_List'))
-    saa = read_xml_block(tileangles.find('Sun_Angles_Grids').find('Azimuth').find('Values_List'))
+    sza = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Zenith').find('Values_List'))
+    saa = read_xml_block(tileangles.find('Sun_Angles_Grid').find('Azimuth').find('Values_List'))
 
     shp = (ds.totalheight, ds.totalwidth)
 
     # read view angles (for each band)
     vza = {}
     vaa = {}
-    via_list = tileangles.find('Viewing_Incidence_Angles_Grids_List').find('Band_Viewing_Incidence_Angles_Grids_List')
-    for e in via_list.find('Viewing_Incidence_Angles_Grids'):
+    for e in tileangles.findall('Viewing_Incidence_Angles_Grids'):
 
         # read zenith angles
         data = read_xml_block(e.find('Zenith').find('Values_List'))
-        bandid = int(e.attrib['detector_id'])
+        bandid = int(e.attrib['bandId'])
         if bandid not in vza:
             vza[bandid] = data
         else:
@@ -231,7 +259,7 @@ def venus_read_geometry(ds, tileangles, chunks):
 
         # read azimuth angles
         data = read_xml_block(e.find('Azimuth').find('Values_List'))
-        bandid = int(e.attrib['detector_id'])
+        bandid = int(e.attrib['bandId'])
         if bandid not in vaa:
             vaa[bandid] = data
         else:
@@ -278,16 +306,18 @@ class LATLON:
     def __init__(self, geocoding, kind, ds):
         self.kind = kind
 
-        code = geocoding.Coordinate_Reference_System.Horizontal_Coordinate_System.HORIZONTAL_CS_CODE
+        code = geocoding.find('HORIZONTAL_CS_CODE').text
 
-        self.proj = pyproj.Proj('EPSG:{}'.format(code))
+        # self.proj = pyproj.Proj('EPSG:{}'.format(code))
+        self.proj = pyproj.Proj('+init={}'.format(code))
 
         # lookup position in the UTM grid
-        geopos = geocoding.Geopositioning.Group_Geopositioning_List.Group_Geopositioning
-        ULX = int(geopos.ULX)
-        ULY = int(geopos.ULY)
-        XDIM = int(geopos.XDIM)
-        YDIM = int(geopos.YDIM)
+        for e in geocoding.findall('Geoposition'):
+            if e.attrib['resolution'] == ds.attrs['resolution']:
+                ULX = int(e.find('ULX').text)
+                ULY = int(e.find('ULY').text)
+                XDIM = int(e.find('XDIM').text)
+                YDIM = int(e.find('YDIM').text)
 
         assert (XDIM%2 == 0) and (YDIM%2 == 0)
         self.x = ULX + XDIM//2 + XDIM*np.arange(ds.totalheight)
@@ -319,31 +349,9 @@ class LATLON:
                 return np.array(lon, dtype=self.dtype)
 
 
-def get_SRF() -> xr.Dataset:
+def Level2_MSI(dirname):
     """
-    Load Venµs spectral response functions (SRF)
+    Read an MSI level2 product as xarray.Dataset
     """
-    dir_data = mdir(naming.dir_static/'venus')
-    url = 'https://labo.obs-mip.fr/wp-content-labo/uploads/sites/19/2018/09/rep6S.txt'
-    srf_file = download_url(url, dir_data)
-    nbands = 12
-    ibands = range(1, nbands+1)
-    df = pd.read_csv(
-        srf_file,
-        sep=None,
-        names=['wav_um', *ibands])
+    raise NotImplementedError
     
-    ds = xr.Dataset()
-    ds.attrs["desc"] = 'Spectral response functions for VENµS'
-
-    for bid in ibands:
-        ds[bid] = xr.DataArray(
-            df[bid].values,
-            dims=["wav"],
-            attrs={"band_info": f"VENUS band {bid}"},
-        )
-    
-    ds = ds.assign_coords(wav=df['wav_um'].values*1000)
-    ds['wav'].attrs["units"] = "nm"
-
-    return ds

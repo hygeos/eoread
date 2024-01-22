@@ -21,7 +21,7 @@ from eoread.uncompress import uncompress as uncomp, uncompress_decorator
 from ftplib import FTP, error_perm
 import fnmatch
 from .common import timeit
-from .fileutils import filegen
+from .utils.fileutils import filegen
 
 
 def download_url(url, dirname, wget_opts='',

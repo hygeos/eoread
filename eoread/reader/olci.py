@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-from pathlib import Path
 import xarray as xr
 import dask.array as da
 import os
@@ -10,12 +9,10 @@ import numpy as np
 from xml.dom.minidom import parse, parseString
 from datetime import datetime
 
-from eoread.fileutils import mdir
-
-from . import eo
-from .common import Interpolator, AtIndex
-from .naming import naming, flags
-from .common import DataArray_from_array
+from .. import eo
+from ..common import Interpolator, AtIndex
+from ..utils.naming import naming, flags
+from ..common import DataArray_from_array
 
 
 olci_band_names = {
@@ -48,24 +45,6 @@ central_wavelength_olci = {
     1020: 1015.9766, 1375: 1375.,
     1610: 1610., 2250: 2250.,
 }
-
-
-def get_sample(kind: str, dir_samples=None) -> Path:
-    from eoread.download_eumdac import download_eumdac
-    
-    pname = {
-        # France
-        'level1_fr': 'S3B_OL_1_EFR____20220616T101508_20220616T101808_20220617T153119'
-                     '_0179_067_122_2160_MAR_O_NT_002.SEN3',
-        # Rio de la Plata
-        'level2_fr': 'S3A_OL_2_WFR____20240115T131414_20240115T131714_20240115T145301'
-                     '_0179_108_038_3600_MAR_O_NR_003.SEN3'
-    }[kind]
-
-    target = mdir(dir_samples or naming.dir_samples)/pname
-    download_eumdac(target)
-    return target
-
 
 def Level1_OLCI(dirname,
                 chunks=500,
@@ -161,10 +140,6 @@ def read_OLCI(dirname,
         'legacy': for backward compatibility (nearest for azimuth angles, linear for zenith angles)
     '''
     ds = xr.Dataset()
-
-    dirname = Path(dirname)
-    if (dirname/dirname.name).exists():
-        dirname = (dirname/dirname.name)
 
     # read manifest file for file names and footprint
     manifest = read_manifest(dirname)
@@ -323,8 +298,6 @@ def read_OLCI(dirname,
     instrument_data = xr.open_dataset(instrument_data_file,
                                       chunks=chunks,
                                       mask_and_scale=False,
-                                      # this variable has duplicate dimensions, drop it
-                                      drop_variables='relative_spectral_covariance',
                                       engine=engine)
     if level == 'level2':
         instrument_data = instrument_data.rename({'bands': 'bands_full'})

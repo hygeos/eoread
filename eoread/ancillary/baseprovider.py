@@ -5,8 +5,8 @@ from math import floor, ceil
 from datetime import datetime, timedelta, date
 import xarray as xr
 
-from eoread.static import interface, abstract
-from eoread import eo
+from ..utils.static import interface, abstract
+from .. import eo
 from .nomenclature import Nomenclature
 
 

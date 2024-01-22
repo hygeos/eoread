@@ -6,8 +6,8 @@ Define and download test products defined in products.py
 """
 
 from pathlib import Path
-from eoread.naming import naming
-from eoread.download import download_multi
+from eoread.utils.naming import naming
+from .download import download_multi
 
 
 def product_getter(request):

@@ -5,7 +5,7 @@
 from tempfile import TemporaryDirectory
 import pytest
 from eoread.nasa import Level1_NASA, nasa_download
-from eoread.make_L1C import makeL1C
+from eoread.reader.make_L1C import makeL1C
 from eoread.sample_products import product_getter, get_sample_products
 from . import generic
 from .generic import indices, param

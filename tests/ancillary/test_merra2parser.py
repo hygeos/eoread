@@ -1,6 +1,6 @@
 from eoread.ancillary.merra2parser import Merra2Parser
 
-from eoread.cache import cache_json 
+from eoread.utils.cache import cache_json 
 
 from datetime import date
 from pathlib import Path

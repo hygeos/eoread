@@ -10,7 +10,7 @@ import dask.array as da
 from eoread.common import AtIndex, Repeat
 from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array, timeit
-from eoread.fileutils import PersistentList
+from eoread.utils.fileutils import PersistentList
 from eoread import eo
 from time import sleep
 from pathlib import Path
