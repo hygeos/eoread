@@ -96,6 +96,7 @@ class MERRA2(BaseProvider):
     
         self.names = Nomenclature(provider='MERRA2', csv_file=nomenclature_file)
     
+    
     @interface
     def download(self, variables: list[str], d: date, area: None|list=None) -> Path:
         """
@@ -184,7 +185,7 @@ class MERRA2(BaseProvider):
         # 'https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXAER.5.12.4/2015/07/MERRA2_400.tavg1_2d_aer_Nx.20150705.nc4'
         filename = self.config[self.model]['generic_filename'] % d.strftime('%Y%m%d')
         version = self.config[self.model]['version']
-        url = MERRA2.base_url + self.model + '.' + version + d.strftime('/%Y/%m/') + filename
+        url = self.base_url + self.model + '.' + version + d.strftime('/%Y/%m/') + filename
         
         # Download file
         session = requests.Session()

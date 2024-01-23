@@ -24,7 +24,7 @@ def test_get_datetime():
                     config_file=Path('tests/ancillary/inputs/merra2.json'),
                     )
         
-        ds = merra.get(variables=['cloud_cov', 'cloud_od'], dt=datetime(2023, 9, 10, 23, 35))
+        ds = merra.get(variables=['cloud_cov', 'cloud_od'], dt=datetime(2023, 9, 10, 22, 35))
         
         # check that the variables have been correctly renamed
         variables = list(ds)
