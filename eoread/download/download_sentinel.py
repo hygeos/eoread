@@ -91,12 +91,16 @@ class DownloadSentinel(DownloadBase):
                       prod_name: str,
                       token_keys,
                       zip_format: bool = False):
+        pbar = tqdm(total=0, unit_scale=True, unit="B",
+                    unit_divisor=1024, leave=False)
+
         # Initialize session for download
         session = requests.Session()
         session.headers.update({'Authorization': f'Bearer {token_keys}'})
         url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products({prod_id})/$value"
 
         # Try to request server
+        pbar.set_description('Try to request server')
         response = session.get(url, allow_redirects=False)
         niter = 0
         while response.status_code in (301, 302, 303, 307) and niter < 15:
@@ -112,6 +116,7 @@ class DownloadSentinel(DownloadBase):
         file_mode = "wb"
         downloaded_bytes = 0
         os.makedirs(self.save_dir, exist_ok=True)
+        pbar.set_description("Check if file exists")  
         filesize = int(response.headers.get("Content-Length"))
 
         if zip_format:
@@ -125,8 +130,9 @@ class DownloadSentinel(DownloadBase):
 
         # Download file
         response = self.request_get(session, url, verify=False, allow_redirects=True)
-        pbar = tqdm(total=filesize, unit_scale=True, unit="B", desc=f"Downloading {prod_name[:10]}",
+        pbar = tqdm(total=filesize, unit_scale=True, unit="B",
                     unit_divisor=1024, initial=downloaded_bytes, leave=False)
+        pbar.set_description(f"Downloading {prod_name[:10]}")
         with open(local_filename, file_mode) as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:

@@ -5,6 +5,7 @@ import os
 
 from tqdm import tqdm
 from pathlib import Path
+from zipfile import ZipFile 
 from datetime import datetime, timedelta
 
 from eoread.download.download_base import DownloadBase, UnauthorizedError
@@ -65,16 +66,19 @@ class DownloadEumetsat(DownloadBase):
         self.print_msg(f'Log to API ({self.url_api})')
 
     def download_prod(self, product):
-        pbar = tqdm(total=product.size, unit_scale=True, desc=f"Downloading {str(product)[5:15]}",
-                    unit_divisor=1024, initial=0, leave=False)
+        pbar = tqdm(total=product.size*1e3, unit_scale=True, unit="B",
+                    initial=0, unit_divisor=1024, leave=False)
+        pbar.set_description(f"Downloading {str(product)[5:15]}")
         os.makedirs(self.save_dir, exist_ok=True)
         with product.open() as fsrc, open(os.path.join(self.save_dir,fsrc.name), mode='wb') as fdst:
             while True:
                 chunk = fsrc.read(1024)
                 if not chunk:
-                    return os.path.join(self.save_dir,fsrc.name)
+                    break
                 fdst.write(chunk)
                 pbar.update(len(chunk))
+        
+        return os.path.join(self.save_dir,fsrc.name)
 
     def get(self, list_id: list = None, zip_format: bool = False): 
         self.print_msg('Start downloading')
@@ -83,12 +87,18 @@ class DownloadEumetsat(DownloadBase):
             pbar = tqdm(list_id, ncols=terminal_width)
         else:
             pbar = tqdm(self.product, ncols=terminal_width)
-        pbar.set_description("Download Sentinel files")
+        pbar.set_description("Download Eumetsat files")
 
         output_path = []       
         for product in pbar:
             filename = self.download_prod(product)
-            output_path.append(filename)
+            if zip_format:
+                output_path.append(filename)
+            else:
+                zip_file = ZipFile(filename, 'r')
+                zip_file.extractall(self.save_dir)
+                os.remove(filename)
+                output_path.append(os.path.join(self.save_dir, filename[:-4]))
         self.print_msg(f'All {len(pbar)} files have been successfully downloaded')
         return output_path
     

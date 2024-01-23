@@ -42,7 +42,7 @@ class DownloadLandsat(DownloadBase):
         
         self.max_cloud_cover = 100
         
-        credentials = self._get_auth("cr.usgs.gov")
+        credentials = self._get_auth("usgs.gov")
         self.client_id     = credentials['user']
         self.client_secret = credentials['password']
         self.api_url = "https://m2m.cr.usgs.gov/api/api/json/stable/"
@@ -124,8 +124,11 @@ class DownloadLandsat(DownloadBase):
         entity_id = str(self.list_product[self.list_product['displayId'] == scene]['entityId'].iloc[0])
         dataset_id_list = DATA_PRODUCTS[dataset]
 
+        pbar = tqdm(total=0, unit_scale=True, unit="B",
+                    unit_divisor=1024, leave=False)
         for i, dataset_id in enumerate(dataset_id_list):
             # Attempts to obtain a download url for each dataset  
+            pbar.set_description(f"Try of dataset {i+1} ... ")  
             url =  f"https://earthexplorer.usgs.gov/download/{dataset_id}/{entity_id}/EE/"
             r = self.session.get(url, allow_redirects=False, stream=True, timeout=300)
             r.raise_for_status()
@@ -137,9 +140,6 @@ class DownloadLandsat(DownloadBase):
             # get information about the file to be downloaded 
             response = self.request_get(self.session, download_url, stream=True, allow_redirects=True, timeout=300)
             filesize = int(response.headers.get("Content-Length"))
-            pbar = tqdm(total=filesize, unit_scale=True, unit="B",
-                        unit_divisor=1024, leave=False)
-            pbar.set_description(f"Downloading {scene[:10]}")  
             local_filename = response.headers["Content-Disposition"].split("=")[-1]
             local_filename = local_filename.replace('"', "")
             local_filename = os.path.join(self.save_dir, local_filename)
@@ -148,6 +148,7 @@ class DownloadLandsat(DownloadBase):
             headers = {}
             file_mode = "wb"
             file_exists = os.path.exists(local_filename)
+            pbar.set_description("Check if file exists")  
             if file_exists:
                 downloaded_bytes = os.path.getsize(local_filename)
                 headers = {"Range": f"bytes={downloaded_bytes}-"}
@@ -156,6 +157,8 @@ class DownloadLandsat(DownloadBase):
                     return local_filename
 
             # Download file
+            pbar.reset(total=filesize)
+            pbar.set_description(f"Downloading {scene[:10]}")  
             r = self.request_get(self.session, download_url, stream=True, 
                                  allow_redirects=True, headers=headers, timeout=300)
             with open(local_filename, file_mode) as f:
@@ -184,7 +187,7 @@ class DownloadLandsat(DownloadBase):
             pbar = tqdm(list_id, ncols=terminal_width)
         else:
             pbar = tqdm(self.list_product['displayId'], ncols=terminal_width)
-        pbar.set_description("Download Sentinel files")
+        pbar.set_description("Download Landsat files")
         
         # Download each scene
         output_path = []
