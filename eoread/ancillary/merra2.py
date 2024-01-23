@@ -66,7 +66,7 @@ class MERRA2(BaseProvider):
                               offline=offline, verbose=verbose, no_std=no_std)        
         
         
-        self.host = 'earthdata.nasa.gov' # server to download from
+        self.host = 'urs.earthdata.nasa.gov' # server to download from
         self.auth = dl.get_auth(self.host)    # credentials from netrc file
         self.base_url = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/' # base url for the OPeNDAP link
         # ex: https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXAER.5.12.4/2015/07/MERRA2_400.tavg1_2d_aer_Nx.20150705.nc4
