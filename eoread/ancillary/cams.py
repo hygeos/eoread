@@ -34,7 +34,7 @@ class CAMS(BaseProvider):
         
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
         
-        if np.min(ds.longitude) == -180 and np.max(ds.longitude) >= 179.0:
+        if np.min(ds.longitude) == -180 and 179.0 <= np.max(ds.longitude) < 180 :
             ds = eo.wrap(ds, 'longitude', -180, 180)
             
         return ds

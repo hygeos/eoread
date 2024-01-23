@@ -9,6 +9,10 @@ from ..utils.fileutils import filegen
 from ..utils.cache import cache_json 
 from .. import download_legacy as dl
 
+
+from .. import eo
+import numpy as np
+
 from .nomenclature import Nomenclature
 from .merra2parser import Merra2Parser
 
@@ -38,15 +42,16 @@ class MERRA2(BaseProvider):
     
     models = MERRA2_Models
     
-    host = 'urs.earthdata.nasa.gov' # server to download from
-    auth = dl.get_auth(host)        # credentials from netrc file
-    base_url = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/' # base url for the OPeNDAP link
-    # ex: https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXAER.5.12.4/2015/07/MERRA2_400.tavg1_2d_aer_Nx.20150705.nc4
     
     def standardize(self, ds):
         '''
         Modify a MERRA2 dataset variable names according to the name standard from nomenclature.py
         '''
+        
+        ds = ds.rename_dims({'lat': 'latitude', 'lon': 'longitude'})
+        
+        if np.min(ds.longitude) == -180 and 179.0 <= np.max(ds.longitude) < 180 :
+            ds = eo.wrap(ds, 'longitude', -180, 180)
             
         return self.names.rename_dataset(ds)
     
@@ -59,6 +64,13 @@ class MERRA2(BaseProvider):
         # call superclass constructor 
         BaseProvider.__init__(self, name=name, model=model, directory=directory, nomenclature_file=nomenclature_file, 
                               offline=offline, verbose=verbose, no_std=no_std)        
+        
+        
+        self.host = 'earthdata.nasa.gov' # server to download from
+        self.auth = dl.get_auth(self.host)    # credentials from netrc file
+        self.base_url = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/' # base url for the OPeNDAP link
+        # ex: https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXAER.5.12.4/2015/07/MERRA2_400.tavg1_2d_aer_Nx.20150705.nc4
+            
             
         self.model = model.__name__ # trick to allow autocompletion
         self.config_file = Path(config_file).resolve()
