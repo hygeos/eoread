@@ -7,7 +7,7 @@ from dateutil import parser
 import numpy as np
 from ..process import map_blocks
 from pathlib import Path
-from ..utils.hdf4 import load_hdf4
+from ..reader.hdf4 import load_hdf4
 from .. import eo
 import xarray as xr
 from ..utils.naming import naming, flags
