@@ -506,3 +506,13 @@ def trim_dims(A: xr.Dataset):
                             if len(group) > 1  # don't rename if not useful
                             ], []))
     return A.rename_dims(rename_dict)
+
+
+def only(iterable):
+    """If *iterable* has only one item, return it.
+    Otherwise raise a ValueError
+    """
+    x = list(iterable)
+    if len(x) != 1:
+        raise ValueError
+    return x[0] 
