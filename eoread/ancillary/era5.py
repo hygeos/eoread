@@ -2,7 +2,7 @@ from ..utils.fileutils import filegen
 from .nomenclature import Nomenclature
 from datetime import date
 from pathlib import Path
-from .. import eo
+from ..utils.tools import wrap
 
 # import ancillary.cdsapi_parser as cdsapi_parser
 import xarray as xr
@@ -37,8 +37,8 @@ class ERA5(BaseProvider):
         
         ds = self.names.rename_dataset(ds) # rename dataset according to nomenclature module
         
-        if np.min(ds.longitude) == -180 and np.max(ds.longitude) >= 179.0:
-            ds = eo.wrap(ds, 'longitude', -180, 180)
+        if np.min(ds.longitude) == -180 and 175.0 <= np.max(ds.longitude) < 180:
+            ds = wrap(ds, 'longitude', -180, 180)
         
         return ds
     

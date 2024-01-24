@@ -10,7 +10,8 @@ from ..utils.cache import cache_json
 from .. import download_legacy as dl
 
 
-from .. import eo
+from ..utils.tools import wrap
+
 import numpy as np
 
 from .nomenclature import Nomenclature
@@ -49,9 +50,10 @@ class MERRA2(BaseProvider):
         '''
         
         ds = ds.rename_dims({'lat': 'latitude', 'lon': 'longitude'})
+        ds = ds.rename_vars({'lat': 'latitude', 'lon': 'longitude'})
         
-        if np.min(ds.longitude) == -180 and 179.0 <= np.max(ds.longitude) < 180 :
-            ds = eo.wrap(ds, 'longitude', -180, 180)
+        if np.min(ds.longitude) == -180 and 175.0 <= np.max(ds.longitude) < 180 :
+            ds = wrap(ds, 'longitude', -180, 180)
             
         return self.names.rename_dataset(ds)
     
