@@ -27,6 +27,7 @@ B12  SWIR 2      2190nm     20m
 
 
 from pathlib import Path
+from typing import Optional
 
 import dask.array as da
 import numpy as np
@@ -36,7 +37,9 @@ import xarray as xr
 import rioxarray as rio
 from lxml import objectify
 
-from eoread.download_legacy import download_S2_google
+from eoread.download_legacy import download_S2_google, download_url
+from eoread.utils.config import load_config
+from eoread.utils.fileutils import mdir
 
 from ..utils.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat
@@ -214,8 +217,10 @@ def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
 
 def msi_read_spectral(ds):
     # read srf
-    dir_aux_msi = Path(__file__).parent/'auxdata'/'msi'
+    # TODO: deprecate in favour of get_SRF
+    dir_aux_msi = mdir(load_config()['dir_static']/'msi')
     platform = ds.attrs['platform']
+    get_SRF(platform)
     srf_file = dir_aux_msi/f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv'
 
     assert srf_file.exists(), srf_file
@@ -360,5 +365,40 @@ def Level2_MSI(dirname):
 
 def get_sample() -> Path:
     product_name = 'S2A_MSIL1C_20190419T105621_N0207_R094_T31UDS_20190419T130656'
-    return download_S2_google(product_name, naming.dir_samples)
+    return download_S2_google(product_name, load_config()['dir_samples'])
     
+
+
+def get_SRF(sensor: str, directory: Optional[Path]=None):
+    """
+    Get SRF for sensor (S2A or S2B)
+
+    directory: where to store the SRFs (default: to <dir_static>/msi)
+    """
+    url = {
+        "S2A": ('https://docs.hygeos.com/s/GCtYb4QsdLNtzES/download/'
+                'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_S2A.csv'),
+        "S2B": ('https://docs.hygeos.com/s/n7nPADJWs6CKkWM/download/'
+                'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_S2B.csv'),
+    }[sensor]
+    
+    srf_file = download_url(url, load_config()['dir_static']/'msi')
+
+    srf_data = pd.read_csv(srf_file)
+
+    ds = xr.Dataset()
+    ds.attrs["desc"] = f'Spectral response functions for MSI ({sensor})'
+    wav = srf_data.SR_WL
+
+    for col in [c for c in srf_data.columns
+                if c.startswith(sensor)]:
+        bindex = col.split('_')[-1]
+        ds[bindex] = xr.DataArray(
+            srf_data[col],
+            dims=["wav"],
+            attrs={"band_info": f"MSI band {bindex}"},
+        )
+    ds = ds.assign_coords(wav=wav)
+    ds['wav'].attrs["units"] = "nm"
+
+    return ds
