@@ -80,13 +80,21 @@ def test_subset(S2_product):
 
 
 def test_plot(request):
-    l1 = Level1_VENUS(product)
-    plt.imshow(
-        l1.Rtoa.sel(bands=865),
-        vmin=0, vmax=0.5)
-    plt.colorbar()
+    ds = Level1_VENUS(product)
+    eo.init_geometry(ds)
 
-    conftest.savefig(request)
+    for desc, data in [
+        ("rho_toa865", ds.Rtoa.sel(bands=865)),
+        ('latitude', ds.latitude),
+        ('longitude', ds.longitude),
+        ('sza', ds.sza),
+        ('vza', ds.vza),
+        ('raa', ds.raa),
+    ]:
+        plt.figure()
+        plt.title(desc)
+        data.thin(x=10, y=10).plot()
+        conftest.savefig(request)
 
 
 def test_srf(request):
