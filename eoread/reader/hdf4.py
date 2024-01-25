@@ -14,7 +14,7 @@ import numpy as np
 from pyhdf.SD import SD, SDC
 
 from ..common import DataArray_from_array
-from .. import eo
+from eoread.utils import tools
 
 
 def clean_attrs(A):
@@ -69,7 +69,7 @@ def load_hdf4(filename, trim_dims=False, chunks=1000):
     ds.attrs.update(clean_attrs(hdf.attributes()))
 
     if trim_dims:
-        return eo.trim_dims(ds)
+        return tools.trim_dims(ds)
     else:
         return ds
 

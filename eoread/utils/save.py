@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import xarray as xr
 import numpy as np
+from typing import Union
 
 from pathlib import Path
 from contextlib import contextmanager
@@ -18,8 +19,8 @@ from .naming import naming
 
 
 def to_netcdf(ds: xr.Dataset, *,
-              filename: str = None,
-              dirname: str = None,
+              filename: Union[str, Path] = None,
+              dirname: Union[str, Path] = None,
               product_name: str = None,
               ext: str = '.nc',
               product_name_attr: str = 'product_name',

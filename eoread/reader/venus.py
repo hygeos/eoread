@@ -274,7 +274,7 @@ def read_xml_block(item):
 
 class LATLON:
     '''
-    An array-like to calculate the MSI lat-lon
+    An array-like to calculate the VENUS lat-lon
     '''
     def __init__(self, geocoding, kind, ds):
         self.kind = kind

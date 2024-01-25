@@ -12,10 +12,8 @@ from sentinelsat import SentinelAPI
 import subprocess
 from netrc import netrc
 import threading
-from typing import Union
-
+from typing import Union, Dict
 from tqdm import tqdm
-
 from eoread.download_S2 import get_sentinel2_image
 from eoread.utils.uncompress import uncompress as uncomp
 from ftplib import FTP, error_perm
@@ -28,7 +26,7 @@ def download_url(url, dirname, wget_opts='',
                  check_function=None,
                  verbose=True,
                  **kwargs
-                 ):
+                 ) -> Path:
     """
     Download `url` to `dirname` with wget
 
@@ -90,7 +88,7 @@ def get_auth_dhus(name):
             'api_url': api_url}
 
 
-def get_auth_ftp(name):
+def get_auth_ftp(name) -> Dict:
     """
     get netrc credentials for use with pyfilesystem's
     FTPFS or ftplib's FTP
@@ -244,7 +242,10 @@ def download_S2_google(product, dirname, **kwargs) -> Path:
 
 
 @filegen(1)
-def ftp_download(ftp: FTP, file_local: Path, dir_server: str, verbose=True):
+def ftp_download(ftp: FTP,
+                 file_local: Path,
+                 dir_server: Union[str, Path],
+                 verbose=True):
     """
     Downloads `file_local` on ftp, from server directory `dir_server`
 

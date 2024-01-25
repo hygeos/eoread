@@ -468,7 +468,7 @@ def chunk(ds: xr.Dataset, **kwargs):
 
 def trim_dims(A: xr.Dataset):
     """
-    Trims the dimensions of Dataset A
+    Trim the dimensions of Dataset A
     
     Rename all possible dimensions to avoid duplicate dimensions with same sizes
     Avoid any DataArray with duplicate dimensions

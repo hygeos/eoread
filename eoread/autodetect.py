@@ -12,12 +12,12 @@ import re
 
 def Level1(path: Path, **kwargs) -> xr.Dataset:
     if re.match("^S3[AB]_OL_1_EFR____.*", path.name):
-        from eoread.olci import Level1_OLCI
+        from eoread.reader.olci import Level1_OLCI
 
         return Level1_OLCI(path, **kwargs)
 
     elif re.match("^S2[AB]_MSIL1C_.*", path.name):
-        from eoread.msi import Level1_MSI
+        from eoread.reader.msi import Level1_MSI
 
         return Level1_MSI(path, **kwargs)
 
@@ -27,7 +27,7 @@ def Level1(path: Path, **kwargs) -> xr.Dataset:
 
 def Level2(path: Path, **kwargs) -> xr.Dataset:
     if re.match("^S3[AB]_OL_2_WFR____.*", path.name):
-        from eoread.olci import Level2_OLCI
+        from eoread.reader.olci import Level2_OLCI
 
         return Level2_OLCI(path, **kwargs)
 
