@@ -359,7 +359,7 @@ def mdir(directory: Union[Path,str],
             raise FileNotFoundError(
                 f'Directory {d} does not exist, '
                 'please create it [mdir(..., create=False)]')
-        d.mkdir()
+        d.mkdir(parents=True)
         data = data_init
         modified = True
     else:
