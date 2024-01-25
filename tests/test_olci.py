@@ -8,6 +8,7 @@ from eoread.autodetect import Level1, Level2
 from eoread.reader.olci import get_valid_l2_pixels
 from eoread.reader import olci
 from eoread import eo
+from eoread.utils.tools import chunk, contains
 from . import generic
 from .generic import param, indices, scheduler  # noqa (fixtures)
 from .conftest import savefig
@@ -20,16 +21,16 @@ olci_level2 = pytest.fixture(lambda: get_sample('level2_fr'))
 def test_olci_level1(olci_level1):
     ds = Level1(olci_level1)
 
-    ds = eo.chunk(ds, bands=-1)
+    ds = chunk(ds, bands=-1)
     ds.chunks    # check that it returned valid chunks
 
     # test method contains
     lat = ds.latitude[100, 100]
     lon = ds.longitude[100, 100]
-    assert eo.contains(ds, lat, lon)
-    assert not eo.contains(ds, lat, lon+180)
+    assert contains(ds, lat, lon)
+    assert not contains(ds, lat, lon+180)
 
-    assert 'total_ozone' in ds
+    assert 'total_column_ozone' in ds
     assert 'sea_level_pressure' in ds
     assert 'total_columnar_water_vapour' in ds
 

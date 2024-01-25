@@ -8,8 +8,8 @@ import numpy as np
 from xml.dom.minidom import parseString
 from datetime import datetime
 from pathlib import Path
+from eoread.utils.config import load_config
 
-from eoread.utils.fileutils import mdir
 
 from ..eo import init_Rtoa
 from ..utils.tools import getflags, raiseflag
@@ -62,7 +62,7 @@ def get_sample(kind: str, dir_samples=None) -> Path:
                      '_0179_108_038_3600_MAR_O_NR_003.SEN3'
     }[kind]
 
-    target = mdir(dir_samples or naming.dir_samples)/pname
+    target = load_config()["dir_samples"]/pname
     download_eumdac(target)
     return target
 
@@ -207,8 +207,8 @@ def read_OLCI(dirname,
     ds.attrs.update(geo.attrs)
 
     # dimensions
-    dims2 = naming.dim2
-    dims3 = naming.dim3
+    dims2 = ('rows', 'columns')
+    dims3 = ('bands', 'rows', 'columns')
     if level == 'level1':
         dims3_full = ('bands', 'rows', 'columns')
     else:
@@ -224,10 +224,10 @@ def read_OLCI(dirname,
                 tie_columns=np.arange(tie_ds.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows=np.arange(tie_ds.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
-    assert tie_ds.tie_columns[0] == ds.x[0]
-    assert tie_ds.tie_columns[-1] == ds.x[-1]
-    assert tie_ds.tie_rows[0] == ds.y[0]
-    assert tie_ds.tie_rows[-1] == ds.y[-1]
+    assert tie_ds.tie_columns[0] == ds.columns[0]
+    assert tie_ds.tie_columns[-1] == ds.columns[-1]
+    assert tie_ds.tie_rows[0] == ds.rows[0]
+    assert tie_ds.tie_rows[-1] == ds.rows[-1]
 
     if interp_angles == 'linear':
         interp_aa = 'linear'
@@ -276,10 +276,10 @@ def read_OLCI(dirname,
                 tie_columns = np.arange(tie.dims['tie_columns'])*ds.ac_subsampling_factor,
                 tie_rows = np.arange(tie.dims['tie_rows'])*ds.al_subsampling_factor,
                 )
-    assert tie.tie_columns[0] == ds.x[0]
-    assert tie.tie_columns[-1] == ds.x[-1]
-    assert tie.tie_rows[0] == ds.y[0]
-    assert tie.tie_rows[-1] == ds.y[-1]
+    assert tie.tie_columns[0] == ds.columns[0]
+    assert tie.tie_columns[-1] == ds.columns[-1]
+    assert tie.tie_rows[0] == ds.rows[0]
+    assert tie.tie_rows[-1] == ds.rows[-1]
     
     wind0 = DataArray_from_array(
         Interpolator(
@@ -299,24 +299,26 @@ def read_OLCI(dirname,
     )
     ds[naming.horizontal_wind] = np.sqrt(wind0**2 + wind1**2)
     ds[naming.horizontal_wind].attrs = tie[naming.horizontal_wind].attrs
-    variables = [
-        'humidity',
-        naming.sea_level_pressure,
-        naming.total_columnar_water_vapour,
-        naming.total_column_ozone]
-    for var in variables:
-        ds[var] = DataArray_from_array(
-            Interpolator(shape2, tie[var]),
+    for var_from, var_to in [
+        ('humidity', 'humidity'),
+        (naming.sea_level_pressure, naming.sea_level_pressure),
+        (naming.total_columnar_water_vapour, naming.total_columnar_water_vapour),
+        ('total_ozone', naming.total_column_ozone)
+        ]:
+        ds[var_to] = DataArray_from_array(
+            Interpolator(shape2, tie[var_from]),
             dims2,
             chunks,
         )
-        ds[var].attrs = tie[var].attrs
+        ds[var_to].attrs = tie[var_from].attrs
         if tie_param:
-            ds[var+'_tie'] = tie[var]
+            ds[var_to+'_tie'] = tie[var_from]
 
     # check subsampling factors
-    assert (ds.dims['columns']-1) == ds.ac_subsampling_factor*(tie_ds.dims['tie_columns']-1)
-    assert (ds.dims['rows']-1) == ds.al_subsampling_factor*(tie_ds.dims['tie_rows']-1)
+    assert ((ds.dims['columns']-1)
+            == ds.ac_subsampling_factor*(tie_ds.dims['tie_columns']-1))
+    assert ((ds.dims['rows']-1)
+            == ds.al_subsampling_factor*(tie_ds.dims['tie_rows']-1))
 
     # instrument data
     instrument_data_file = os.path.join(dirname, 'instrument_data.nc')
@@ -389,7 +391,10 @@ def read_OLCI(dirname,
     if init_spectral:
         olci_init_spectral(ds, chunks)
 
-    return ds
+    return ds.rename({
+        'columns': naming.columns,
+        'rows': naming.rows,
+        })
 
 def olci_init_spectral(ds, chunks):
     '''
