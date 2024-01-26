@@ -291,8 +291,8 @@ class LATLON:
         YDIM = int(geopos.YDIM)
 
         assert (XDIM%2 == 0) and (YDIM%2 == 0)
-        self.x = ULX + XDIM//2 + XDIM*np.arange(ds.totalheight)
-        self.y = ULY + YDIM//2 + YDIM*np.arange(ds.totalwidth)
+        self.x = ULX + XDIM//2 + XDIM*np.arange(ds.totalwidth)
+        self.y = ULY + YDIM//2 + YDIM*np.arange(ds.totalheight)
 
         self.shape = (ds.totalheight, ds.totalwidth)
         self.ndim = 2

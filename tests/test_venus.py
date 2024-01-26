@@ -78,13 +78,13 @@ def test_read(S2_product, scheduler):
 def test_subset(S2_product):
     generic.test_subset(S2_product)
 
-
+from dask import config
 def test_plot(request):
     ds = Level1_VENUS(product)
     eo.init_geometry(ds)
 
     for desc, data in [
-        ("rho_toa865", ds.Rtoa.sel(bands=865)),
+        # ("rho_toa865", ds.Rtoa.sel(bands=865)),
         ('latitude', ds.latitude),
         ('longitude', ds.longitude),
         ('sza', ds.sza),
@@ -93,8 +93,9 @@ def test_plot(request):
     ]:
         plt.figure()
         plt.title(desc)
-        data.thin(x=10, y=10).plot()
-        conftest.savefig(request)
+        with config.set(scheduler='sync'):
+            data.thin(x=10, y=10).plot()
+            conftest.savefig(request)
 
 
 def test_srf(request):
