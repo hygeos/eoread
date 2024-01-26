@@ -41,7 +41,8 @@ def interp(aux: xr.DataArray,
                  }).reset_coords(drop=True)
 
     # Check that aux is not dask-based
-    assert aux.chunks is None, 'Auxiliary DataArray should not be dask-based'
+    assert (aux.chunks is None) or (len(aux.chunks) == 0), \
+        'Auxiliary DataArray should not be dask-based'
 
     first_dim = list(dims.values())[0]
     template = template or ds_coords[first_dim].reset_coords(drop=True)
