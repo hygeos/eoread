@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, date
 import xarray as xr
 
 from ..utils.static import interface, abstract
-from .. import eo
 from .nomenclature import Nomenclature
 
 

@@ -32,10 +32,6 @@ This allows the module to find the local data first, if it exists, and return it
 The module also document this process by writing to the **attrs['history']** attribute of the DataArray.
 
 
-## Dependencies
-
-    /!\ TODO
-
 ## Requirements
 
 #### MERRA2:
@@ -73,6 +69,8 @@ Require an account at the ADS from Copernicus: https://ads.atmosphere.copernicus
     from eoread.ancillary import MERRA2
     from eoread.ancillary import ERA5
     from eoread.ancillary import CAMS
+    
+    from datetime import date, datetime
 ~~~
     
 ### Instantiate:
@@ -114,10 +112,10 @@ variables = ['total_column_water_vapor']
 ds = era5.get(variables, dt=datetime(2013, 11, 30, 13, 35))
 
 # get full day of data
-ds = era5.get_day(variables, dt=datetime(2013, 11, 30, 13, 35))
+ds = era5.get_day(variables, dt=date(2013, 11, 30,))
 
 # get severals days of data
-ds = era5.get_day(variables, date_start=date(2020, 3, 22), date_end=date(2020, 3, 23)))
+ds = era5.get_range(variables, date_start=date(2020, 3, 21), date_end=date(2020, 3, 23)))
 ~~~
 
 **Optionnal parameters:**
@@ -128,7 +126,7 @@ example:
 
 ~~~python
 # query data for lat E [15.3, .., 17.5] and lon E [-11.3, .., -10.1]
-ds = era5.get_day(variables, dt=datetime(2013, 11, 30, 13, 35),   area = [17.5, -11.3, 15.3, -10.1])
+ds = era5.get_day(variables, dt=date(2013, 11, 30),   area = [17.5, -11.3, 15.3, -10.1])
 ~~~
 
 ### Switching provider:
@@ -137,13 +135,13 @@ Because the interfaces are unified and since **ERA5**, **CAMS** and **MERRA2** a
 
 ~~~python
 # get full day of data from era5
-ds = era5.get_day(variables, dt=datetime(2013, 11, 30, 13, 35))
+ds = era5.get_day(variables, dt=date(2013, 11, 30))
 
 # get full day of data from cams
-ds = cams.get_day(variables, dt=datetime(2013, 11, 30, 13, 35))
+ds = cams.get_day(variables, dt=date(2013, 11, 30))
 
 # get full day of data from merra2
-ds = merra2.get_day(variables, dt=datetime(2013, 11, 30, 13, 35))
+ds = merra2.get_day(variables, dt=date(2013, 11, 30))
  ~~~
 
 
