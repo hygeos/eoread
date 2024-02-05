@@ -11,6 +11,11 @@ from numpy import cos, radians, sqrt
 
 from .utils.naming import naming
 
+# backward compatibility:
+from eoread.utils.tools import raiseflag, getflag # noqa
+from eoread.utils.tools import merge, split, sub, sub_rect, sub_pt # noqa
+from eoread.utils.tools import wrap, locate, contains, haversine # noqa
+
 
 def init_Rtoa(ds: xr.Dataset):
     '''

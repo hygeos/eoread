@@ -1,0 +1,1 @@
+from eoread.reader.hdf4 import load_hdf4   # backward compatibility

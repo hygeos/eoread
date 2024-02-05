@@ -1,0 +1,1 @@
+from eoread.utils.interpolate import interp # backward compatibility
