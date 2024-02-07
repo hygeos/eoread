@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+from typing import Optional
 import xarray as xr
 import os
 import numpy as np
@@ -50,9 +51,9 @@ central_wavelength_olci = {
 }
 
 
-def get_sample(kind: str, dir_samples=None) -> Path:
+def get_sample(kind: str, dir_samples: Optional[Path] = None) -> Path:
     from eoread.download_eumdac import download_eumdac
-    
+
     pname = {
         # France
         'level1_fr': 'S3B_OL_1_EFR____20220616T101508_20220616T101808_20220617T153119'
@@ -62,7 +63,9 @@ def get_sample(kind: str, dir_samples=None) -> Path:
                      '_0179_108_038_3600_MAR_O_NR_003.SEN3'
     }[kind]
 
-    target = load_config()["dir_samples"]/pname
+    if dir_samples is None:
+        dir_samples = load_config()["dir_samples"]
+    target = dir_samples/pname
     download_eumdac(target)
     return target
 
@@ -89,7 +92,6 @@ def Level1_OLCI(dirname,
         init_Rtoa(ds)
 
     return ds.unify_chunks()
-
 
 
 def Level2_OLCI(dirname,
