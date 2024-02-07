@@ -2,7 +2,7 @@ import pytest
 
 from os.path import exists
 from tempfile import TemporaryDirectory
-from eoread.download import DownloadSatellite
+from eoread.download.download import DownloadSatellite
 
 
 @pytest.mark.skip()
