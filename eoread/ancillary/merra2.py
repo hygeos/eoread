@@ -189,6 +189,15 @@ class MERRA2(BaseProvider):
         version = self.config[self.model]['version']
         url = self.base_url + self.model + '.' + version + d.strftime('/%Y/%m/') + filename
         
+        # backup in case original file doesn't exists -> it has been reprocessed
+        url_bis = url.replace('400', '401') # file is reprocessed, not original 
+        
+        r1 = requests.get(url+'.xml')
+        if r1.status_code == 404:
+            r2 = requests.get(url_bis+'.xml')
+            if r2.status_code == 200:
+                url = url_bis
+        
         # Download file
         session = requests.Session()
         session = setup_session(self.auth['user'], self.auth['password'], check_url=url)
