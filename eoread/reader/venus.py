@@ -115,9 +115,6 @@ def Level1_VENUS(dirname,
     # venus_read_toa
     ds = venus_read_toa(ds, dirname, quantif, split, chunks)
 
-    # read spectral information
-    venus_read_spectral(ds, radiometric_info)
-
     # flags
     ds[naming.flags] = xr.zeros_like(
         ds.vza,
@@ -192,19 +189,6 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
         ds = merge(ds, dim=naming.bands)
 
     return ds
-
-
-def venus_read_spectral(ds, radiometric_info):
-    wav_data = []
-
-    for s in radiometric_info.Spectral_Band_Informations_List.Spectral_Band_Informations:
-        wav_eq = int(s.Wavelength.CENTRAL)
-        wav_data.append(wav_eq)
-
-    ds['wav'] = xr.DataArray(
-        da.from_array(wav_data),
-        dims=(naming.bands),
-    ).chunk({naming.bands: 1})
 
 
 def venus_read_geometry(ds, tileangles, chunks):
@@ -320,9 +304,13 @@ class LATLON:
                 return np.array(lon, dtype=self.dtype)
 
 
-def get_SRF(dir_data: Optional[Path]=None) -> xr.Dataset:
+def get_SRF(
+    ds_in: Optional[xr.Dataset] = None, dir_data: Optional[Path] = None
+) -> xr.Dataset:
     """
     Load Venµs spectral response functions (SRF)
+
+    If ds_in is provided, the output bands are references by ds_in.bands
     """
     if dir_data is None:
         dir_data = mdir(load_config()['dir_static']/'venus')
@@ -335,17 +323,22 @@ def get_SRF(dir_data: Optional[Path]=None) -> xr.Dataset:
         srf_file,
         sep=None,
         names=['wav_um', *ibands])
-    
+
     ds = xr.Dataset()
     ds.attrs["desc"] = 'Spectral response functions for VENµS'
 
-    for bid in ibands:
-        ds[bid] = xr.DataArray(
-            df[bid].values,
+    if ds_in is None:
+        bids = ibands
+    else:
+        assert len(ds_in.bands) == nbands
+        bids = ds_in.bands.values
+    for i in range(nbands):
+        ds[bids[i]] = xr.DataArray(
+            df[ibands[i]].values,
             dims=["wav"],
-            attrs={"band_info": f"VENUS band {bid}"},
+            attrs={"band_info": f"VENUS band {bids[i]}"},
         )
-    
+
     ds = ds.assign_coords(wav=df['wav_um'].values*1000)
     ds['wav'].attrs["units"] = "nm"
 
