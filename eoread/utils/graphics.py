@@ -7,7 +7,7 @@ def plot_srf(srf: xr.Dataset):
     Plot a SRF Dataset
     """
     plt.figure()
-    for iband in sorted(srf.data_vars):
+    for iband in srf.data_vars:
         srf[iband].plot(label=iband)
         for coord in srf[iband].coords:
             assert "units" in srf[coord].attrs

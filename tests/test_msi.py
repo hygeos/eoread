@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 import xarray as xr
 from eoread.download_legacy import download_S2_google, download_sentinelapi
-from eoread.reader.msi import Level1_MSI, get_sample
+from eoread.reader.msi import Level1_MSI, get_sample, get_SRF
+from eoread.utils.graphics import plot_srf
 from . import generic
 from eoread import eo
 from . import conftest
@@ -129,4 +130,11 @@ def level2_msi(request):
 
 def test_level2(request, level2_msi: Path):
     assert level2_msi.exists()
+
+
+@pytest.mark.parametrize('sensor', ["S2A", "S2B"])
+def test_srf(sensor, request):
+    srf = get_SRF(sensor)
+    plot_srf(srf)
+    conftest.savefig(request, bbox_inches="tight")
     

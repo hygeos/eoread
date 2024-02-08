@@ -37,12 +37,12 @@ def download_url(url, dirname, wget_opts='',
     Returns the path to the downloaded file
     """
     target = Path(dirname)/(Path(url).name)
-    if verbose:
-        print('Downloading:', url)
-        print('To: ', target)
-    
     @filegen(**kwargs)
     def download_target(path):
+        if verbose:
+            print('Downloading:', url)
+            print('To: ', target)
+
         cmd = f'wget {wget_opts} {url} -O {path}'
         # Detect access problem
         ret = subprocess.call(cmd.split())
