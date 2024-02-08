@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 import pytest
 import xarray as xr
 
-product = Path('/archive2/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
+product = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):
