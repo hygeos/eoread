@@ -23,6 +23,9 @@ from pathlib import Path
 from dask import array as da
 from urllib.request import urlopen
 from threading import Lock
+
+from eoread.utils.config import load_config
+from eoread.utils.fileutils import mdir
 from ..common import bin_centers
 from ..raster import ArrayLike_GDAL
 from ..utils.save import to_netcdf
@@ -53,9 +56,7 @@ class GSW_tile:
         self.filename = dir_/f'occurrence_{tile_name}_{agg}.nc'
 
     def __getitem__(self, key):
-        if self.filename.exists():
-            A = xr.open_dataset(self.filename, chunks={}).occurrence
-        else:
+        if not self.filename.exists():
             A = xr.DataArray(
                 aggregate(
                     fetch_gsw_tile(self.tile_name,
@@ -76,7 +77,8 @@ class GSW_tile:
                 ds,
                 filename=self.filename)
 
-        return A[key]
+        A = xr.open_dataset(self.filename, chunks={}).occurrence
+        return A[key].compute(scheduler='sync').values
 
 
 def read_tile(tile_name, agg, directory, use_gdal=False):
@@ -152,7 +154,7 @@ def fetch_gsw_tile(tile_name, verbose=True, use_gdal=False):
     return data
 
 
-def GSW(directory='data_landmask_gsw',
+def GSW(directory=None,
         agg=1,
         use_gdal=False):
     """
@@ -179,6 +181,9 @@ def GSW(directory='data_landmask_gsw',
 
     A xarray.DataArray of the water occurrence between 0 and 100
     """
+    if directory is None:
+        directory = mdir(load_config()['dir_ancillary']/'GSW')
+
     lats, lons = list_tiles()
 
     # concat the delayed dask objects for all tiles
@@ -189,7 +194,6 @@ def GSW(directory='data_landmask_gsw',
                                   use_gdal=use_gdal)
                         for lat in lats[::-1]], axis=0)
         for lon in lons], axis=1)
-
 
     return xr.DataArray(
         gsw,
