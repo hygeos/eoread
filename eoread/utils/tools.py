@@ -6,6 +6,7 @@ Various utility functions for modifying xarray object
 '''
 
 import re
+from typing import Union, overload
 import xarray as xr
 import numpy as np
 
@@ -516,3 +517,60 @@ def only(iterable):
     if len(x) != 1:
         raise ValueError
     return x[0] 
+
+
+@overload
+def xrcrop(A: xr.Dataset, **kwargs) -> xr.Dataset: ...
+@overload
+def xrcrop(A: xr.DataArray, **kwargs) -> xr.DataArray: ...
+
+
+def xrcrop(
+    A: Union[xr.Dataset, xr.DataArray], **kwargs
+) -> Union[xr.Dataset, xr.DataArray]:
+    """
+    Crop a Dataset or DataArray along dimensions based on min/max values.
+    
+    For each dimension provided as kwarg, the min/max values along that dimension
+    can be provided:
+        - As a min/max tuple
+        - As a DataArrat, for which the min/max are computed
+
+    Ex: crop dimensions `latitude` and `longitude` of `gsw` based on the min/max
+        of ds.lat and ds.lon
+        gsw = xrcrop(
+            gsw,
+            latitude=ds.lat,
+            longitude=ds.lon,
+        )
+    
+    Note: the purpose of this function is to make it possible to .compute() the result
+    of the cropped data, thus allowing to perform a sel over large arrays (otherwise
+    extremely slow with dask based arrays).
+    """
+    isel_dict = {}
+    for k, v in kwargs.items():
+        if isinstance(v, tuple):
+            (vmin, vmax) = v
+            assert vmin < vmax
+        elif isinstance(v, xr.DataArray):
+            vmin = v.min().compute().item()
+            vmax = v.max().compute().item()
+        else:
+            raise TypeError
+        index = A.indexes[k]
+
+        # Get bracketing indices for vmin/vmax
+        if index.is_monotonic_increasing:
+            imin = max(0, index.get_slice_bound(vmin, "right") - 1)
+            imax = min(len(index), index.get_slice_bound(vmax, "left") + 1)
+        elif index.is_monotonic_decreasing:
+            imin = max(0, index.get_slice_bound(vmax, "right") - 1)
+            imax = min(len(index), index.get_slice_bound(vmin, "left") + 1)
+        else:
+            raise ValueError
+
+        assert imin < imax
+        isel_dict[k] = slice(imin, imax)
+
+    return A.isel(isel_dict)
