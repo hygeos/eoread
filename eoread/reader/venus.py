@@ -55,7 +55,7 @@ def Level1_VENUS(dirname,
                chunks=500,
                split=False):
     '''
-    Read an VENµs Level1 product as an xarray.Dataset
+    Read an Venµs Level1 product as an xarray.Dataset
     Formats the Dataset so that it contains the TOA reflectances,
     the angles on the full grid, etc.
 
@@ -64,18 +64,64 @@ def Level1_VENUS(dirname,
         geometry: whether to read the geometry
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
+    ds, params = venus_read_header(dirname)
+    quantif, geocoding, tileangles = params
+
+    # lat-lon
+    venus_read_latlon(ds, geocoding, chunks)
+
+    # read geaometry
+    if geometry:
+        venus_read_geometry(ds, tileangles, chunks)
+
+    # read TOA
+    ds = venus_read_toa(ds, dirname, quantif, split, chunks)
+    ds['wav'] = ds.bands
+    ds['wav'].attrs["units"] = "nm"
+
+    # flags
+    venus_read_invalid_pix(ds, dirname, chunks, level=1)
+
+    return ds
+
+
+def Level2_VENUS(dirname,
+                 chunks=500,
+                 split=False):
+    """
+    Read an Venµs level2 product as xarray.Dataset
+    """
+    ds, params = venus_read_header(dirname)
+    quantif, geocoding, tileangles = params
+
+    # lat-lon
+    venus_read_latlon(ds, geocoding, chunks)
+
+    # read geaometry
+    venus_read_geometry(ds, tileangles, chunks)
+
+    # read reflectances
+    ds = venus_read_rho(ds, dirname, quantif, split, chunks)
+
+    # flags
+    venus_read_invalid_pix(ds, dirname, chunks, level=2)
+
+    return ds
+
+
+def venus_read_header(dirname):
     ds = xr.Dataset()
     dirname = Path(dirname)
     assert dirname.exists()
 
     # load xml file
-    xmlfiles = list((dirname/'DATA').glob('*.xml'))
+    xmlfiles = list((dirname/'DATA').glob('*UII_ALL.xml'))
     assert len(xmlfiles) == 1
     xmlfile = xmlfiles[0]
     xmlroot = objectify.parse(str(xmlfile)).getroot()
 
     # load main xml file
-    xmlfiles = list(dirname.glob('*.xml'))
+    xmlfiles = list(dirname.glob('*MTD_ALL.xml'))
     assert len(xmlfiles) == 1
     xmlfile = xmlfiles[0]
     xmlgranule = objectify.parse(str(xmlfile)).getroot()
@@ -105,23 +151,8 @@ def Level1_VENUS(dirname,
     ds.attrs[naming.sensor] = 'VENUS'
     ds.attrs[naming.product_name] = dirname.name
     ds.attrs[naming.input_directory] = str(dirname.parent)
-
-    # lat-lon
-    venus_read_latlon(ds, geocoding, chunks)
-
-    # venus_read_geometry
-    if geometry:
-        venus_read_geometry(ds, tileangles, chunks)
-
-    # venus_read_toa
-    ds = venus_read_toa(ds, dirname, quantif, split, chunks)
-    ds['wav'] = ds.bands
-    ds['wav'].attrs["units"] = "nm"
-
-    # flags
-    venus_read_invalid_pix(ds, dirname, chunks)
-
-    return ds
+    
+    return ds, (quantif, geocoding, tileangles)
 
 
 def venus_read_latlon(ds, geocoding, chunks):
@@ -138,23 +169,37 @@ def venus_read_latlon(ds, geocoding, chunks):
     )
 
 
-def venus_read_invalid_pix(ds, granule_dir, chunks):
+def venus_read_invalid_pix(ds, granule_dir, chunks, level):
     ds[naming.flags] = xr.zeros_like(
         ds.vza,
         dtype=naming.flags_dtype)
     
-    inv_pix = ds.Rtoa.sel(bands=555) == 0
+    # Detect edges of tile
+    if level == 1:
+        inv_pix = ds.Rtoa.sel(bands=555) == 0
+    elif level == 2:
+        filenames = list((granule_dir/'MASKS').glob('*EDG_XS.tif'))
+        assert len(filenames) == 1
+        inv_pix = rio.open_rasterio(filenames[0], chunks=chunks).astype(bool)
+    else:
+        raise ValueError(f'Invalid value for level, got {level}')
     raiseflag(
         ds[naming.flags],
         'L1_INVALID',
         flags['L1_INVALID'],
-        inv_pix
+        inv_pix.squeeze()
         )
 
-    filenames = list((granule_dir/'MASKS').glob('*CLD_XS.zip'))
-    assert len(filenames) == 1
-    filename = 'zip+file:'+str(filenames[0])
-    cld = rio.open_rasterio(filename, chunks=chunks).astype(bool)
+    # Flags cloud pixels
+    if level == 1:
+        filenames = list((granule_dir/'MASKS').glob('*CLD_XS.zip'))
+        assert len(filenames) == 1
+        filename = 'zip+file:'+str(filenames[0])
+        cld = rio.open_rasterio(filename, chunks=chunks).astype(bool)
+    elif level == 2:
+        filenames = list((granule_dir/'MASKS').glob('*CLM_XS.tif'))
+        assert len(filenames) == 1
+        cld = rio.open_rasterio(filenames[0], chunks=chunks).astype(bool)
     raiseflag(
         ds[naming.flags],
         'CLOUD_BASE',
@@ -207,6 +252,55 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
 
     if not split:
         ds = merge(ds, dim=naming.bands)
+
+    return ds
+
+
+def venus_read_rho(ds, granule_dir, quantif, split, chunks):
+
+    for rho, name in zip(['SRE','FRE'],['rho_s','rho_f']):
+        for k, v in venus_band_names.items():
+            filenames = list(granule_dir.glob(f'*{rho}_{v}.tif'))
+            assert len(filenames) == 1
+            filename = filenames[0]
+
+            arr = (rio.open_rasterio(
+                filename,
+                chunks=chunks,
+            )/quantif).astype('float32')
+            arr = arr.squeeze('band')
+            arr = arr.drop('x').drop('y')
+
+            xrat = len(arr.x)/float(ds.totalwidth)
+            yrat = len(arr.y)/float(ds.totalheight)
+
+            if xrat >= 1.:
+                # downsample
+                arr_resampled = 0.
+                for i in range(int(xrat)):
+                    for j in range(int(yrat)):
+                        arr_resampled += arr.isel(x=slice(i, None, int(xrat)),
+                                                y=slice(j, None, int(yrat)))
+                arr_resampled /= int(xrat)*int(yrat)
+                arr_resampled = arr_resampled.drop('band').chunk(chunks)
+            else:
+                # over-sample
+                arr_resampled = DataArray_from_array(
+                    Repeat(arr, (int(1/yrat), int(1/xrat))),
+                    ('y', 'x'),
+                    chunks,
+                )
+
+            arr_resampled = arr_resampled.rename({
+                'x': naming.columns,
+                'y': naming.rows})
+
+            arr_resampled.attrs['bands'] = k
+            arr_resampled.attrs['band_name'] = v
+            ds[name+f'_{k}'] = arr_resampled
+
+        if not split:
+            ds = merge(ds, dim=naming.bands)
 
     return ds
 

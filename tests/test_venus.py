@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from eoread.reader.venus import Level1_VENUS, get_SRF
+from eoread.reader.venus import Level1_VENUS, Level2_VENUS, get_SRF
 from eoread.utils.graphics import plot_srf
 from . import generic
 from eoread import eo
@@ -19,7 +19,7 @@ def chunks(request):
     return request.param
 
 @pytest.fixture
-def S2_product(chunks):
+def VENUS_product(chunks):
     return Level1_VENUS(product, chunks=chunks)
 
 @pytest.mark.parametrize('split', [True, False])
@@ -28,8 +28,8 @@ def test_instantiation(split, chunks):
 
 
 @pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
-def test_msi_merged(S2_product, param):
-    l1 = S2_product
+def test_msi_merged(VENUS_product, param):
+    l1 = VENUS_product
     print(l1)
     assert 'Rtoa_420' not in l1
     assert 'Rtoa' in l1
@@ -62,21 +62,21 @@ def test_msi_split(band):
 
 
 
-def test_main(S2_product):
-    generic.test_main(S2_product)
+def test_main(VENUS_product):
+    generic.test_main(VENUS_product)
 
 
 @pytest.mark.parametrize('scheduler', [
     'single-threaded',
     'threads',
 ])
-def test_read(S2_product, scheduler):
-    eo.init_geometry(S2_product)
-    generic.test_read(S2_product, 'Rtoa', (1000,1000), scheduler)
+def test_read(VENUS_product, scheduler):
+    eo.init_geometry(VENUS_product)
+    generic.test_read(VENUS_product, 'Rtoa', (1000,1000), scheduler)
 
 
-def test_subset(S2_product):
-    generic.test_subset(S2_product)
+def test_subset(VENUS_product):
+    generic.test_subset(VENUS_product)
 
 from dask import config
 def test_plot(request):
@@ -102,3 +102,7 @@ def test_srf(request):
     srf = get_SRF()
     plot_srf(srf)
     conftest.savefig(request, bbox_inches="tight")
+
+def test_level2():
+    ds = Level2_VENUS(Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/'))
+    pass
