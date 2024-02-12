@@ -3,6 +3,7 @@
 
 
 from datetime import datetime, timedelta
+from matplotlib import pyplot as plt
 import pytest
 import xarray as xr
 import numpy as np
@@ -10,12 +11,16 @@ import dask.array as da
 from eoread.common import AtIndex, Repeat
 from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array, timeit
+from eoread.reader import msi
+from eoread.reader.gsw import GSW
 from eoread.utils.fileutils import PersistentList
-from eoread.utils.tools import split, merge, wrap, raiseflag, convert, locate
+from eoread.utils.interpolate import selinterp
+from eoread.utils.tools import split, merge, wrap, raiseflag, convert, locate, xrcrop
 from time import sleep
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import dask
+from . import conftest
 
 dask.config.set(scheduler='single-threaded')
 
@@ -387,3 +392,67 @@ def test_timeit_context():
     with timeit() as ti:
         sleep(1)
     assert ti() > 1
+
+
+@pytest.mark.parametrize('idx', [
+    np.array([10, 11, 12, 13]),
+    np.array([13, 12, 11, 10]),
+])
+@pytest.mark.parametrize('min_max,expected_len', [
+    ((11.5, 12.5), 3),
+    ((11, 12), 2),
+    ((9, 14), 4),
+])
+def test_xrcrop(idx, min_max, expected_len):
+    """
+    Test xrcrop on basic data
+    """
+    full = xr.DataArray(np.zeros(len(idx)),
+                        dims=["x"],
+                        coords={"x": idx})
+    cropped = xrcrop(full, x=min_max)
+    print('Initial index is  ', idx)
+    print('Min max values are', min_max)
+    print('Cropped values are', cropped.x.values)
+    assert len(cropped.x) == expected_len
+
+
+@pytest.mark.parametrize('method', ["nearest", "interp"])
+def test_xrcrop_gsw(request, method):
+    """
+    Test the application of xrcrop on gsw.
+    This allows .computing the result.
+    Otherwise, the further .sel is very slow over large arrays.
+    """
+    ds = msi.Level1_MSI(msi.get_sample())
+
+    plt.figure()
+    ds.Rtoa.sel(bands=865).plot.imshow(origin='upper')
+    conftest.savefig(request)
+
+    gsw = GSW(agg=4)
+    with timeit("Optimize"):
+        gsw = xrcrop(
+            gsw,
+            latitude=ds.latitude,
+            longitude=ds.longitude,
+        )
+
+    with timeit("Compute gsw"):
+        gsw = gsw.compute()
+
+    with timeit("sel"):
+        data = selinterp(
+            gsw,
+            latitude=ds.latitude,
+            longitude=ds.longitude,
+            method=method,
+        )
+    with timeit("compute"):
+        print(data.dtype)
+        data = data.compute()
+        print(data.dtype)
+
+    plt.figure()
+    plt.imshow(data, origin="upper")
+    conftest.savefig(request)

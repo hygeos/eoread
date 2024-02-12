@@ -65,7 +65,8 @@ def Level1_VENUS(dirname,
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds = xr.Dataset()
-    dirname = Path(dirname).resolve()
+    dirname = Path(dirname)
+    assert dirname.exists()
 
     # load xml file
     xmlfiles = list((dirname/'DATA').glob('*.xml'))

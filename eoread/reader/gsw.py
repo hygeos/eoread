@@ -156,7 +156,7 @@ def fetch_gsw_tile(tile_name, verbose=True, use_gdal=False):
 
 def GSW(directory=None,
         agg=1,
-        use_gdal=False):
+        use_gdal=False) -> xr.DataArray:
     """
     Global surface water reader
 
