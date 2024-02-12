@@ -115,17 +115,11 @@ def Level1_VENUS(dirname,
 
     # venus_read_toa
     ds = venus_read_toa(ds, dirname, quantif, split, chunks)
+    ds['wav'] = ds.bands
+    ds['wav'].attrs["units"] = "nm"
 
     # flags
-    ds[naming.flags] = xr.zeros_like(
-        ds.vza,
-        dtype=naming.flags_dtype)
-    raiseflag(
-        ds[naming.flags],
-        'L1_INVALID',
-        flags['L1_INVALID'],
-        np.isnan(ds.vza)
-        )
+    venus_read_invalid_pix(ds, dirname, chunks)
 
     return ds
 
@@ -142,6 +136,31 @@ def venus_read_latlon(ds, geocoding, chunks):
         naming.dim2,
         chunks=chunks,
     )
+
+
+def venus_read_invalid_pix(ds, granule_dir, chunks):
+    ds[naming.flags] = xr.zeros_like(
+        ds.vza,
+        dtype=naming.flags_dtype)
+    
+    inv_pix = ds.Rtoa.sel(bands=555) == 0
+    raiseflag(
+        ds[naming.flags],
+        'L1_INVALID',
+        flags['L1_INVALID'],
+        inv_pix
+        )
+
+    filenames = list((granule_dir/'MASKS').glob('*CLD_XS.zip'))
+    assert len(filenames) == 1
+    filename = 'zip+file:'+str(filenames[0])
+    cld = rio.open_rasterio(filename, chunks=chunks).astype(bool)
+    raiseflag(
+        ds[naming.flags],
+        'CLOUD_BASE',
+        flags['CLOUD_BASE'],
+        cld.squeeze()
+        )
 
 
 def venus_read_toa(ds, granule_dir, quantif, split, chunks):
