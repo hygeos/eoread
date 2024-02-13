@@ -5,16 +5,18 @@
 Various utility functions for exploiting eoread objects
 '''
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 from numpy import cos, radians, sqrt
 
-from .utils.naming import naming
-
 # backward compatibility:
-from eoread.utils.tools import raiseflag, getflag # noqa
-from eoread.utils.tools import merge, split, sub, sub_rect, sub_pt # noqa
-from eoread.utils.tools import wrap, locate, contains, haversine # noqa
+from eoread.utils.save import to_netcdf # noqa
+from eoread.utils.tools import datetime  # noqa
+from eoread.utils.tools import (contains, getflag, haversine, locate,# noqa
+                                merge, raiseflag, split, sub, sub_pt, sub_rect,
+                                wrap)
+
+from .utils.naming import naming
 
 
 def init_Rtoa(ds: xr.Dataset):
