@@ -12,7 +12,8 @@ from matplotlib import pyplot as plt
 import pytest
 import xarray as xr
 
-product = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
+product_l1 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
+product_l2 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):
@@ -20,11 +21,11 @@ def chunks(request):
 
 @pytest.fixture
 def VENUS_product(chunks):
-    return Level1_VENUS(product, chunks=chunks)
+    return Level1_VENUS(product_l1, chunks=chunks)
 
 @pytest.mark.parametrize('split', [True, False])
 def test_instantiation(split, chunks):
-    Level1_VENUS(product, split=split, chunks=chunks)
+    Level1_VENUS(product_l1, split=split, chunks=chunks)
 
 
 @pytest.mark.parametrize('param', ['sza', 'vza', 'saa', 'vaa', 'latitude', 'longitude'])
@@ -48,7 +49,7 @@ def test_msi_merged(VENUS_product, param):
 
 @pytest.mark.parametrize('band', ['Rtoa_420', 'Rtoa_490', 'Rtoa_865'])
 def test_msi_split(band):
-    l1 = Level1_VENUS(product, split=True)
+    l1 = Level1_VENUS(product_l1, split=True)
     print(l1)
     assert 'Rtoa_420' in l1
     assert 'Rtoa' not in l1
@@ -80,13 +81,14 @@ def test_subset(VENUS_product):
 
 from dask import config
 def test_plot(request):
-    ds = Level1_VENUS(product)
+    ds = Level1_VENUS(product_l1)
     eo.init_geometry(ds)
 
     for desc, data in [
-        # ("rho_toa865", ds.Rtoa.sel(bands=865)),
+        ("rho_toa865", ds.Rtoa.sel(bands=865)),
         ('latitude', ds.latitude),
         ('longitude', ds.longitude),
+        ('flags', ds.flags),
         ('sza', ds.sza),
         ('vza', ds.vza),
         ('raa', ds.raa),
@@ -103,6 +105,5 @@ def test_srf(request):
     plot_srf(srf)
     conftest.savefig(request, bbox_inches="tight")
 
-def test_level2():
-    ds = Level2_VENUS(Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/'))
-    pass
+def test_level2(chunks):
+    Level2_VENUS(product_l2, chunks=chunks)

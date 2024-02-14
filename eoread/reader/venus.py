@@ -60,8 +60,8 @@ def Level1_VENUS(dirname,
     the angles on the full grid, etc.
 
     Arguments:
-        resolution: '5' (in m)
         geometry: whether to read the geometry
+        chunk: size of a single chunk
         split: whether the wavelength dependent variables should be split in multiple 2D variables
     '''
     ds, params = venus_read_header(dirname)
@@ -88,9 +88,13 @@ def Level1_VENUS(dirname,
 def Level2_VENUS(dirname,
                  chunks=500,
                  split=False):
-    """
-    Read an Venµs level2 product as xarray.Dataset
-    """
+    '''
+    Read an Venµs Level2 product as an xarray.Dataset
+
+    Arguments:
+        chunk: size of a single chunk
+        split: whether the wavelength dependent variables should be split in multiple 2D variables
+    '''
     ds, params = venus_read_header(dirname)
     quantif, geocoding, tileangles = params
 
@@ -176,7 +180,7 @@ def venus_read_invalid_pix(ds, granule_dir, chunks, level):
     
     # Detect edges of tile
     if level == 1:
-        inv_pix = ds.Rtoa.sel(bands=555) == 0
+        inv_pix = (ds.Rtoa.sel(bands=620) == 0) | (ds.Rtoa.sel(bands=622) == 0)
     elif level == 2:
         filenames = list((granule_dir/'MASKS').glob('*EDG_XS.tif'))
         assert len(filenames) == 1
@@ -301,6 +305,10 @@ def venus_read_rho(ds, granule_dir, quantif, split, chunks):
 
         if not split:
             ds = merge(ds, dim=naming.bands)
+    
+    filenames = list(granule_dir.glob('*ATB_XS.tif'))
+    assert len(filenames) == 1
+    ds['ATB'] = rio.open_rasterio(filenames[0], chunks=chunks)
 
     return ds
 
