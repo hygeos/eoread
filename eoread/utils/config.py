@@ -77,6 +77,7 @@ def initialize(dir_data: Path):
         """
         )
         with open(default_config_file, "w") as fp:
+            print("Created configuration file", default_config_file)
             fp.writelines(content)
 
 
