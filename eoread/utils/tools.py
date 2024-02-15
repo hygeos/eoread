@@ -19,12 +19,18 @@ from dateutil.parser import parse
 from .naming import naming
 
 
-def datetime(ds: xr.Dataset, 
-             attribute: str = 'datetime'):
+def datetime(ds: xr.Dataset):
     '''
     Parse datetime (in isoformat) from `ds` attributes
     '''
-    return parse(ds.attrs[attribute]).replace(tzinfo=None)
+    if ('start_time' in ds.attrs) and ('end_time' in ds.attrs):
+        st = ds.start_time
+        et = ds.end_time
+        return st + (et - st)/2
+    elif 'datetime' in ds.attrs:
+        return parse(ds.attrs['datetime']).replace(tzinfo=None)
+    else:
+        raise AttributeError
 
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float, 
