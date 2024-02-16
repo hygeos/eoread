@@ -14,7 +14,7 @@ from eoread.utils.save import to_netcdf # noqa
 from eoread.utils.tools import datetime  # noqa
 from eoread.utils.tools import (contains, getflag, haversine, locate,# noqa
                                 merge, raiseflag, split, sub, sub_pt, sub_rect,
-                                wrap)
+                                wrap, getflags)
 
 from .utils.naming import naming
 
