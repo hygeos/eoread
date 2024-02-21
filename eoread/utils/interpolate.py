@@ -1,5 +1,6 @@
 import warnings
 from typing import Any, Dict, List, Literal, Optional
+from packaging import version
 
 import numpy as np
 import pandas as pd
@@ -65,7 +66,7 @@ def index(
     xr.DataArray
         New DataArray on the new coordinates.
     """
-    # TODO:: prevent common dimensions between da and sel+interp
+    assert version.parse(xr.__version__) >= version.parse("2024.01.0")
 
     assert (da.chunks is None) or (
         len(da.chunks) == 0
@@ -76,6 +77,9 @@ def index(
 
     # group all sel+interp dimensions
     ds = xr.Dataset({**sel, **interp})
+
+    # prevent common dimensions between da and sel+interp
+    assert not set(ds.dims).intersection(da.dims)
 
     # transpose them to ds.dims
     ds = ds.transpose(*ds.dims)
