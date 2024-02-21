@@ -206,9 +206,9 @@ def index_block(
         iinf_dims_out = iinf[dim].reshape(x_indexers[dim])
         vinf = data.indexes[dim].values[iinf_dims_out]
         vsup = data.indexes[dim].values[iinf_dims_out + 1]
-        x_interp[dim] = np.clip(
+        x_interp[dim] = np.array(np.clip(
             (np_indexers[dim].reshape(x_indexers[dim]) - vinf) / (vsup - vinf), 0, 1
-        )
+        ))
 
         # skip nan values
         if opt["skipna"]:
@@ -231,10 +231,11 @@ def index_block(
                         f"with options={opt}"
                     )
 
-            x_interp[dim][~valid | isnan] = np.NaN
+            # opt['bounds'] == "nan"
+            x_interp[dim][(~valid | isnan).reshape(x_indexers[dim])] = np.NaN
 
         elif opt["skipna"]:
-            x_interp[dim][isnan] = np.NaN
+            x_interp[dim][isnan.reshape(x_indexers[dim])] = np.NaN
 
     # loop over the 2^n bracketing elements
     # (cartesian product of [0, 1] over n dimensions)
