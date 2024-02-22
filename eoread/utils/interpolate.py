@@ -7,7 +7,7 @@ import pandas as pd
 import xarray as xr
 
 
-def index(
+def interp(
     da: xr.DataArray,
     *,
     sel: Optional[Dict[str, xr.DataArray]] = None,
@@ -206,9 +206,11 @@ def index_block(
         iinf_dims_out = iinf[dim].reshape(x_indexers[dim])
         vinf = data.indexes[dim].values[iinf_dims_out]
         vsup = data.indexes[dim].values[iinf_dims_out + 1]
-        x_interp[dim] = np.array(np.clip(
-            (np_indexers[dim].reshape(x_indexers[dim]) - vinf) / (vsup - vinf), 0, 1
-        ))
+        x_interp[dim] = np.array(
+            np.clip(
+                (np_indexers[dim].reshape(x_indexers[dim]) - vinf) / (vsup - vinf), 0, 1
+            )
+        )
 
         # skip nan values
         if opt["skipna"]:
@@ -277,6 +279,11 @@ def index_block(
     return ret
 
 
+def index(*args, **kwargs):
+    warnings.warn("This function has been renamed to `interp`", DeprecationWarning)
+    return interp(*args, **kwargs)
+
+
 def selinterp(
     da: xr.DataArray,
     *,
@@ -309,7 +316,7 @@ def selinterp(
     with values defined in ds.latitude and ds.longitude.
     """
     warnings.warn(
-        "Deprecated function: use function `index` instead", DeprecationWarning
+        "Deprecated function: use function `interp` instead", DeprecationWarning
     )
 
     # Check that aux is not dask-based
@@ -361,7 +368,7 @@ def sel_chunk(ds, aux):
         return aux.sel({k: ds[k] for k in ds}, method="nearest").reset_coords(drop=True)
 
 
-def interp(
+def interp_legacy(
     aux: xr.DataArray,
     ds_coords: xr.Dataset,
     dims: dict,
@@ -388,7 +395,7 @@ def interp(
     with values defined in ds['latitude'] and ds['longitude'].
     """
     warnings.warn(
-        "Deprecated function: use function `index` instead", DeprecationWarning
+        "Deprecated function: use function `interp` instead", DeprecationWarning
     )
 
     def interp_chunk(ds):
