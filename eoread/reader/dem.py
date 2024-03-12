@@ -6,7 +6,7 @@ from eoread.utils.uncompress import uncompress
 from eoread.download_legacy import download_url
 
 from os.path import exists, join, basename, getsize
-from os import remove
+from os import remove, system
 from math import ceil
 from pathlib import Path
 from dask import array as da
@@ -27,8 +27,10 @@ class ArrayLike_SRTM:
         self.use_gdal   = use_gdal
         self.verbose    = verbose
         self.directory  = Path(directory)
-        self.tiles_list_file = f'eoread/reader/valid_{self.srtm}_tiles.txt'
-        self.tiles_list = np.loadtxt(self.tiles_list_file, dtype=str)
+
+        static = mdir(load_config()['dir_static'])
+        system(f'wget https://nx36064.your-storageshare.de/s/Fy2bYLpaxGncgPM/download?files=valid_{self.srtm}_tiles.txt -c -O {static}/valid_{self.srtm}_tiles.txt')
+        self.tiles_list = np.loadtxt(f'{static}/valid_{self.srtm}_tiles.txt', dtype=str)
 
         self.tile_size  = 3601 if type_srtm == 1 else 1201
         self.width      = 360 * self.tile_size // self.agg
