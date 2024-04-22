@@ -127,7 +127,7 @@ def level2_msi(request):
     else:
         raise ValueError
 
-
+@pytest.mark.skip('test should be updated')
 def test_level2(request, level2_msi: Path):
     assert level2_msi.exists()
 

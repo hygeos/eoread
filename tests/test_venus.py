@@ -12,6 +12,8 @@ from matplotlib import pyplot as plt
 import pytest
 import xarray as xr
 
+
+
 product_l1 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
 product_l2 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/')
 
@@ -60,11 +62,11 @@ def test_msi_split(band):
             l1[band][:600, :600].compute()[500:550, 450:550],
             l1.sel(y=slice(500, 550), x=slice(450, 550))[band],
             )
+    
 
-
-
-def test_main(VENUS_product):
-    generic.test_main(VENUS_product)
+def test_main():
+    l1 = Level1_VENUS(product_l1, chunks=500)
+    generic.test_main(l1)
 
 
 @pytest.mark.parametrize('scheduler', [
