@@ -38,7 +38,7 @@ from eoread.utils.config import load_config
 
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.tools import raiseflag, merge
-from ..utils.naming import naming, flags
+from ..utils.naming import flags, naming as n
 
 venus_band_names = {
         420 : 'B1', 443 : 'B2',
@@ -76,11 +76,9 @@ def Level1_VENUS(dirname,
 
     # read TOA
     ds = venus_read_toa(ds, dirname, quantif, split, chunks)
-    ds['wav'] = ds.bands
-    ds['wav'].attrs["units"] = "nm"
 
     # flags
-    venus_read_invalid_pix(ds, dirname, chunks, level=1)
+    venus_read_invalid_pix(ds, dirname, chunks, split, level=1)
 
     return ds
 
@@ -108,7 +106,7 @@ def Level2_VENUS(dirname,
     ds = venus_read_rho(ds, dirname, quantif, split, chunks)
 
     # flags
-    venus_read_invalid_pix(ds, dirname, chunks, level=2)
+    venus_read_invalid_pix(ds, dirname, chunks, split, level=2)
 
     return ds
 
@@ -134,53 +132,55 @@ def venus_read_header(dirname):
     quantif = float(radiometric_info.REFLECTANCE_QUANTIFICATION_VALUE)
     resolution = int(xmlgranule.Radiometric_Informations.Spectral_Band_Informations_List.Spectral_Band_Informations.SPATIAL_RESOLUTION)
     # read date
-    ds.attrs['datetime'] = str(xmlgranule.Product_Characteristics.ACQUISITION_DATE)
+    ds.attrs[n.datetime] = str(xmlgranule.Product_Characteristics.ACQUISITION_DATE)
     geocoding = xmlgranule.Geoposition_Informations
     tileangles = xmlgranule.Geometric_Informations.Angles_Grids_List
 
     # get platform
-    ds.attrs['tile_id'] = xmlroot.Scene_Useful_Image_Informations.SCENE_ID.text
+    ds.attrs[n.product_name] = xmlroot.Scene_Useful_Image_Informations.SCENE_ID.text
     # ds.attrs['crs'] = xmlgranule.Geoposition_Informations.Coordinate_Reference_System
     platform = xmlgranule.Product_Characteristics.PLATFORM.text
     assert platform in ['VENUS']
 
     # read image size for current resolution
     shape_info = xmlgranule.Geoposition_Informations.Geopositioning.Group_Geopositioning_List
-    ds.attrs[naming.totalheight] = int(shape_info.Group_Geopositioning.NROWS)
-    ds.attrs[naming.totalwidth] = int(shape_info.Group_Geopositioning.NCOLS)
+    ds.attrs[n.totalheight] = int(shape_info.Group_Geopositioning.NROWS)
+    ds.attrs[n.totalwidth] = int(shape_info.Group_Geopositioning.NCOLS)
 
     # attributes
-    ds.attrs[naming.platform] = platform
-    ds.attrs['resolution'] = resolution
-    ds.attrs[naming.sensor] = 'VENUS'
-    ds.attrs[naming.product_name] = dirname.name
-    ds.attrs[naming.input_directory] = str(dirname.parent)
+    ds.attrs[n.platform] = platform
+    ds.attrs[n.resolution] = resolution
+    ds.attrs[n.sensor] = 'VENUS'
+    ds.attrs[n.product_name] = dirname.name
+    ds.attrs[n.input_directory] = str(dirname.parent)
     
     return ds, (quantif, geocoding, tileangles)
 
 
 def venus_read_latlon(ds, geocoding, chunks):
-    ds[naming.lat] = DataArray_from_array(
+    ds[n.lat] = DataArray_from_array(
         LATLON(geocoding, 'lat', ds),
-        naming.dim2,
+        n.dim2,
         chunks=chunks,
     )
 
-    ds[naming.lon] = DataArray_from_array(
+    ds[n.lon] = DataArray_from_array(
         LATLON(geocoding, 'lon', ds),
-        naming.dim2,
+        n.dim2,
         chunks=chunks,
     )
 
 
-def venus_read_invalid_pix(ds, granule_dir, chunks, level):
-    ds[naming.flags] = xr.zeros_like(
+def venus_read_invalid_pix(ds, granule_dir, chunks, split, level):
+    ds[n.flags] = xr.zeros_like(
         ds.vza,
-        dtype=naming.flags_dtype)
+        dtype=n.flags_dtype)
+    
     
     # Detect edges of tile
     if level == 1:
-        inv_pix = (ds.Rtoa.sel(bands=620) == 0) | (ds.Rtoa.sel(bands=622) == 0)
+        if split: inv_pix = (ds.Rtoa_620 == 0) | (ds.Rtoa_622 == 0)        
+        else: inv_pix = (ds.Rtoa.sel(bands=620) == 0) | (ds.Rtoa.sel(bands=622) == 0)
     elif level == 2:
         filenames = list((granule_dir/'MASKS').glob('*EDG_XS.tif'))
         assert len(filenames) == 1
@@ -188,7 +188,7 @@ def venus_read_invalid_pix(ds, granule_dir, chunks, level):
     else:
         raise ValueError(f'Invalid value for level, got {level}')
     raiseflag(
-        ds[naming.flags],
+        ds[n.flags],
         'L1_INVALID',
         flags['L1_INVALID'],
         inv_pix.squeeze()
@@ -205,7 +205,7 @@ def venus_read_invalid_pix(ds, granule_dir, chunks, level):
         assert len(filenames) == 1
         cld = rio.open_rasterio(filenames[0], chunks=chunks).astype(bool)
     raiseflag(
-        ds[naming.flags],
+        ds[n.flags],
         'CLOUD_BASE',
         flags['CLOUD_BASE'],
         cld.squeeze()
@@ -247,15 +247,15 @@ def venus_read_toa(ds, granule_dir, quantif, split, chunks):
             )
 
         arr_resampled = arr_resampled.rename({
-            'x': naming.columns,
-            'y': naming.rows})
+            'x': n.columns,
+            'y': n.rows})
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
-        ds[naming.Rtoa+f'_{k}'] = arr_resampled
+        ds[n.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=n.bands)
 
     return ds
 
@@ -296,15 +296,15 @@ def venus_read_rho(ds, granule_dir, quantif, split, chunks):
                 )
 
             arr_resampled = arr_resampled.rename({
-                'x': naming.columns,
-                'y': naming.rows})
+                'x': n.columns,
+                'y': n.rows})
 
             arr_resampled.attrs['bands'] = k
             arr_resampled.attrs['band_name'] = v
             ds[name+f'_{k}'] = arr_resampled
 
         if not split:
-            ds = merge(ds, dim=naming.bands)
+            ds = merge(ds, dim=n.bands)
     
     filenames = list(granule_dir.glob('*ATB_XS.tif'))
     assert len(filenames) == 1
@@ -350,10 +350,10 @@ def venus_read_geometry(ds, tileangles, chunks):
     assert k in vaa
 
     # initialize the dask arrays
-    for name, tie in [(naming.sza, sza),
-                      (naming.saa, saa),
-                      (naming.vza, vza[k]),
-                      (naming.vaa, vaa[k]),
+    for name, tie in [(n.sza, sza),
+                      (n.saa, saa),
+                      (n.vza, vza[k]),
+                      (n.vaa, vaa[k]),
                       ]:
         da_tie = xr.DataArray(
             tie,
@@ -363,7 +363,7 @@ def venus_read_geometry(ds, tileangles, chunks):
         ds[name+'_tie'] = da_tie
         ds[name] = DataArray_from_array(
             Interpolator(shp, ds[name+'_tie']),
-            naming.dim2,
+            n.dim2,
             chunks,
         )
 
@@ -462,6 +462,6 @@ def get_SRF(
         )
 
     ds = ds.assign_coords(wav=df['wav_um'].values*1000)
-    ds['wav'].attrs["units"] = "nm"
+    ds[n.wav].attrs["units"] = "nm"
 
     return ds

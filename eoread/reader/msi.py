@@ -43,7 +43,7 @@ from eoread.utils.fileutils import mdir
 
 from ..utils.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat
-from ..utils.naming import naming, flags
+from ..utils.naming import flags, naming as n
 
 msi_band_names = {
         443 : 'B01', 490 : 'B02',
@@ -102,7 +102,7 @@ def Level1_MSI(dirname,
         radio_offset_list = [0]*len(msi_band_names)
 
     # read date
-    ds.attrs['datetime'] = str(xmlgranule.General_Info.find('SENSING_TIME'))
+    ds.attrs[n.datetime] = str(xmlgranule.General_Info.find('SENSING_TIME'))
     geocoding = xmlgranule.Geometric_Info.find('Tile_Geocoding')
     tileangles = xmlgranule.Geometric_Info.find('Tile_Angles')
 
@@ -114,16 +114,16 @@ def Level1_MSI(dirname,
     # read image size for current resolution
     for e in geocoding.findall('Size'):
         if e.attrib['resolution'] == str(resolution):
-            ds.attrs[naming.totalheight] = int(e.find('NROWS').text)
-            ds.attrs[naming.totalwidth] = int(e.find('NCOLS').text)
+            ds.attrs[n.totalheight] = int(e.find('NROWS').text)
+            ds.attrs[n.totalwidth] = int(e.find('NCOLS').text)
             break
 
     # attributes
-    ds.attrs[naming.platform] = platform
-    ds.attrs['resolution'] = resolution
-    ds.attrs[naming.sensor] = 'MSI'
-    ds.attrs[naming.product_name] = dirname.name
-    ds.attrs[naming.input_directory] = str(dirname.parent)
+    ds.attrs[n.platform] = platform
+    ds.attrs[n.resolution] = resolution
+    ds.attrs[n.sensor] = 'MSI'
+    ds.attrs[n.product_name] = dirname.name
+    ds.attrs[n.input_directory] = str(dirname.parent)
 
     # lat-lon
     msi_read_latlon(ds, geocoding, chunks)
@@ -140,11 +140,11 @@ def Level1_MSI(dirname,
     msi_read_spectral(ds)
 
     # flags
-    ds[naming.flags] = xr.zeros_like(
+    ds[n.flags] = xr.zeros_like(
         ds.vza,
-        dtype=naming.flags_dtype)
+        dtype=n.flags_dtype)
     raiseflag(
-        ds[naming.flags],
+        ds[n.flags],
         'L1_INVALID',
         flags['L1_INVALID'],
         np.isnan(ds.vza)
@@ -154,15 +154,15 @@ def Level1_MSI(dirname,
 
 
 def msi_read_latlon(ds, geocoding, chunks):
-    ds[naming.lat] = DataArray_from_array(
+    ds[n.lat] = DataArray_from_array(
         LATLON(geocoding, 'lat', ds),
-        naming.dim2,
+        n.dim2,
         chunks=chunks,
     )
 
-    ds[naming.lon] = DataArray_from_array(
+    ds[n.lon] = DataArray_from_array(
         LATLON(geocoding, 'lon', ds),
-        naming.dim2,
+        n.dim2,
         chunks=chunks,
     )
 
@@ -202,15 +202,15 @@ def msi_read_toa(ds, granule_dir, quantif, radio_add_offset, split, chunks):
             )
 
         arr_resampled = arr_resampled.rename({
-            'x': naming.columns,
-            'y': naming.rows})
+            'x': n.columns,
+            'y': n.rows})
 
         arr_resampled.attrs['bands'] = k
         arr_resampled.attrs['band_name'] = v
-        ds[naming.Rtoa+f'_{k}'] = arr_resampled
+        ds[n.Rtoa+f'_{k}'] = arr_resampled
 
     if not split:
-        ds = merge(ds, dim=naming.bands)
+        ds = merge(ds, dim=n.bands)
 
     return ds
 
@@ -219,7 +219,7 @@ def msi_read_spectral(ds):
     # read srf
     # TODO: deprecate in favour of get_SRF
     dir_aux_msi = mdir(load_config()['dir_static']/'msi')
-    platform = ds.attrs['platform']
+    platform = ds.attrs[n.platform]
     get_SRF(platform)
     srf_file = dir_aux_msi/f'S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.0_{platform}.csv'
 
@@ -236,10 +236,10 @@ def msi_read_spectral(ds):
         wav_eq = np.trapz(wav*srf)/np.trapz(srf)
         wav_data.append(wav_eq)
 
-    ds['wav'] = xr.DataArray(
+    ds[n.wav] = xr.DataArray(
         da.from_array(wav_data),
-        dims=(naming.bands),
-    ).chunk({naming.bands: 1})
+        dims=(n.bands),
+    ).chunk({n.bands: 1})
 
 
 def msi_read_geometry(ds, tileangles, chunks):
@@ -278,10 +278,10 @@ def msi_read_geometry(ds, tileangles, chunks):
     assert k in vaa
 
     # initialize the dask arrays
-    for name, tie in [(naming.sza, sza),
-                      (naming.saa, saa),
-                      (naming.vza, vza[k]),
-                      (naming.vaa, vaa[k]),
+    for name, tie in [(n.sza, sza),
+                      (n.saa, saa),
+                      (n.vza, vza[k]),
+                      (n.vaa, vaa[k]),
                       ]:
         da_tie = xr.DataArray(
             tie,
@@ -291,7 +291,7 @@ def msi_read_geometry(ds, tileangles, chunks):
         ds[name+'_tie'] = da_tie
         ds[name] = DataArray_from_array(
             Interpolator(shp, ds[name+'_tie']),
-            naming.dim2,
+            n.dim2,
             chunks,
         )
 
@@ -320,7 +320,7 @@ class LATLON:
 
         # lookup position in the UTM grid
         for e in geocoding.findall('Geoposition'):
-            if e.attrib['resolution'] == ds.attrs['resolution']:
+            if e.attrib['resolution'] == ds.attrs[n.resolution]:
                 ULX = int(e.find('ULX').text)
                 ULY = int(e.find('ULY').text)
                 XDIM = int(e.find('XDIM').text)
@@ -399,6 +399,6 @@ def get_SRF(sensor: str, directory: Optional[Path]=None):
             attrs={"band_info": f"MSI band {bindex}"},
         )
     ds = ds.assign_coords(wav=wav)
-    ds['wav'].attrs["units"] = "nm"
+    ds[n.wav].attrs["units"] = "nm"
 
     return ds

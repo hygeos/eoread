@@ -77,24 +77,26 @@ class Naming:
         self.totalwidth  = 'totalwidth'
         self.platform    = 'platform'
         self.sensor      = 'sensor'
+        self.shortname   = 'shortname'
+        self.resolution  = 'resolution'
+        self.description = 'description'
         self.footprint_lat = 'footprint_lat'
         self.footprint_lon = 'footprint_lon'
         self.product_name  = 'product_name'
         self.input_directory = 'input_directory'
 
         # Dimensions
+        self.bands_tir = 'bands_tir'
         self.bands   = 'bands'
         self.rows    = 'y'
         self.columns = 'x'
         self.dim2 = (self.rows, self.columns)
         self.dim3 = (self.bands, self.rows, self.columns)
+        self.dim3_tir = (self.bands_tir, self.rows, self.columns)
 
         for k, v in kwargs.items():
             assert k in self.__dict__
             self.__dict__[k] = v
-
-        # Specific dimensions
-        self.bands_tir = 'bands_tir'
 
         # Ancillary data
         self.total_column_ozone = 'total_column_ozone'
