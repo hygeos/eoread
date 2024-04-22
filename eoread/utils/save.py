@@ -9,11 +9,16 @@ import shutil
 import tempfile
 import xarray as xr
 import numpy as np
-from typing import Union
+import matplotlib.pyplot as plt
 
+from PIL import Image
+from typing import Union
 from pathlib import Path
 from contextlib import contextmanager
 from dask.diagnostics import ProgressBar
+from rasterio.transform import Affine
+from tempfile import TemporaryDirectory
+from itertools import product
 
 from .naming import naming
 
@@ -32,7 +37,7 @@ def to_netcdf(ds: xr.Dataset, *,
               complevel: int = 5,
               verbose: bool = True,
               **kwargs):
-    '''
+    """
     Write an xarray Dataset `ds` using `.to_netcdf` with several additional features:
     - construct file name using  `dirname`, `product_name` and `ext`
       (optionnally - otherwise with `filename`)
@@ -41,40 +46,29 @@ def to_netcdf(ds: xr.Dataset, *,
     - Use temporary file
     - Create output directory if it does not exist
 
-    Arguments:
-    ----------
+    Args:
+        ds (xr.Dataset): _description_
+        filename (Union[str, Path], optional): Output file path, if None, build filename from `dirname`, `product_name` and `ext`. Defaults to None.
+        dirname (Union[str, Path], optional): directory for output file (default None: uses the attribute input_directory of ds). Defaults to None.
+        product_name (str, optional): base name for the output file. If None (default), use the attribute named attr_name. Defaults to None.
+        ext (str, optional): extension. Defaults to '.nc'.
+        product_name_attr (str, optional): name of the attribute to use for product_name in `ds`. Defaults to 'product_name'.
+        if_exists (str, optional): what to do if output file exists. Defaults to 'error'.
+        tmpdir (str, optional): use a given temporary directory. Defaults to None.
+        create_out_dir (str, optional): create output directory if it does not exist. Defaults to True.
+        engine (str, optional): Engine driver to use. Defaults to 'h5netcdf'.
+        zlib (bool, optional): _description_. Defaults to True.
+        complevel (int, optional): Compression level. Defaults to 5.
+        verbose (bool, optional): _description_. Defaults to True.
 
-    filename: str or None
-        Output file path.
-        if None, build filename from `dirname`, `product_name` and `ext`.
-    dirname: str or None
-        directory for output file (default None: uses the attribute input_directory of ds)
-    product_name: str
-        base name for the output file. If None (default), use the attribute named attr_name
-    ext: str
-        extension (default: '.nc')
-    product_name_attr: str
-        name of the attribute to use for product_name in `ds`
-    if_exists: 'error', 'skip' or 'overwrite'
-        what to do if output file exists
-    tmpdir: str ; default None = system directory
-        use a given temporary directory
-    create_out_dir: str
-        create output directory if it does not exist
-
-    Other kwargs are passed to `to_netcdf`
-
-    About engine and compression:
-        - Use default engine='h5netcdf' (much faster than 'netcdf4' when activating compression)
-        - Use compression by default: encoding={'zlib':True, 'complevel':9}.
-          Compression can be disactivated by passing encoding={}
-
+    Raises:
+        IOError: _description_
+        ValueError: _description_
+        IOError: _description_
 
     Returns:
-    -------
-
-    output file name (str)
-    '''
+        str: output file name
+    """
     assert isinstance(ds, xr.Dataset), 'to_netcdf expects an xarray Dataset'
     if filename is None:
         # construct filename from dirname, product_name and ext
@@ -142,100 +136,213 @@ def none_context(a=None):
     return contextmanager(lambda: (x for x in [a]))()
 
 
-
-def save_raster(raster: xr.DataArray, 
-                outpath: str | Path, 
-                extension: str = None, 
-                dtype: type = None,
-                profile: dict = {}):
-    # Check if raster dims are correct
-    size = raster.shape
-    length = len(size)
-    assert length in (2,3), "Only 2D/3D arrays are currently supported"
-    outpath = Path(outpath)
-    to_check = ['count', 'height', 'width'][-length:]
-    for key, cursor in zip(to_check, np.arange(length)):
-        assert profile[key] == size[cursor]
-
-    # Check extension
-    possible_format = ['tif','nc','png','jpg']
-    suffix = outpath.suffix[1:]
-    if len(suffix) != 0:
-        extension = suffix
-    assert extension in possible_format
+def to_tif(ds: xr.Dataset, *,
+           filename: str | Path = None,
+           nodata: int | float = None,
+           raster: str = None,
+           compressor: bool = True,
+           verbose: bool = True):
+            
+    # Extract LatLon from dataset
+    assert 'latitude' in ds, 'Latitude variable is missing'
+    assert 'longitude' in ds, 'Longitude variable is missing'
+    lat, lon = ds['latitude'], ds['longitude']
     
-    profile['dtype'] = dtype
-    if extension == 'nc':
-        save_netcdf(raster, outpath, length)
-    else:
-        save_rio(raster, outpath, profile, length)
-
-def save_netcdf(raster: xr.DataArray, 
-                outpath: str | Path,
-                len_dim: int):
-    # Reorder raster for to_netcdf function
-    if len_dim == 2: 
-        raster = xr.Dataset({'output' : raster})
-    else:
-        dim = set(raster.dims)
-        head = dim.difference(['rows','columns','x','y'])
-        assert len(head) == 1
-        head = head.pop()
-        varnames = list(raster.coords[head].values)
-        raster = xr.Dataset({name : raster.sel(**{head:name}) for name in varnames})
-        raster = raster.drop(head)
-    raster = xr.where(raster.isnull(), 0, raster)
-
-    # Write output data
-    raster.to_netcdf(outpath)
-
-def save_rio(raster: xr.DataArray, 
-             outpath: str | Path,
-             profile: dict,
-             len_dim: int):
-    # Reorder raster for to_raster function
-    if 'rows' in list(raster.dims) and 'columns' in list(raster.dims):
-        raster = raster.rename({'rows':'y','columns':'x'})
-    if len_dim == 2:
-        raster = raster.transpose('y','x')
-    if len_dim == 3:
-        raster = raster.transpose(...,'y','x')
-
-    # Supplement raster with profile tags
-    if profile is not None:
-        for key in ['nodata', 'transform', 'crs', 'count', 'width', 'height']:
-            if key in profile:
-                raster.attrs[key] = profile[key]
-
-    # Write output data
-    raster.rio.to_raster(outpath, dtype=profile['dtype'], compress='LZW')
+    # Standardize Dataset 
+    if raster:
+        assert raster in ds, f'{raster} variable is missing in dataset'
+        ds = ds[raster]
+        shape = ds.shape
+        # Check data format
+        if 'int' not in str(ds.dtype): 
+            print(f"""[Warning] current data type could be incompatible with 
+QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
+    else: 
+        ds = _format_dataset(ds)
+        shape = ds['latitude'].shape
+    assert len(shape) in [2,3], \
+        f'Should input 3D or 2D dataset, not {len(ds.shape)}D'
+        
+    # Generate profile
+    ds.attrs['count']  = shape[-3] if len(shape) == 3 else 1
+    ds.attrs['width']  = shape[-2]
+    ds.attrs['height'] = shape[-1]
+    ds.attrs['crs']    = '+proj=latlong'
+    if nodata: ds.attrs['nodata'] = nodata
+    if compressor: ds.attrs['compress'] = 'lzw'
+    ds.attrs['transform'] = _get_transform(lat,lon)
     
+    # Rename dimension into xy
+    assert 'x' in ds.dims and 'y' in ds.dims
+    if len(ds.dims) == 2: ds = ds.transpose('y','x')
+    if len(ds.dims) == 3: ds = ds.transpose(...,'y','x')
+    
+    return ds.rio.to_raster(raster_path=filename, recalc_transform=False, compute=True)
 
-def save2RGB(raster: xr.DataArray, 
-             outpath: str | Path, 
-             extension: str = None, 
-             band_RGB: list = None,
-             dtype: type = None,
-             profile: dict = None):
-    if band_RGB is None:
-        rgb_raster = raster.isel([1,2,3])
+def to_img(ds: xr.Dataset | xr.DataArray, *,
+           filename: str | Path = None,
+           rgb: list = None,
+           raster: str = None,
+           cmap: str = 'viridis',
+           compressor: str = None,
+           verbose: bool = True):
+    """
+    Function to save array into image file format
+
+    Args:
+        ds (xr.Dataset | xr.DataArray): Input data
+        filename (str | Path, optional): Output file path. Defaults to None.
+        rgb (list, optional): Bands to select as RGB. Defaults to None.
+        raster (str, optional): Name of the variable to save. Defaults to None.
+        cmap (str, optional): Colormap to use for mask. Defaults to 'viridis'.
+        compressor (str, optional): Option to save into compressed format. Defaults to None.
+        verbose (bool, optional): Option for logging. Defaults to True.
+
+    Returns:
+        str: Output file path
+    """
+    
+    assert isinstance(ds, (xr.Dataset, xr.DataArray)), \
+        f'Wrong input data format, got {type(ds)}'
+    
+    # Extract DataArray from Dataset
+    if isinstance(ds, xr.Dataset):
+        assert raster is not None, f'Please enter raster attribute'
+        ds = ds[raster]
+    
+    # Manage save of RGB image and mask
+    if rgb:
+        assert len(rgb) == 3
+        assert len(ds.shape) == 3, 'xr.DataArray is not 3D'
+        assert all(i in ds[ds.dims[0]] for i in rgb)
+        ds = ds.sel({ds.dims[0]: rgb})
+        norm = plt.Normalize(vmin=ds.min().values, vmax=ds.max().values)
+        image = norm(ds.transpose('y','x',...).values)
     else:
-        if check_sel_dict(band_RGB):
-            rgb_raster = raster.sel(bands=band_RGB)
-        else:
-            rgb_raster = raster.isel(bands=band_RGB)
-    profile.update({'count':3})
-    save_raster(rgb_raster, outpath, extension, dtype, profile)
+        assert len(ds.shape) == 2, 'xr.DataArray is not 2D'
+        cmap = plt.get_cmap(cmap)
+        norm = plt.Normalize(vmin=ds.min().values, vmax=ds.max().values)
+        image = cmap(norm(ds.values))
+    
+    plt.imsave(filename, image)
+    return filename
+
+def to_gif(ds: xr.Dataset | xr.DataArray, *,
+           filename: str | Path = None,
+           rgb: list = None,
+           raster: str = None,
+           cmap: str = 'viridis',
+           time_dim: str = None,
+           duration: int = 40,
+           compressor: str = None,
+           verbose: bool = True):
+    """
+    Function to save 3D or 4D array into animated format (GIF)
+
+    Args:
+        ds (xr.Dataset | xr.DataArray): Input
+        filename (str | Path, optional): Output file path. Defaults to None.
+        rgb (list, optional): Bands to select as RGB. Defaults to None.
+        raster (str, optional): Name of the variable to save. Defaults to None.
+        cmap (str, optional): Colormap to use for mask. Defaults to 'viridis'.
+        time_dim (str, optional): Dimension to use as time. Defaults to None.
+        duration (int, optional): Time interval between each frame in milliseconds. Defaults to 40.
+        compressor (str, optional): Option to save into compressed format. Defaults to None.
+        verbose (bool, optional): Option for logging. Defaults to True.
+
+    Returns:
+        str: Output file path
+    """
+    
+    assert isinstance(ds, (xr.Dataset, xr.DataArray)), \
+        f'Wrong input data format, got {type(ds)}'
+    
+    # Extract DataArray from Dataset
+    if isinstance(ds, xr.Dataset):
+        assert raster is not None, f'Please enter raster attribute'
+        ds = ds[raster]
+    assert time_dim in ds.dims
+    
+    list_img = []
+    with TemporaryDirectory() as tmpdir:
+        for i,_ in enumerate(ds[time_dim]):
+            outpath = Path(tmpdir)/f'img_time_{i}.png'
+            to_img(ds.isel({time_dim:i}), filename=outpath, verbose=verbose,
+                   rgb=rgb,cmap=cmap, compressor=compressor)
+            list_img.append(Image.open(outpath))
+    
+    list_img[0].save(filename, save_all=True, append_images=list_img[1:], 
+                     optimize=False, duration=duration, loop=0)
+    
+    return filename
 
 
-def save_mask(mask:xr.DataArray, 
-              outpath:str | Path, 
-              extension:str = None, 
-              dtype:type = None,
-              profile:dict = None):
-    save_raster(mask, outpath, extension, dtype, profile)
+def _format_dataset(ds : xr.Dataset):
+    ds_dims = list(ds.dims)
+    assert 'x' in ds_dims and 'y' in ds_dims
+    for var in ds:
+        dims = list(ds[var].dims)
+        if 'x' not in dims and 'y' not in dims: continue
+        dims.remove('x')
+        dims.remove('y')
+        if len(dims) == 0: continue
+        items = product(*(ds[var][d].values for d in dims))
+        for item in items:
+            new_dims = {dims[i]:item[i] for i in range(len(item))}
+            varname = var
+            for k,v in new_dims.items(): varname += f'_{k}_{v}'
+            ds[varname] = ds[var].sel(new_dims)
+    ds_dims.remove('x')
+    ds_dims.remove('y')
+    ds = ds.drop_dims(ds_dims)
+    return ds
 
-def check_sel_dict(input_list:list):
-    test = [v > 50 for v in input_list]
-    assert np.min(test) == np.max(test)
-    return bool(np.max(test))
+def _get_transform(lat: xr.DataArray, lon: xr.DataArray):
+    # Compute transformation coefficient
+    size = lat.shape
+    a = (lon[0,-1]-lon[0,0])/size[1]
+    b = (lon[-1,0]-lon[0,0])/size[1]
+    c = lon[0,0]
+    d = (lat[0,-1]-lat[0,0])/size[0]
+    e = (lat[-1,0]-lat[0,0])/size[0]
+    f = lat[0,0]    
+    return Affine(a,b,c,d,e,f)
+
+
+class GifMaker:
+    """
+    A class to facilitate the creation of gif files
+    """
+    def __init__(self, gif_file=None, duration=1, tmpdir=None) -> None:
+        self.gif_file = gif_file
+        self.duration = duration
+        self.tmpdir = tmpdir
+        self.list_images = []
+    
+    def add_image(self, filename):
+        self.list_images.append(imageio.imread(filename))
+
+    def savefig(self, **kwargs):
+        with TemporaryDirectory(dir=self.tmpdir) as tmpdir:
+            img_file = Path(tmpdir)/'frame.png'
+            plt.savefig(img_file, **kwargs)
+            self.add_image(img_file)
+
+    def write(self, gif_file=None):
+        assert (gif_file is None) != (self.gif_file is None), \
+            'gif_file must be provided (and only once)'
+        gif_file = gif_file or self.gif_file
+        
+        imageio.mimsave(
+            gif_file,
+            self.list_images,
+            duration=self.duration)
+    
+    def display(self):
+        """
+        Display the gif in a notebook
+        """
+        with TemporaryDirectory(dir=self.tmpdir) as tmpdir:
+            file_gif = Path(tmpdir)/'file.gif'
+            self.write(file_gif)
+            display(Image(filename=file_gif))
