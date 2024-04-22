@@ -34,6 +34,8 @@ from .. import common
 from ..utils.naming import naming
 from ..utils.tools import merge
 from ..raster import ArrayLike_GDAL
+from eoread.utils.config import load_config
+from eoread.download.download_nextcloud import download_nextcloud
 
 
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
@@ -628,3 +630,7 @@ def read_meta_xml(filename):
     data = 0
 
     return data
+
+def get_sample():
+    product_name = 'LC09_L1TP_example.zip'
+    return download_nextcloud(product_name, load_config()['dir_samples'], 'SampleData')

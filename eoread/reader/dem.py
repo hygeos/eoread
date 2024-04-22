@@ -29,7 +29,7 @@ class ArrayLike_SRTM:
         self.directory  = Path(directory)
 
         static = mdir(load_config()['dir_static'])
-        system(f'wget https://nx36064.your-storageshare.de/s/Fy2bYLpaxGncgPM/download?files=valid_{self.srtm}_tiles.txt -c -O {static}/valid_{self.srtm}_tiles.txt')
+        system(f'wget https://docs.hygeos.com/s/Fy2bYLpaxGncgPM/download?files=valid_{self.srtm}_tiles.txt -c -O {static}/valid_{self.srtm}_tiles.txt')
         self.tiles_list = np.loadtxt(f'{static}/valid_{self.srtm}_tiles.txt', dtype=str)
 
         self.tile_size  = 3601 if type_srtm == 1 else 1201
