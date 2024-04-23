@@ -1,7 +1,7 @@
 import pytest 
 
-from eoread.utils.save import to_netcdf, to_tif, to_img
-from eoread.reader.landsat9_oli import Level1_L9_OLI, get_sample
+from eoread.utils.save import to_netcdf, to_tif, to_img, to_gif
+from eoread.reader.landsat9_oli import Level1_L9_OLI
 
 from tempfile import TemporaryDirectory
 from pathlib import Path
@@ -42,22 +42,26 @@ def test_to_tiff_dataarray(level1_example, compress):
                raster='Rtoa',
                compressor=compress)
 
-@pytest.mark.parametrize('compress',[True])
 @pytest.mark.parametrize('ext',['png','jpg'])
-def test_to_img_mask(level1_example, compress, ext):
+def test_to_img_mask(level1_example, ext):
     with TemporaryDirectory() as tmpdir:
         outpath = Path(tmpdir)/('test.'+ext)
         to_img(level1_example['Rtoa'].isel(bands=0), 
-               filename=outpath, 
-               compressor=compress)
-    
-@pytest.mark.parametrize('compress',[True])
+               filename=outpath)
+
 @pytest.mark.parametrize('ext',['png','jpg'])
-def test_to_img_RGB(level1_example, compress, ext):
+def test_to_img_RGB(level1_example, ext):
     with TemporaryDirectory() as tmpdir:
         outpath = Path(tmpdir)/('test.'+ext)
         to_img(level1_example, 
                filename=outpath, 
                raster='Rtoa',
-               rgb=[655,560,480],
-               compressor=compress)
+               rgb=[655,560,480])
+        
+def test_to_gif(level1_example):
+    with TemporaryDirectory() as tmpdir:
+        outpath = Path(tmpdir)/'test.gif'
+        to_gif(level1_example,
+               filename=outpath,
+               raster='Rtoa',
+               time_dim='bands')

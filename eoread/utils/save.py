@@ -11,7 +11,7 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image
+from imageio import get_writer, imread
 from typing import Union
 from pathlib import Path
 from contextlib import contextmanager
@@ -184,7 +184,6 @@ def to_img(ds: xr.Dataset | xr.DataArray, *,
            rgb: list = None,
            raster: str = None,
            cmap: str = 'viridis',
-           compressor: str = None,
            verbose: bool = True):
     """
     Function to save array into image file format
@@ -233,8 +232,7 @@ def to_gif(ds: xr.Dataset | xr.DataArray, *,
            raster: str = None,
            cmap: str = 'viridis',
            time_dim: str = None,
-           duration: int = 40,
-           compressor: str = None,
+           duration: int = 1,
            verbose: bool = True):
     """
     Function to save 3D or 4D array into animated format (GIF)
@@ -246,7 +244,7 @@ def to_gif(ds: xr.Dataset | xr.DataArray, *,
         raster (str, optional): Name of the variable to save. Defaults to None.
         cmap (str, optional): Colormap to use for mask. Defaults to 'viridis'.
         time_dim (str, optional): Dimension to use as time. Defaults to None.
-        duration (int, optional): Time interval between each frame in milliseconds. Defaults to 40.
+        duration (int, optional): Time interval between each frame in seconds. Defaults to 1.
         compressor (str, optional): Option to save into compressed format. Defaults to None.
         verbose (bool, optional): Option for logging. Defaults to True.
 
@@ -263,16 +261,13 @@ def to_gif(ds: xr.Dataset | xr.DataArray, *,
         ds = ds[raster]
     assert time_dim in ds.dims
     
-    list_img = []
+    gif = get_writer(filename, mode='I', duration=duration)
     with TemporaryDirectory() as tmpdir:
         for i,_ in enumerate(ds[time_dim]):
             outpath = Path(tmpdir)/f'img_time_{i}.png'
             to_img(ds.isel({time_dim:i}), filename=outpath, verbose=verbose,
-                   rgb=rgb,cmap=cmap, compressor=compressor)
-            list_img.append(Image.open(outpath))
-    
-    list_img[0].save(filename, save_all=True, append_images=list_img[1:], 
-                     optimize=False, duration=duration, loop=0)
+                   rgb=rgb,cmap=cmap)
+            gif.append_data(imread(outpath))
     
     return filename
 
