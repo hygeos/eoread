@@ -205,7 +205,7 @@ def to_img(ds: xr.Dataset | xr.DataArray = None,
     Returns:
         str: Output file path
     """
-    assert ds ^ array, 'Please fill only `ds` or `array`, not both'
+    assert ds is not None ^ array is not None, 'Please fill only `ds` or `array`, not both'
     assert isinstance(ds, (xr.Dataset, xr.DataArray)), \
         f'Wrong input data format, got {type(ds)}'
     
@@ -320,9 +320,6 @@ def _get_transform(lat: xr.DataArray, lon: xr.DataArray):
 
 
 class GifMaker:
-    """
-    A class to facilitate the creation of gif files
-    """
     
     def __init__(self, 
                  gif_file: str | Path = None, 
@@ -345,7 +342,7 @@ class GifMaker:
         self.write()
     
     def add_image(self, filename: str | Path = None, arr: np.ndarray = None):
-        assert filename ^ arr
+        assert filename is not None ^ arr is not None
         if arr:
             with TemporaryDirectory(dir=self.tmpdir) as tmpdir:
                 filename = Path(tmpdir)/'frame.png'
