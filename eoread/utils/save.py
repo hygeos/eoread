@@ -192,7 +192,8 @@ def to_img(ds: xr.Dataset | xr.DataArray = None,
     Function to save array into image file format
 
     Args:
-        ds (xr.Dataset | xr.DataArray): Input data
+        ds (xr.Dataset | xr.DataArray, optional): Input data
+        array (np.ndarray, optional): Input array
         filename (str | Path, optional): Output file path. Defaults to None.
         vmin (float, optional): Minimum value for colorbar. Defaults to None.
         vmax (float, optional): Maximum value for colorbar. Defaults to None.
@@ -206,7 +207,9 @@ def to_img(ds: xr.Dataset | xr.DataArray = None,
         str: Output file path
     """
     assert (ds is not None) ^ (array is not None), 'Please fill only `ds` or `array`, not both'
-    assert isinstance(ds, (xr.Dataset, xr.DataArray)), \
+    assert isinstance(array, np.ndarray) or (array is None), \
+        f'Wrong input array format, got {type(array)}'
+    assert isinstance(ds, (xr.Dataset, xr.DataArray)) or (ds is None), \
         f'Wrong input data format, got {type(ds)}'
     
     # Extract DataArray from Dataset
@@ -215,8 +218,18 @@ def to_img(ds: xr.Dataset | xr.DataArray = None,
         ds = ds[raster]
         
     # Initialize min and max values for colorbar
-    if vmin is None: vmin = ds.min().values
-    if vmax is None: vmax = ds.max().values    
+    if array is not None:
+        if vmin is None: vmin = np.min(array)
+        if vmax is None: vmax = np.max(array)
+        assert len(array.shape) == 2, 'xr.DataArray is not 2D'
+        cmap = plt.get_cmap(cmap)
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+        image = cmap(norm(array))
+        plt.imsave(filename, image)
+        return filename
+    else:
+        if vmin is None: vmin = ds.min().values
+        if vmax is None: vmax = ds.max().values    
     
     # Manage save of RGB image and mask
     if rgb:

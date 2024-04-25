@@ -58,10 +58,16 @@ def test_to_img_RGB(level1_example, ext):
                raster='Rtoa',
                rgb=[655,560,480])
         
-def test_to_gif(level1_example):
+def test_to_img_array(level1_example):
     with TemporaryDirectory() as tmpdir:
         outpath = Path(tmpdir)/'test.gif'
-        to_gif(level1_example,
+        to_img(array=level1_example['Rtoa'].isel(bands=0).values,
+               filename=outpath)
+        
+def test_to_gif_ds(level1_example):
+    with TemporaryDirectory() as tmpdir:
+        outpath = Path(tmpdir)/'test.gif'
+        to_gif(ds=level1_example,
                filename=outpath,
                raster='Rtoa',
                time_dim='bands')
