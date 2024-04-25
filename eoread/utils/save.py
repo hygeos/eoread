@@ -205,7 +205,7 @@ def to_img(ds: xr.Dataset | xr.DataArray = None,
     Returns:
         str: Output file path
     """
-    assert ds is not None ^ array is not None, 'Please fill only `ds` or `array`, not both'
+    assert (ds is not None) ^ (array is not None), 'Please fill only `ds` or `array`, not both'
     assert isinstance(ds, (xr.Dataset, xr.DataArray)), \
         f'Wrong input data format, got {type(ds)}'
     
@@ -342,7 +342,7 @@ class GifMaker:
         self.write()
     
     def add_image(self, filename: str | Path = None, arr: np.ndarray = None):
-        assert filename is not None ^ arr is not None
+        assert (filename is not None) ^ (arr is not None)
         if arr:
             with TemporaryDirectory(dir=self.tmpdir) as tmpdir:
                 filename = Path(tmpdir)/'frame.png'
