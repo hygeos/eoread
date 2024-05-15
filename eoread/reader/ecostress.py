@@ -29,7 +29,10 @@ def Level1_ECOSTRESS(filepath: Path | str,
                      split: bool =False):
     # Revize variables
     filepath = Path(filepath)
-    raw = xr.open_dataset(filepath, group='HDFEOS/GRIDS/ECO_L1CG_RAD_70m/Data Fields')
+    try:
+        raw = xr.open_dataset(filepath, group='HDFEOS/GRIDS/ECO_L1CG_RAD_70m/Data Fields')
+    except ValueError as e: 
+        raise ImportError(f"You must install 'h5netcdf' library to use ECOSTRESS reader, got message : {e}")
     raw = raw.chunk(chunks=chunks)
     
     # Read Metadata
@@ -113,8 +116,10 @@ def supplement_latlon(l1, chunks):
     border = np.array((np.min(latlon,axis=0), np.max(latlon,axis=0)))
     step = (border[1]-border[0])/size
 
-    lat  = da.arange(border[0,0],border[1,0],step[0]).reshape((size[0],1))
-    lon  = da.arange(border[0,1],border[1,1],step[1]).reshape((1,size[1]))
+    lat = da.arange(border[0,0],border[1,0],step[0])
+    lon = da.arange(border[0,1],border[1,1],step[1])
+    lat = lat[:size[0]].reshape((size[0],1))
+    lon = lon[:size[1]].reshape((1,size[1]))
     l1[n.lat] = xr.DataArray(da.repeat(lat, size[1], axis=1), 
                              dims = [n.rows,n.columns]).chunk(chunks=chunks)
     l1[n.lon] = xr.DataArray(da.repeat(lon, size[0], axis=0), 
