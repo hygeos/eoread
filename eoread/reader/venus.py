@@ -131,6 +131,7 @@ def venus_read_header(dirname):
     radiometric_info = xmlgranule.Radiometric_Informations
     quantif = float(radiometric_info.REFLECTANCE_QUANTIFICATION_VALUE)
     resolution = int(xmlgranule.Radiometric_Informations.Spectral_Band_Informations_List.Spectral_Band_Informations.SPATIAL_RESOLUTION)
+    
     # read date
     ds.attrs[n.datetime] = str(xmlgranule.Product_Characteristics.ACQUISITION_DATE)
     geocoding = xmlgranule.Geoposition_Informations
@@ -148,9 +149,10 @@ def venus_read_header(dirname):
     ds.attrs[n.totalwidth] = int(shape_info.Group_Geopositioning.NCOLS)
 
     # attributes
-    ds.attrs[n.platform] = platform
-    ds.attrs[n.resolution] = resolution
-    ds.attrs[n.sensor] = 'VENUS'
+    ds.attrs[n.crs]         = 'epsg:'+str(geocoding.Coordinate_Reference_System.Horizontal_Coordinate_System.HORIZONTAL_CS_CODE)
+    ds.attrs[n.platform]    = platform
+    ds.attrs[n.resolution]  = resolution
+    ds.attrs[n.sensor]      = 'VENUS'
     ds.attrs[n.product_name] = dirname.name
     ds.attrs[n.input_directory] = str(dirname.parent)
     
@@ -465,3 +467,6 @@ def get_SRF(
     ds[n.wav].attrs["units"] = "nm"
 
     return ds
+
+def get_sample():
+    return

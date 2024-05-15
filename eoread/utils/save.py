@@ -323,12 +323,14 @@ def _format_dataset(ds : xr.Dataset):
 def _get_transform(lat: xr.DataArray, lon: xr.DataArray):
     # Compute transformation coefficient
     size = lat.shape
-    a = (lon[0,-1]-lon[0,0])/size[1]
-    b = (lon[-1,0]-lon[0,0])/size[1]
-    c = lon[0,0]
-    d = (lat[0,-1]-lat[0,0])/size[0]
-    e = (lat[-1,0]-lat[0,0])/size[0]
-    f = lat[0,0]    
+    lonf, latf = lon.values, lat.values
+    a = (lon[0,-1].values-lon[0,0].values)/size[1]
+    b = 0 #(lon[-1,0].values-lon[0,0].values)/size[1]
+    c = lon[0,0].values
+    d = 0 #(lat[0,-1].values-lat[0,0].values)/size[0]
+    e = (lat[-1,0].values-lat[0,0].values)/size[0]
+    f = lat[0,0].values    
+    print(a,b,c,d,e,f)
     return Affine(a,b,c,d,e,f)
 
 

@@ -72,6 +72,7 @@ class Naming:
         self.flags_meanings_separator = ' '
 
         # Attributes
+        self.crs         = 'crs'
         self.datetime    = 'datetime'
         self.totalheight = 'totalheight'
         self.totalwidth  = 'totalwidth'

@@ -4,7 +4,11 @@ from eoread.utils.save import to_netcdf, to_tif, to_img, to_gif
 from eoread.reader.landsat9_oli import Level1_L9_OLI
 
 from tempfile import TemporaryDirectory
+from imageio.v2 import imread 
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import xarray as xr
 
 
 @pytest.fixture()
@@ -41,6 +45,7 @@ def test_to_tiff_dataarray(level1_example, compress):
                filename=outpath, 
                raster='Rtoa',
                compressor=compress)
+    xr.open_dataarray(outpath).plot.imshow()
 
 @pytest.mark.parametrize('ext',['png','jpg'])
 def test_to_img_mask(level1_example, ext):
@@ -48,6 +53,8 @@ def test_to_img_mask(level1_example, ext):
         outpath = Path(tmpdir)/('test.'+ext)
         to_img(level1_example['Rtoa'].isel(bands=0), 
                filename=outpath)
+    img = imread(outpath)
+    plt.imshow(img)
 
 @pytest.mark.parametrize('ext',['png','jpg'])
 def test_to_img_RGB(level1_example, ext):
@@ -57,12 +64,16 @@ def test_to_img_RGB(level1_example, ext):
                filename=outpath, 
                raster='Rtoa',
                rgb=[655,560,480])
+    img = imread(outpath)
+    plt.imshow(img)
         
 def test_to_img_array(level1_example):
     with TemporaryDirectory() as tmpdir:
         outpath = Path(tmpdir)/'test.gif'
         to_img(array=level1_example['Rtoa'].isel(bands=0).values,
                filename=outpath)
+    img = imread(outpath)
+    plt.imshow(img)
         
 def test_to_gif_ds(level1_example):
     with TemporaryDirectory() as tmpdir:

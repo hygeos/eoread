@@ -35,7 +35,8 @@ from ..utils.naming import naming
 from ..utils.tools import merge
 from ..raster import ArrayLike_GDAL
 from eoread.utils.config import load_config
-from eoread.download.download_nextcloud import download_nextcloud
+from eoread.download.download_landsat import DownloadLandsat
+from eoread.utils.config import load_config
 
 
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
@@ -148,11 +149,12 @@ def Level1_L9_OLI(dirname,
                                      dtype=naming.flags_dtype)
 
     # other attributes
-    ds.attrs[naming.platform] = 'Landsat9'
-    ds.attrs[naming.sensor] = 'OLI'
-    ds.attrs[naming.product_name] = os.path.basename(os.path.abspath(dirname))
+    ds.attrs[naming.crs]             = data_mtl['PROJECTION_ATTRIBUTES']['ELLIPSOID'] \
+                                     + ' ' + data_mtl['PROJECTION_ATTRIBUTES']['UTM_ZONE'] 
+    ds.attrs[naming.platform]        = data_mtl['IMAGE_ATTRIBUTES']['SPACECRAFT_ID']
+    ds.attrs[naming.sensor]          = data_mtl['IMAGE_ATTRIBUTES']['SENSOR_ID'][:3]
+    ds.attrs[naming.product_name]    = data_mtl['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID']
     ds.attrs[naming.input_directory] = os.path.dirname(os.path.abspath(dirname))
-
 
     return ds.unify_chunks()
 
@@ -632,5 +634,8 @@ def read_meta_xml(filename):
     return data
 
 def get_sample():
-    product_name = 'LC09_L1TP_example.zip'
-    return download_nextcloud(product_name, load_config()['dir_samples'], 'SampleData')
+    dl = DownloadLandsat(data_collection='LANDSAT-9', save_dir=load_config()['dir_samples'],
+                    start_date='2021-01-01', end_date='2022-02-01', product='landsat_tm_c2_l1',
+                    bbox=(-4.15, -3.58, 46.16, 46.51))
+    prod = dl.list_prod_id[0]
+    return dl.get(prod)

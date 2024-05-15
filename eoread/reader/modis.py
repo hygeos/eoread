@@ -173,6 +173,12 @@ def transform_radiometry(raw_data, level1, radiometry, split):
     
     level1 = level1.drop_indexes(list(level1.coords)) \
                    .reset_coords(drop=True)
+    
+    # Revise flags shape according to TOA arrays
+    flags = da.repeat(da.repeat(level1.flags.data,5,axis=0),5,axis=1)
+    flags = flags[:size[0],:size[1]]
+    level1['flags'] = xr.DataArray(flags, dims=level1[bt][0].dims)
+    
     return level1
 
 def calibrate_bt(array, band_index):
