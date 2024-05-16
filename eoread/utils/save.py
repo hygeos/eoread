@@ -146,9 +146,11 @@ def to_tif(ds: xr.Dataset, *,
            verbose: bool = True):
             
     # Extract LatLon from dataset
-    assert 'latitude' in ds, 'Latitude variable is missing'
-    assert 'longitude' in ds, 'Longitude variable is missing'
-    lat, lon = ds['latitude'], ds['longitude']
+    position = {}
+    if 'latitude' in ds and 'longitude' in ds: 
+        position['lat'], position['lon'] = ds['latitude'], ds['longitude']
+    if 'profile' in ds.attrs:
+        position['profile'] = ds.profile
     
     # Standardize Dataset 
     if raster:
@@ -166,14 +168,19 @@ QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
         f'Should input 3D or 2D dataset, not {len(ds.shape)}D'
         
     # Generate profile
-    ds.attrs           = {}
-    ds.attrs['count']  = shape[-3] if len(shape) == 3 else 1
-    ds.attrs['width']  = shape[-2]
-    ds.attrs['height'] = shape[-1]
-    ds.attrs['crs']    = '+proj=latlong'
-    if nodata: ds.attrs['nodata'] = nodata
-    if compressor: ds.attrs['compress'] = 'lzw'
-    ds.attrs['transform'] = _get_transform(lat,lon)
+    ds.attrs = {}
+    if 'profile' in position:
+        ds.attrs.update(position['profile'])
+    else:
+        ds.attrs['count']  = shape[-3] if len(shape) == 3 else 1
+        ds.attrs['width']  = shape[-2]
+        ds.attrs['height'] = shape[-1]
+        ds.attrs['crs']    = '+proj=latlong'
+        if nodata: ds.attrs['nodata'] = nodata
+        if compressor: ds.attrs['compress'] = 'lzw'
+        
+        if 'lat' in position:
+            ds.attrs['transform'] = _get_transform(position['lat'],position['lon'])
     
     # Rename dimension into xy
     assert 'x' in ds.dims and 'y' in ds.dims
