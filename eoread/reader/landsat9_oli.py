@@ -149,8 +149,8 @@ def Level1_L9_OLI(dirname,
                                      dtype=naming.flags_dtype)
 
     # other attributes
-    ds.attrs[naming.crs]             = data_mtl['PROJECTION_ATTRIBUTES']['ELLIPSOID'] \
-                                     + ' ' + data_mtl['PROJECTION_ATTRIBUTES']['UTM_ZONE'] 
+    ds.attrs[naming.crs]             = str(data_mtl['PROJECTION_ATTRIBUTES']['ELLIPSOID']) \
+                                     + ' ' + str(data_mtl['PROJECTION_ATTRIBUTES']['UTM_ZONE'])
     ds.attrs[naming.platform]        = data_mtl['IMAGE_ATTRIBUTES']['SPACECRAFT_ID']
     ds.attrs[naming.sensor]          = data_mtl['IMAGE_ATTRIBUTES']['SENSOR_ID'][:3]
     ds.attrs[naming.product_name]    = data_mtl['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID']
