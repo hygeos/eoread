@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import xarray as xr
 import numpy as np
+import rioxarray 
 import matplotlib.pyplot as plt
 
 from imageio.v2 import get_writer, imread
@@ -140,6 +141,7 @@ def to_tif(ds: xr.Dataset, *,
            filename: str | Path = None,
            nodata: int | float = None,
            raster: str = None,
+           dtype: str = None,
            compressor: bool = True,
            verbose: bool = True):
             
@@ -155,7 +157,7 @@ def to_tif(ds: xr.Dataset, *,
         shape = ds.shape
         # Check data format
         if 'int' not in str(ds.dtype): 
-            print(f"""[Warning] current data type could be incompatible with 
+            print(f"""[Warning] current data type could be incompatible with \
 QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
     else: 
         ds = _format_dataset(ds)
@@ -164,6 +166,7 @@ QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
         f'Should input 3D or 2D dataset, not {len(ds.shape)}D'
         
     # Generate profile
+    ds.attrs           = {}
     ds.attrs['count']  = shape[-3] if len(shape) == 3 else 1
     ds.attrs['width']  = shape[-2]
     ds.attrs['height'] = shape[-1]
@@ -177,7 +180,8 @@ QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
     if len(ds.dims) == 2: ds = ds.transpose('y','x')
     if len(ds.dims) == 3: ds = ds.transpose(...,'y','x')
     
-    return ds.rio.to_raster(raster_path=filename, recalc_transform=False, compute=True)
+    return ds.rio.to_raster(raster_path=filename, dtype=dtype, 
+                            recalc_transform=False, compute=True)
 
 def to_img(ds: xr.Dataset | xr.DataArray = None,
            array: np.ndarray = None, *,
@@ -330,7 +334,6 @@ def _get_transform(lat: xr.DataArray, lon: xr.DataArray):
     d = 0 #(lat[0,-1].values-lat[0,0].values)/size[0]
     e = (lat[-1,0].values-lat[0,0].values)/size[0]
     f = lat[0,0].values    
-    print(a,b,c,d,e,f)
     return Affine(a,b,c,d,e,f)
 
 
