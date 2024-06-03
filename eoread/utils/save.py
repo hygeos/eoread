@@ -158,7 +158,7 @@ def to_tif(ds: xr.Dataset, *,
         ds = ds[raster]
         shape = ds.shape
         # Check data format
-        if 'int' not in str(ds.dtype): 
+        if 'int' not in str(ds.dtype) and verbose: 
             print(f"""[Warning] current data type could be incompatible with \
 QGIS colormap, got {ds.dtype}. You should cast your data into integer format""")
     else: 
@@ -268,6 +268,7 @@ def to_gif(ds: xr.Dataset | xr.DataArray, *,
            cmap: str = 'viridis',
            time_dim: str = None,
            duration: int = 1,
+           loop: bool = True,
            verbose: bool = True):
     """
     Function to save 3D or 4D array into animated format (GIF)
@@ -299,7 +300,7 @@ def to_gif(ds: xr.Dataset | xr.DataArray, *,
     assert time_dim in ds.dims
     
     # Create GIF file
-    gif = GifMaker(gif_file=filename, duration=duration)
+    gif = GifMaker(gif_file=filename, duration=duration, loop=loop)
     with TemporaryDirectory() as tmpdir:
         for i,_ in enumerate(ds[time_dim]):
             outpath = Path(tmpdir)/f'img_time_{i}.png'
@@ -349,6 +350,7 @@ class GifMaker:
     def __init__(self, 
                  gif_file: str | Path = None, 
                  duration: float = 1, 
+                 loop: bool = True,
                  tmpdir: str | Path = None) -> None:
         """
         A class to facilitate the creation of gif files
@@ -361,7 +363,7 @@ class GifMaker:
         self.gif_file = gif_file
         self.duration = duration
         self.tmpdir   = tmpdir
-        self.current  = get_writer(gif_file, mode='I', duration=duration)
+        self.current  = get_writer(gif_file, mode='I', duration=duration, loop=loop)
     
     def __del__(self):
         self.write()
