@@ -2,11 +2,94 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
 import eumdac
+from tqdm import tqdm
 from eoread import download_legacy as download
+from eoread.utils.cache import cache_json
 from eoread.utils.fileutils import filegen
 import shutil
-from eoread.utils.uncompress import uncompress
+from eoread.utils.uncompress import uncompress as func_uncompress
+import warnings
 
+
+class DownloadEumetsat:
+    def __init__(self, collection: str):
+        """
+        Download products from data.eumetsat.int
+
+        Collections can be obtained with
+            $ eumdac describe
+        """
+        auth = download.get_auth('data.eumetsat.int')
+        credentials = (auth['user'], auth['password'])   # key, secret
+        token = eumdac.AccessToken(credentials)
+        self.datastore = eumdac.DataStore(token)
+        self.collection = collection
+        self.selected_collection = self.datastore.get_collection(collection)
+
+    def query(
+        self,
+        save: Optional[Path] = None,
+        **kwargs,
+    ):
+        """
+        Query products from data.eumetsat.int
+
+        save: file for saving query results
+
+        kwargs: query arguments. Example:
+            title = 'MSG4-SEVI-MSG15-0100-NA-20221110081242.653000000Z-NA',
+            dtstart = datetime.datetime(2022, 11, 10, 8, 0)
+            dtend = datetime.datetime(2022, 11, 10, 8, 15)
+        """
+        def _query(**kwargs):
+            # Retrieve datasets that match our filter
+            products = self.selected_collection.search(**kwargs)
+            return [str(p) for p in products]
+
+        if save:
+            _query = cache_json(save)(_query)
+
+        # Query the products
+        products = _query(**kwargs)
+
+        return products
+
+    def download(self, product_id: str, dir: Path, uncompress: bool=False) -> Path:
+        """
+        Download a product to directory
+
+        product_id: 'S3A_OL_1_ERR____20231214T232432_20231215T000840_20231216T015921_2648_106_358______MAR_O_NT_002.SEN3'
+        """
+        product = self.datastore.get_product(
+            product_id=product_id,
+            collection_id=self.collection,
+        )
+
+        @filegen()
+        def _download(target: Path):
+            with TemporaryDirectory() as tmpdir:
+                target_compressed = Path(tmpdir)/(product_id + '.zip')
+                with product.open() as fsrc, open(target_compressed, mode='wb') as fdst:
+                    pbar = tqdm(total=product.size*1e3, unit_scale=True, unit="B",
+                                initial=0, unit_divisor=1024, leave=False)
+                    pbar.set_description(f"Downloading {product_id}")
+                    while True:
+                        chunk = fsrc.read(1024)
+                        if not chunk:
+                            break
+                        fdst.write(chunk)
+                        pbar.update(len(chunk))
+                print(f'Download of product {product} finished.')
+                if uncompress:
+                    func_uncompress(target_compressed, target.parent)
+                else:
+                    shutil.move(target_compressed, target.parent)
+
+        target = dir/(product_id if uncompress else (product_id + '.zip'))
+
+        _download(target)
+
+        return target
 
 
 def query(collection, **kwargs):
@@ -20,6 +103,10 @@ def query(collection, **kwargs):
         dtstart = datetime.datetime(2022, 11, 10, 8, 0)
         dtend = datetime.datetime(2022, 11, 10, 8, 15)
     '''
+    warnings.warn(
+        "This function is deprecated, please use class `DownloadEumetsat`",
+        DeprecationWarning,
+    )
     auth = download.get_auth('data.eumetsat.int')
     credentials = (auth['user'], auth['password'])   # key, secret
     token = eumdac.AccessToken(credentials)
@@ -33,12 +120,16 @@ def query(collection, **kwargs):
 
 
 def download_product(target, product):
+    warnings.warn(
+        "This function is deprecated, please use class `DownloadEumetsat`",
+        DeprecationWarning,
+    )
     with TemporaryDirectory() as tmpdir, product.open() as fsrc:
         target_compressed = Path(tmpdir)/fsrc.name
         with open(target_compressed, mode='wb') as fdst:
             shutil.copyfileobj(fsrc, fdst)
             print(f'Download of product {product} finished.')
-        uncompress(target_compressed, target.parent)
+        func_uncompress(target_compressed, target.parent)
 
 
 @filegen()
@@ -52,6 +143,10 @@ def download_eumdac(target: Path,
         - 'EO:EUM:DAT:0409' or 'EO:EUM:DAT:0577' for OLCI L1B FR
         - 'EO:EUM:DAT:0410' or 'EO:EUM:DAT:0578' for OLCI L1B RR
     """
+    warnings.warn(
+        "This function is deprecated, please use class `DownloadEumetsat`",
+        DeprecationWarning,
+    )
     if collections is None:
         if '-SEVI-' in target.name:
             collections = ['EO:EUM:DAT:MSG:HRSEVIRI']
