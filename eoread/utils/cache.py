@@ -22,9 +22,9 @@ def cachefunc(cache_file: Path|str,
     A decorator that caches the return of a function in a file, with
     customizable format
 
-    writer: a function
-        obj = reader(filename)
     reader: a function
+        obj = reader(filename)
+    writer: a function
         writer(filename, obj)
     checker: a custom function to test the equality of the two objects
         checker(obj1, obj2)
