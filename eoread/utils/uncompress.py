@@ -16,7 +16,6 @@ from zipfile import ZipFile
 from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory, gettempdir, mkdtemp
 
-from .fileutils import LockFile
 
 class ErrorUncompressed(Exception):
     """
@@ -53,11 +52,10 @@ def uncompress_decorator(filename='.eoread_uncompress_mapping',
                     f_compressed = f(identifier, tmpdir, *args, **kwargs)
                     target = uncompress(f_compressed, dirname, verbose=verbose)
 
-                    with LockFile(mapping_file):
-                        mapping = read_mapping(mapping_file)
-                        mapping[identifier] = target.name
-                        with open(mapping_file, 'w') as fp:
-                            json.dump(mapping, fp, indent=4)
+                    mapping = read_mapping(mapping_file)
+                    mapping[identifier] = target.name
+                    with open(mapping_file, 'w') as fp:
+                        json.dump(mapping, fp, indent=4)
             else:
                 target = Path(dirname)/mapping[identifier]
             assert target.exists()
