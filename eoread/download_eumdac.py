@@ -4,7 +4,6 @@ from typing import Optional
 import eumdac
 from tqdm import tqdm
 from eoread import download_legacy as download
-from eoread.utils.cache import cache_json
 from eoread.utils.fileutils import filegen
 import shutil
 from eoread.utils.uncompress import uncompress as func_uncompress
@@ -26,33 +25,23 @@ class DownloadEumetsat:
         self.collection = collection
         self.selected_collection = self.datastore.get_collection(collection)
 
-    def query(
-        self,
-        save: Optional[Path] = None,
-        **kwargs,
-    ):
+    def query(self, **kwargs):
         """
         Query products from data.eumetsat.int
 
-        save: file for saving query results
-
         kwargs: query arguments. Example:
             title = 'MSG4-SEVI-MSG15-0100-NA-20221110081242.653000000Z-NA',
-            dtstart = datetime.datetime(2022, 11, 10, 8, 0)
-            dtend = datetime.datetime(2022, 11, 10, 8, 15)
+            dtstart = datetime.datetime(2022, 11, 10, 8, 0),
+            dtend = datetime.datetime(2022, 11, 10, 8, 15),
+            geo = Point(lon, lat),
+        
+        This method can be decorated by cache_json for storing the outputs.
+        Example:
+            cache_json('cache_result.json')(dld.query)(title='MSG4...')
         """
-        def _query(**kwargs):
-            # Retrieve datasets that match our filter
-            products = self.selected_collection.search(**kwargs)
-            return [str(p) for p in products]
-
-        if save:
-            _query = cache_json(save)(_query)
-
-        # Query the products
-        products = _query(**kwargs)
-
-        return products
+        # Retrieve datasets that match our filter
+        products = self.selected_collection.search(**kwargs)
+        return [str(p) for p in products]
 
     def download(self, product_id: str, dir: Path, uncompress: bool=False) -> Path:
         """
