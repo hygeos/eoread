@@ -69,17 +69,22 @@ class DownloadCDS:
         dtstart: datetime,
         dtend: datetime,
         geo=None,
+        cloudcover_thres: Optional[int]=None,
         name_contains: Optional[str] = None,
+        other_attrs: Optional[list] = None,
     ):
         """
         Product query on the Copernicus Data Space
 
         Args:
-            save: path for storing the query results
+            dtstart and dtend (datetime): start and stop datetimes
             geo: shapely geometry. Examples:
                 Point(lon, lat)
                 Polygon(...)
+            cloudcover_thres: Optional[int]=None,
             name_contains (str): start of the product name
+            other_attrs (list): list of other attributes to include in the output
+                (ex: ['ContentDate', 'Footprint'])
 
         Note:
             This method can be decorated by cache_json for storing the outputs.
@@ -100,9 +105,16 @@ class DownloadCDS:
         if name_contains:
             query_lines.append(f"contains(Name, '{name_contains}')")
 
+        if cloudcover_thres:
+            query_lines.append(
+                "Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' "
+                f"and att/OData.CSC.DoubleAttribute/Value le {cloudcover_thres})")
+
         json = requests.get(' and '.join(query_lines)).json()
 
-        return [{"id": d["Id"], "name": d["Name"]} for d in json["value"]]
+        return [{"id": d["Id"], "name": d["Name"],
+                 **{k: d[k] for k in (other_attrs or [])}}
+                for d in json["value"]]
 
     def download(self, product: dict, dir: Path|str, uncompress: bool=True) -> Path:
         """Download a product from copernicus data space
