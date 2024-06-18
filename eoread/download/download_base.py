@@ -108,6 +108,16 @@ class DownloadBase:
         print(f'\033[92m[{now}]\033[0m INFO - {msg}')
 
 
+def request_get(session, url, **kwargs):
+    r = session.get(url, **kwargs)
+    for _ in range(10):
+        try:
+            raise_api_error(r)
+        except RateLimitError:
+            time.sleep(3)
+            r = session.get(url, **kwargs)
+    return r
+
 def raise_api_error(response: dict):
     assert hasattr(response,'status_code')
     status = response.status_code

@@ -12,6 +12,8 @@ from shapely.geometry import Polygon
 from eoread.download.download_base import DownloadBase
 
 
+# TODO: to be deprecated by download_copernicus_dataspace
+
 class DownloadSentinel(DownloadBase):
 
     def __init__(self, 
