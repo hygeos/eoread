@@ -10,19 +10,12 @@ import subprocess
 import inspect
 
 from os import remove
-from typing import Union
+from typing import Optional, Union
 from datetime import datetime
 from functools import wraps
 from tempfile import TemporaryDirectory
 from time import sleep
 from pathlib import Path
-
-cfg = {
-    # module-wide configuration
-    'lock_timeout': 0,
-    'tmpdir': None,
-    'if_exists': 'skip',
-}
 
 
 def safe_move(src, dst, makedirs=True):
@@ -212,11 +205,14 @@ def skip(filename: Path,
 
 def filegen(arg: Union[int, str]=0,
             check_return_none=True,
-            **fg_kwargs
+            tmpdir: Optional[Path] = None,
+            lock_timeout: int = 0,
+            if_exists: str = 'skip',
             ):
     """
     A decorator for functions generating an output file.
     The path to this output file should is defined through `arg`.
+
 
     This decorator adds the following features to the function:
     - Use temporary file in a configurable directory, moved afterwards to final location
@@ -224,28 +220,25 @@ def filegen(arg: Union[int, str]=0,
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
     
-    arg: int ot str (default 0)
-        if int, defines the position of the positional argument defining the output file
-            (warning, starts at 1 for methods)
-        if str, defines the argname of the keyword argument defining the output file
+    Args:
+        arg: int ot str (default 0)
+            if int, defines the position of the positional argument defining the output file
+                (warning, starts at 1 for methods)
+            if str, defines the argname of the keyword argument defining the output file
+        check_return_none: check that the functions does not return any value
+        tmpdir: which temporary directory to use
+        lock_timeout: timeout in case of existing lock file
+        if_exists: what to do in case of existing file
 
     Example:
         @filegen()
         def f(path):
             open(path, 'w').write('test')
-        f(path='/path/to/file.txt')
-    
-    Configuration arguments can be passed to filegen(), or to the wrapped function,
-    or modified module-wise through the 'cfg' dictionary.
+        f('/path/to/file.txt')
     """
     def decorator(f):
         @wraps(f)
-        def wrapper(*args, filegen_kwargs=None, **kwargs):
-            # configuration: take first module_wide configuration,
-            # then filegen_kwargs
-            config = {**cfg,
-                      **fg_kwargs,
-                      **(filegen_kwargs or {})}
+        def wrapper(*args, **kwargs):
             if isinstance(arg, int):
                 assert args, 'Error, no positional argument have been provided'
                 assert (arg >= 0) and (arg < len(args))
@@ -259,15 +252,15 @@ def filegen(arg: Union[int, str]=0,
                 
             ofile = Path(path)
 
-            if skip(ofile, config['if_exists']):
+            if skip(ofile, if_exists):
                 return
             
-            with TemporaryDirectory(dir=config['tmpdir']) as tmpd:
+            with TemporaryDirectory(dir=tmpdir) as tmpd:
                 tfile = Path(tmpd)/ofile.name
                 with LockFile(ofile,
-                              timeout=config['lock_timeout'],
+                              timeout=lock_timeout,
                               ):
-                    if skip(ofile, config['if_exists']):
+                    if skip(ofile, if_exists):
                         return
                     if isinstance(arg, int):
                         updated_args = list(args)
