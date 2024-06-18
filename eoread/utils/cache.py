@@ -81,7 +81,12 @@ def cachefunc(cache_file: Path|str,
                         tmpchk = Path(tmpdir)/'tmp_check'
                         writer(tmpchk, None, args, kwargs)
                         chk = reader(tmpchk)
-                        assert check_in(content['input'], chk['input'])
+                        if not check_in(content['input'], chk['input']):
+                            raise ValueError(
+                                f"Input parameters do not match stored inputs.\n"
+                                f"  Input params:  {content['input']}\n"
+                                f"  Stored inputs: {chk['input']}"
+                            )
 
                 return content['output']
 
