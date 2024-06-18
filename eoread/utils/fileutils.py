@@ -16,6 +16,7 @@ from functools import wraps
 from tempfile import TemporaryDirectory
 from time import sleep
 from pathlib import Path
+from eoread.utils.uncompress import uncompress as uncomp
 
 
 def safe_move(src, dst, makedirs=True):
@@ -208,6 +209,7 @@ def filegen(arg: Union[int, str]=0,
             tmpdir: Optional[Path] = None,
             lock_timeout: int = 0,
             if_exists: str = 'skip',
+            uncompress: Optional[str] = None,
             ):
     """
     A decorator for functions generating an output file.
@@ -219,6 +221,7 @@ def filegen(arg: Union[int, str]=0,
     - Detect existing file (if_exists='skip', 'overwrite', 'backup' or 'error')
     - Use output file lock when multiple functions may produce the same file
       The timeout for this lock is determined by argument `lock_timeout`.
+    - Optional decompression
     
     Args:
         arg: int ot str (default 0)
@@ -229,6 +232,8 @@ def filegen(arg: Union[int, str]=0,
         tmpdir: which temporary directory to use
         lock_timeout: timeout in case of existing lock file
         if_exists: what to do in case of existing file
+        uncompress (str): if specified, the wrapped function produces a file with the
+            specified extension, typically '.zip'. This file is then uncompressed.
 
     Example:
         @filegen()
@@ -256,7 +261,13 @@ def filegen(arg: Union[int, str]=0,
                 return
             
             with TemporaryDirectory(dir=tmpdir) as tmpd:
-                tfile = Path(tmpd)/ofile.name
+                
+                # target (intermediary) file
+                if uncompress:
+                    tfile = Path(tmpd)/(ofile.name+uncompress)
+                else:
+                    tfile = Path(tmpd)/ofile.name
+
                 with LockFile(ofile,
                               timeout=lock_timeout,
                               ):
@@ -278,7 +289,12 @@ def filegen(arg: Union[int, str]=0,
                         # the function should not return anything,
                         # because it may be skipped
                         assert ret is None
-                    safe_move(tfile, ofile)
+
+                    if uncompress:
+                        uncompressed = uncomp(tfile, Path(tmpd))
+                        safe_move(uncompressed, ofile)
+                    else:
+                        safe_move(tfile, ofile)
             return
         return wrapper
     return decorator
