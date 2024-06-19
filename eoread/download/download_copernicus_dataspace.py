@@ -142,14 +142,29 @@ class DownloadCDS:
             target = Path(dir)/(product['name']+'.zip')
             uncompress_ext = None
 
-        filegen(0, uncompress=uncompress_ext)(self._download)(target, product)
+        url = ("https://catalogue.dataspace.copernicus.eu/odata/v1/"
+               f"Products({product['id']})/$value")
+
+        filegen(0, uncompress=uncompress_ext)(self._download)(target, url)
+
+        return target
+
+    def quicklook(self, product: dict, dir: Path|str):
+        """
+        Download a quicklook to `dir`
+        """
+        target = Path(dir)/(product['name'] + '.jpeg')
+
+        url = self.metadata(product)['Assets'][0]['DownloadLink']
+
+        filegen(0)(self._download)(target, url)
 
         return target
 
     def _download(
         self,
         target: Path,
-        product: dict,
+        url: str,
     ):
         """
         Wrapped by filegen
@@ -160,7 +175,6 @@ class DownloadCDS:
         # Initialize session for download
         session = requests.Session()
         session.headers.update({'Authorization': f'Bearer {self.tokens}'})
-        url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products({product['id']})/$value"
 
         # Try to request server
         pbar.set_description('Try to request server')
@@ -180,9 +194,20 @@ class DownloadCDS:
         response = request_get(session, url, verify=False, allow_redirects=True)
         pbar = tqdm(total=filesize, unit_scale=True, unit="B",
                     unit_divisor=1024, leave=False)
-        pbar.set_description(f"Downloading {product['name']}")
+        pbar.set_description(f"Downloading {target.name}")
         with open(target, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
                     pbar.update(1024)
+
+    def metadata(self, product: dict):
+        """
+        Returns the product metadata including attributes and assets
+        """
+        req = ("https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Id"
+               f" eq '{product['id']}'&$expand=Attributes&$expand=Assets")
+        json = requests.get(req).json()
+
+        assert len(json['value']) == 1
+        return json['value'][0]
