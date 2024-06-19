@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date, time
 from pathlib import Path
 from typing import Optional
 
@@ -66,8 +66,8 @@ class DownloadCDS:
 
     def query(
         self,
-        dtstart: datetime,
-        dtend: datetime,
+        dtstart: date|datetime,
+        dtend: date|datetime,
         geo=None,
         cloudcover_thres: Optional[int]=None,
         name_contains: Optional[str] = None,
@@ -92,6 +92,10 @@ class DownloadCDS:
                 cache_json('cache_result.json')(cds.query)(...)
         """
         # https://documentation.dataspace.copernicus.eu/APIs/OData.html#query-by-name
+        if isinstance(dtstart, date):
+            dtstart = datetime.combine(dtstart, time(0))
+        if isinstance(dtend, date):
+            dtend = datetime.combine(dtend, time(0))
         query_lines = [
             f"""https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Collection/Name 
                 eq '{self.collection}' """,
