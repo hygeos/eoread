@@ -114,7 +114,14 @@ class DownloadCDS:
                 "Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' "
                 f"and att/OData.CSC.DoubleAttribute/Value le {cloudcover_thres})")
 
-        json = requests.get(' and '.join(query_lines)).json()
+        top = 1000  # maximum value of number of retrieved values
+        req = (' and '.join(query_lines))+f'&$top={top}'
+        json = requests.get(req).json()
+
+        # test if maximum number of returns is reached
+        if len(json["value"]) >= top:
+            raise ValueError('The request led to the maximum number '
+                             f'of results ({len(json["value"])})')
 
         return [{"id": d["Id"], "name": d["Name"],
                  **{k: d[k] for k in (other_attrs or [])}}
