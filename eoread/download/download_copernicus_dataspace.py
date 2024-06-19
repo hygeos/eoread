@@ -1,5 +1,7 @@
 from datetime import datetime, date, time
+import fnmatch
 from pathlib import Path
+import re
 from typing import Optional
 
 import requests
@@ -73,6 +75,7 @@ class DownloadCDS:
         name_contains: Optional[list] = None,
         name_startswith: Optional[str] = None,
         name_endswith: Optional[str] = None,
+        name_glob: Optional[str] = None,
         other_attrs: Optional[list] = None,
     ):
         """
@@ -111,6 +114,18 @@ class DownloadCDS:
         if geo:
             query_lines.append(f"OData.CSC.Intersects(area=geography'SRID=4326;{geo}')")
 
+        if name_glob:
+            assert name_startswith is None
+            assert name_endswith is None
+            assert name_contains is None
+            substrings = re.split(r'\*|\?', name_glob)
+            if substrings[0]:
+                name_startswith = substrings[0]
+            if substrings[-1] and (len(substrings) > 1):
+                name_endswith = substrings[-1]
+            if (len(substrings) > 2):
+                name_contains = [x for x in substrings[1:-1] if x]
+
         if name_startswith:
             query_lines.append(f"startswith(Name, '{name_startswith}')")
 
@@ -138,7 +153,9 @@ class DownloadCDS:
 
         return [{"id": d["Id"], "name": d["Name"],
                  **{k: d[k] for k in (other_attrs or [])}}
-                for d in json["value"]]
+                for d in json["value"]
+                if ((not name_glob) or fnmatch.fnmatch(d["Name"], name_glob))
+                ]
 
     def download(self, product: dict, dir: Path|str, uncompress: bool=True) -> Path:
         """Download a product from copernicus data space
