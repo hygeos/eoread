@@ -70,7 +70,9 @@ class DownloadCDS:
         dtend: date|datetime,
         geo=None,
         cloudcover_thres: Optional[int]=None,
-        name_contains: Optional[str] = None,
+        name_contains: Optional[list] = None,
+        name_startswith: Optional[str] = None,
+        name_endswith: Optional[str] = None,
         other_attrs: Optional[list] = None,
     ):
         """
@@ -82,7 +84,10 @@ class DownloadCDS:
                 Point(lon, lat)
                 Polygon(...)
             cloudcover_thres: Optional[int]=None,
-            name_contains (str): start of the product name
+            name_contains (list): list of substrings
+            name_startswith (str): search for name starting with this str
+            name_endswith (str): search for name ending with this str
+            name_glob (str): match name with this string
             other_attrs (list): list of other attributes to include in the output
                 (ex: ['ContentDate', 'Footprint'])
 
@@ -106,8 +111,16 @@ class DownloadCDS:
         if geo:
             query_lines.append(f"OData.CSC.Intersects(area=geography'SRID=4326;{geo}')")
 
+        if name_startswith:
+            query_lines.append(f"startswith(Name, '{name_startswith}')")
+
         if name_contains:
-            query_lines.append(f"contains(Name, '{name_contains}')")
+            assert isinstance(name_contains, list)
+            for cont in name_contains:
+                query_lines.append(f"contains(Name, '{cont}')")
+
+        if name_endswith:
+            query_lines.append(f"endswith(Name, '{name_endswith}')")
 
         if cloudcover_thres:
             query_lines.append(
@@ -155,9 +168,9 @@ class DownloadCDS:
         """
         target = Path(dir)/(product['name'] + '.jpeg')
 
-        url = self.metadata(product)['Assets'][0]['DownloadLink']
-
-        filegen(0)(self._download)(target, url)
+        if not target.exists():
+            url = self.metadata(product)['Assets'][0]['DownloadLink']
+            filegen(0)(self._download)(target, url)
 
         return target
 
