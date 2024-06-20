@@ -264,3 +264,25 @@ class DownloadCDS:
 
         assert len(json['value']) == 1
         return json['value'][0]
+
+
+def Sentinel2_level2_pattern(level1: str) -> str:
+    """returns level2 glob pattern from level1 product name"""
+    # https://sentiwiki.copernicus.eu/web/s2-products
+    # the following filename:
+    # S2A_MSIL1C_20170105T013442_N0204_R031_T53NMJ_20170105T013443.SAFE
+    # Identifies a Level-1C product acquired by Sentinel-2A on the 5th of January, 2017
+    # at 1:34:42 AM. It was acquired over Tile 53NMJ during Relative Orbit 031,
+    # and processed with Processing Baseline 02.04.
+    ls = level1.split("_")
+    return "_".join(
+        [
+            ls[0],  # sensor
+            "MSIL2A",
+            ls[2],  # acquisition time
+            "*",    # processing baseline
+            ls[4],  # relative orbit
+            ls[5],  # tile
+            "*",    # processing time
+        ]
+    )
