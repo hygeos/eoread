@@ -246,7 +246,7 @@ class DownloadCDS:
         filesize = int(response.headers["Content-Length"])
         response = request_get(session, url, verify=False, allow_redirects=True)
         pbar = tqdm(total=filesize, unit_scale=True, unit="B",
-                    unit_divisor=1024, leave=False)
+                    unit_divisor=1024, leave=True)
         pbar.set_description(f"Downloading {target.name}")
         with open(target, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
