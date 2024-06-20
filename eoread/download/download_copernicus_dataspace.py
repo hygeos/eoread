@@ -68,8 +68,8 @@ class DownloadCDS:
 
     def query(
         self,
-        dtstart: date|datetime,
-        dtend: date|datetime,
+        dtstart: Optional[date|datetime]=None,
+        dtend: Optional[date|datetime]=None,
         geo=None,
         cloudcover_thres: Optional[int]=None,
         name_contains: Optional[list] = None,
@@ -108,10 +108,13 @@ class DownloadCDS:
             dtend = datetime.combine(dtend, time(0))
         query_lines = [
             f"""https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Collection/Name 
-                eq '{self.collection}' """,
-            f'ContentDate/Start gt {dtstart.isoformat()}Z',
-            f'ContentDate/Start lt {dtend.isoformat()}Z',
+                eq '{self.collection}' """
         ]
+
+        if dtstart:
+            query_lines.append(f'ContentDate/Start gt {dtstart.isoformat()}Z')
+        if dtend:
+            query_lines.append(f'ContentDate/Start lt {dtend.isoformat()}Z')
 
         if geo:
             query_lines.append(f"OData.CSC.Intersects(area=geography'SRID=4326;{geo}')")
@@ -181,7 +184,7 @@ class DownloadCDS:
         """Download a product from copernicus data space
 
         Args:
-            product (dict): product definition
+            product (dict): product definition with keys 'id' and 'name'
             dir (Path | str): _description_
             uncompress (bool, optional): _description_. Defaults to True.
         """
