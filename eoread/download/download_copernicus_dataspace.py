@@ -76,6 +76,7 @@ class DownloadCDS:
         name_startswith: Optional[str] = None,
         name_endswith: Optional[str] = None,
         name_glob: Optional[str] = None,
+        use_most_recent: bool = True,
         other_attrs: Optional[list] = None,
     ):
         """
@@ -91,6 +92,7 @@ class DownloadCDS:
             name_startswith (str): search for name starting with this str
             name_endswith (str): search for name ending with this str
             name_glob (str): match name with this string
+            use_most_recent (bool): keep only the most recent processing baseline version
             other_attrs (list): list of other attributes to include in the output
                 (ex: ['ContentDate', 'Footprint'])
 
@@ -150,10 +152,28 @@ class DownloadCDS:
         if len(json["value"]) >= top:
             raise ValueError('The request led to the maximum number '
                              f'of results ({len(json["value"])})')
+        
+        if use_most_recent and (self.collection == 'SENTINEL-2'):
+            # remove duplicate products, take only the most recent one
+            mp = {}  # maps a single_id to a list of lines
+            for line in json["value"]:
+                # build a common identifier for multiple versions
+                s = line['Name'].split('_')
+                ident = '_'.join([s[i] for i in [0, 1, 2, 4, 5]])
+                if ident in mp:
+                    mp[ident].append(line)
+                else:
+                    mp[ident] = [line]
+            # for each identifier, sort the corresponding lines by "Name"
+            # and select the last one
+            json_value = [sorted(lines, key=lambda line: line['Name'])[-1]
+                             for lines in mp.values()]
+        else:
+            json_value = json['value']
 
         return [{"id": d["Id"], "name": d["Name"],
                  **{k: d[k] for k in (other_attrs or [])}}
-                for d in json["value"]
+                for d in json_value
                 if ((not name_glob) or fnmatch.fnmatch(d["Name"], name_glob))
                 ]
 
