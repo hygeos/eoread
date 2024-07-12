@@ -205,11 +205,11 @@ def skip(filename: Path,
 
 
 def filegen(arg: Union[int, str]=0,
-            check_return_none=True,
             tmpdir: Optional[Path] = None,
             lock_timeout: int = 0,
             if_exists: str = 'skip',
             uncompress: Optional[str] = None,
+            verbose: bool = True,
             ):
     """
     A decorator for functions generating an output file.
@@ -228,12 +228,12 @@ def filegen(arg: Union[int, str]=0,
             if int, defines the position of the positional argument defining the output file
                 (warning, starts at 1 for methods)
             if str, defines the argname of the keyword argument defining the output file
-        check_return_none: check that the functions does not return any value
         tmpdir: which temporary directory to use
         lock_timeout: timeout in case of existing lock file
         if_exists: what to do in case of existing file
         uncompress (str): if specified, the wrapped function produces a file with the
             specified extension, typically '.zip'. This file is then uncompressed.
+        verbose: verbosity control
 
     Example:
         @filegen()
@@ -253,11 +253,13 @@ def filegen(arg: Union[int, str]=0,
                     f'Error, function should have keyword argument "{arg}"'
                 path = kwargs[arg]
             else:
-                raise ValueError(f'Invalid argumnt {arg}')
+                raise TypeError(f'Invalid argumnt {arg}')
                 
             ofile = Path(path)
 
             if skip(ofile, if_exists):
+                if verbose:
+                    print(f'Skipping existing file {ofile.name}')
                 return
             
             with TemporaryDirectory(dir=tmpdir) as tmpd:
@@ -285,10 +287,10 @@ def filegen(arg: Union[int, str]=0,
                         
                     ret = f(*updated_args, **updated_kwargs)
                     assert tfile.exists()
-                    if check_return_none:
-                        # the function should not return anything,
-                        # because it may be skipped
-                        assert ret is None
+
+                    # check that the function does not return anything,
+                    # because the function call may be skipped upon existing file
+                    assert ret is None
 
                     if uncompress:
                         uncompressed = uncomp(tfile, Path(tmpd))

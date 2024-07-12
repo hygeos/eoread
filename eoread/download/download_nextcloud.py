@@ -24,10 +24,9 @@ def download_nextcloud(product_name: str,
         Path: Output path of the downloaded data
     """
     
-    @filegen(arg=0, check_return_none=False)
+    @filegen(arg=0)
     def download_with_filegen(output_path, input_path):
         system(f'wget {sharelink_eoread}/download?files={input_path} -c -O {output_path}')
-        return output_path
     
     output_dir = mdir(output_dir)
     outpath    = output_dir/product_name
