@@ -204,86 +204,101 @@ def skip(filename: Path,
         return False
 
 
-def filegen(arg: Union[int, str]=0,
-            tmpdir: Optional[Path] = None,
-            lock_timeout: int = 0,
-            if_exists: str = 'skip',
-            uncompress: Optional[str] = None,
-            verbose: bool = True,
-            ):
-    """
-    A decorator for functions generating an output file.
-    The path to this output file should is defined through `arg`.
+class filegen:
+    def __init__(self,
+                 arg: Union[int, str]=0,
+                 tmpdir: Optional[Path] = None,
+                 lock_timeout: int = 0,
+                 if_exists: str = 'skip',
+                 uncompress: Optional[str] = None,
+                 verbose: bool = True,
+                 ):
+        """
+        A decorator for functions generating an output file.
+        The path to this output file should is defined through `arg`.
 
 
-    This decorator adds the following features to the function:
-    - Use temporary file in a configurable directory, moved afterwards to final location
-    - Detect existing file (if_exists='skip', 'overwrite', 'backup' or 'error')
-    - Use output file lock when multiple functions may produce the same file
-      The timeout for this lock is determined by argument `lock_timeout`.
-    - Optional decompression
-    
-    Args:
-        arg: int ot str (default 0)
-            if int, defines the position of the positional argument defining the output file
-                (warning, starts at 1 for methods)
-            if str, defines the argname of the keyword argument defining the output file
-        tmpdir: which temporary directory to use
-        lock_timeout: timeout in case of existing lock file
-        if_exists: what to do in case of existing file
-        uncompress (str): if specified, the wrapped function produces a file with the
-            specified extension, typically '.zip'. This file is then uncompressed.
-        verbose: verbosity control
+        This decorator adds the following features to the function:
+        - Use temporary file in a configurable directory, moved afterwards to final location
+        - Detect existing file (if_exists='skip', 'overwrite', 'backup' or 'error')
+        - Use output file lock when multiple functions may produce the same file
+        The timeout for this lock is determined by argument `lock_timeout`.
+        - Optional decompression
+        
+        Args:
+            arg: int ot str (default 0)
+                if int, defines the position of the positional argument defining the output file
+                    (warning, starts at 1 for methods)
+                if str, defines the argname of the keyword argument defining the output file
+            tmpdir: which temporary directory to use
+            lock_timeout (int): timeout in case of existing lock file
+            if_exists (str): what to do in case of existing file
+            uncompress (str): if specified, the wrapped function produces a file with the
+                specified extension, typically '.zip'. This file is then uncompressed.
+            verbose (bool): verbosity control
 
-    Example:
-        @filegen()
-        def f(path):
-            open(path, 'w').write('test')
-        f('/path/to/file.txt')
-    """
-    def decorator(f):
+        Example:
+            @filegen(arg=0)
+            def f(path):
+                open(path, 'w').write('test')
+            f('/path/to/file.txt')
+
+        Note:
+            The arguments can be modified at runtime.
+            Example:
+                f.if_exists = 'overwrite'
+                f.verbose = False
+        """
+        self._arg = arg
+        self.tmpdir = tmpdir
+        self.lock_timeout = lock_timeout
+        self.if_exists = if_exists
+        self.uncompress = uncompress
+        self.verbose = verbose
+        
+    def __call__(self, f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            if isinstance(arg, int):
+            if isinstance(self._arg, int):
                 assert args, 'Error, no positional argument have been provided'
-                assert (arg >= 0) and (arg < len(args))
-                path = args[arg]
-            elif isinstance(arg, str):
-                assert arg in kwargs, \
-                    f'Error, function should have keyword argument "{arg}"'
-                path = kwargs[arg]
+                assert (self._arg >= 0) and (self._arg < len(args))
+                path = args[self._arg]
+            elif isinstance(self._arg, str):
+                assert self._arg in kwargs, \
+                    f'Error, function should have keyword argument "{self._arg}"'
+                path = kwargs[self._arg]
             else:
-                raise TypeError(f'Invalid argumnt {arg}')
+                raise TypeError(f'Invalid argumnt {self._arg}')
                 
             ofile = Path(path)
 
-            if skip(ofile, if_exists):
-                if verbose:
+            if skip(ofile, self.if_exists):
+                if self.verbose:
                     print(f'Skipping existing file {ofile.name}')
                 return
             
-            with TemporaryDirectory(dir=tmpdir) as tmpd:
+            with TemporaryDirectory(dir=self.tmpdir) as tmpd:
                 
                 # target (intermediary) file
-                if uncompress:
-                    tfile = Path(tmpd)/(ofile.name+uncompress)
+                if self.uncompress:
+                    tfile = Path(tmpd)/(ofile.name+self.uncompress)
                 else:
                     tfile = Path(tmpd)/ofile.name
 
                 with LockFile(ofile,
-                              timeout=lock_timeout,
-                              ):
-                    if skip(ofile, if_exists):
+                            timeout=self.lock_timeout,
+                            ):
+                    if skip(ofile, self.if_exists):
                         return
-                    if isinstance(arg, int):
+                    if isinstance(self._arg, int):
                         updated_args = list(args)
-                        updated_args[arg] = tfile
+                        updated_args[self._arg] = tfile
                         updated_kwargs = kwargs
-                    elif isinstance(arg, str):
+                    elif isinstance(self._arg, str):
                         updated_args = args
-                        updated_kwargs = {**kwargs, arg: tfile}
+                        updated_kwargs = {**kwargs, self._arg: tfile}
                     else:
-                        raise ValueError(f'Invalid argumnt {arg}')
+                        raise ValueError(f'Invalid argumnt {self._arg}')
                         
                     ret = f(*updated_args, **updated_kwargs)
                     assert tfile.exists()
@@ -292,14 +307,13 @@ def filegen(arg: Union[int, str]=0,
                     # because the function call may be skipped upon existing file
                     assert ret is None
 
-                    if uncompress:
+                    if self.uncompress:
                         uncompressed = uncomp(tfile, Path(tmpd))
                         safe_move(uncompressed, ofile)
                     else:
                         safe_move(tfile, ofile)
             return
         return wrapper
-    return decorator
 
 
 def get_git_commit():
