@@ -209,7 +209,10 @@ class DownloadCDS:
         target = Path(dir)/(product['name'] + '.jpeg')
 
         if not target.exists():
-            url = self.metadata(product)['Assets'][0]['DownloadLink']
+            assets = self.metadata(product)['Assets']
+            if not assets:
+                raise FileNotFoundError(f'Skipping quicklook {target.name}')
+            url = assets[0]['DownloadLink']
             filegen(0)(self._download)(target, url)
 
         return target
@@ -230,7 +233,7 @@ class DownloadCDS:
         session.headers.update({'Authorization': f'Bearer {self.tokens}'})
 
         # Try to request server
-        pbar.set_description('Try to request server')
+        pbar.set_description(f'Requesting server: {target.name}')
         response = session.get(url, allow_redirects=False)
         niter = 0
         while response.status_code in (301, 302, 303, 307) and niter < 15:
