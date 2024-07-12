@@ -58,19 +58,19 @@ class LockFile:
         # the context will enter once the lock is released
     """
     def __init__(self,
-                 lock_file,
+                 locked_file,
                  ext='.lock',
                  interval=1,
                  timeout=0,
                  create_dir=True,
                 ):
-        self.lock_file = Path(str(lock_file)+ext)
-        if create_dir and (timeout >= 0):
-            self.lock_file.parent.mkdir(exist_ok=True, parents=True)
+        self.lock_file = Path(str(locked_file)+ext)
         self.fd = None
         self.interval = interval
         self.timeout = timeout
         self.disable = timeout < 0
+        if create_dir and not self.disable:
+            self.lock_file.parent.mkdir(exist_ok=True, parents=True)
 
     def __enter__(self):
         if self.disable:
@@ -88,6 +88,7 @@ class LockFile:
                 i += 1
                 if i > self.timeout:
                     raise TimeoutError(f'Timeout on Lockfile "{self.lock_file}"')
+        return self
 
     def __exit__(self, type, value, traceback):
         if self.disable:

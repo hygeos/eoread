@@ -1,49 +1,48 @@
 
-from functools import partial
 import pytest
-from datetime import datetime
-from multiprocessing import Pool
 from pathlib import Path
-import sys
 from tempfile import TemporaryDirectory
-from time import sleep
 from eoread.utils.fileutils import LockFile, filegen, get_git_commit, mdir
 
-def f(file_lock, interval):
-    print(f'Started at {datetime.now()}')
-    with LockFile(file_lock, timeout=10):
-        print('Lock acquired at', datetime.now())
-        sys.stdout.flush()
-        sleep(interval)
-        print('Lock released at', datetime.now())
-        sys.stdout.flush()
 
-@pytest.mark.parametrize('interval', [0, 0.1, 1])
-def test_lockfile(interval):
+def test_lockfile():
     with TemporaryDirectory() as tmpdir:
         lock_file = Path(tmpdir)/'test'
-        Pool(4).map(partial(f, interval=interval), [lock_file]*4)
-        assert not lock_file.exists()
+        with LockFile(lock_file) as lf:
+            assert lf.lock_file.exists()
+            with pytest.raises(TimeoutError):
+                with LockFile(lock_file):
+                    pass
+        with LockFile(lock_file) as lf:
+            pass
 
 
 @pytest.mark.parametrize('if_exists', ['skip', 'overwrite', 'backup'])
 def test_filegen(if_exists):
-    @filegen(if_exists=if_exists)
-    def f(path):
+    @filegen(arg=0, if_exists=if_exists)
+    def f(path, target_path):
         with open(path, 'w') as fd:
             fd.write('test')
+        
+        # check that target file is currently locked
+        with pytest.raises(TimeoutError):
+            with LockFile(target_path):
+                pass
 
     with TemporaryDirectory() as tmpdir:
         target = Path(tmpdir)/'test'
-        f(target)
-        f(target)  # second call skips existing file
+        f(target, target)
+        f(target, target)  # second call skips existing file
 
 
 @pytest.mark.parametrize('if_exists', ['skip', 'overwrite', 'backup'])
 def test_filegen_class(if_exists):
     class MyClass:
+        def __init__(self) -> None:
+            self.ncalls = 0
         @filegen(1, if_exists=if_exists)
         def method(self, path):
+            self.ncalls += 1
             with open(path, 'w') as fd:
                 fd.write('test')
     
@@ -51,7 +50,9 @@ def test_filegen_class(if_exists):
         target = Path(tmpdir)/'test'
         M = MyClass()
         M.method(target)
+        assert M.ncalls == 1
         M.method(target)  # second call skips existing file
+        assert M.ncalls == (1 if if_exists == 'skip' else 2)
 
 
 def test_dirgen():
