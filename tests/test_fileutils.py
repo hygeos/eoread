@@ -9,7 +9,7 @@ def test_lockfile():
     with TemporaryDirectory() as tmpdir:
         lock_file = Path(tmpdir)/'test'
         with LockFile(lock_file) as lf:
-            assert lf.lock_file.exists()
+            assert lf.exists()
             with pytest.raises(TimeoutError):
                 with LockFile(lock_file):
                     pass

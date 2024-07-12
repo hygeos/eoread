@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from contextlib import contextmanager
 import os
 import shutil
 import json
-import fcntl
 import getpass
 import subprocess
 import inspect
 
-from os import remove
 from typing import Optional, Union
 from datetime import datetime
 from functools import wraps
@@ -45,61 +44,50 @@ def safe_move(src, dst, makedirs=True):
     assert pdst.exists()
 
 
-class LockFile:
+@contextmanager
+def LockFile(locked_file: Path,
+             ext='.lock',
+             interval=1,
+             timeout=0,
+             create_dir=True,
+             ):
     """
     Create a blocking context with a lock file
 
     timeout: timeout in seconds, waiting to the lock to be released.
         If negative, disable lock files entirely.
+    
+    interval: interval in seconds
 
-    Ex:
-    with LockFile('/dir/to/file.txt'):
-        # create a file '/dir/to/file.txt.lock' including a filesystem lock
-        # the context will enter once the lock is released
+    Example:
+        with LockFile('/dir/to/file.txt'):
+            # create a file '/dir/to/file.txt.lock' including a filesystem lock
+            # the context will enter once the lock is released
     """
-    def __init__(self,
-                 locked_file,
-                 ext='.lock',
-                 interval=1,
-                 timeout=0,
-                 create_dir=True,
-                ):
-        self.lock_file = Path(str(locked_file)+ext)
-        self.fd = None
-        self.interval = interval
-        self.timeout = timeout
-        self.disable = timeout < 0
-        if create_dir and not self.disable:
-            self.lock_file.parent.mkdir(exist_ok=True, parents=True)
-
-    def __enter__(self):
-        if self.disable:
-            return
+    lock_file = Path(str(locked_file)+ext)
+    disable = timeout < 0
+    if create_dir and not disable:
+        lock_file.parent.mkdir(exist_ok=True, parents=True)
+    
+    if disable:
+        yield lock_file
+    else:
+        # wait untile the lock file does not exist anymore
         i = 0
-        while True:
-            self.fd = open(self.lock_file, 'w')
-            try:
-                fcntl.flock(self.fd, fcntl.LOCK_EX|fcntl.LOCK_NB)
-                self.fd.flush()
-                break
-            except (BlockingIOError, FileNotFoundError):
-                self.fd.close()
-                sleep(self.interval)
-                i += 1
-                if i > self.timeout:
-                    raise TimeoutError(f'Timeout on Lockfile "{self.lock_file}"')
-        return self
+        while lock_file.exists():
+            sleep(interval)
+            i += 1
+            if i > timeout:
+                raise TimeoutError(f'Timeout on Lockfile "{lock_file}"')
 
-    def __exit__(self, type, value, traceback):
-        if self.disable:
-            return
-        try:
-            fcntl.flock(self.fd, fcntl.LOCK_UN)
-            self.fd.flush()
-            self.fd.close()
-            remove(self.lock_file)
-        except FileNotFoundError:
-            pass
+        # create the lock file
+        with open(lock_file, 'w') as fd:
+            fd.write('')
+
+        yield lock_file
+
+        # remove the lock file
+        lock_file.unlink()
 
 
 class PersistentList(list):
