@@ -75,19 +75,20 @@ def LockFile(locked_file: Path,
         # wait untile the lock file does not exist anymore
         i = 0
         while lock_file.exists():
-            sleep(interval)
-            i += 1
             if i > timeout:
                 raise TimeoutError(f'Timeout on Lockfile "{lock_file}"')
+            sleep(interval)
+            i += 1
 
         # create the lock file
         with open(lock_file, 'w') as fd:
             fd.write('')
 
-        yield lock_file
-
-        # remove the lock file
-        lock_file.unlink()
+        try:
+            yield lock_file
+        finally:
+            # remove the lock file
+            lock_file.unlink()
 
 
 class PersistentList(list):
