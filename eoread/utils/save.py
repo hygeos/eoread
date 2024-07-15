@@ -9,14 +9,13 @@ import shutil
 import tempfile
 import xarray as xr
 import numpy as np
-import rioxarray 
 import matplotlib.pyplot as plt
 
 from imageio.v2 import get_writer, imread
 from typing import Union
 from pathlib import Path
 from contextlib import contextmanager
-from dask.diagnostics import ProgressBar
+from dask.diagnostics.progress import ProgressBar
 from rasterio.transform import Affine
 from tempfile import TemporaryDirectory
 from itertools import product
