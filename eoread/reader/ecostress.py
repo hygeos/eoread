@@ -145,7 +145,7 @@ def calibrate_bt(array, band_index, granule_mtd, flags, LUT_file):
         # Interpolate the LUT values for each radiance based on two nearest LUT values        
         LUT = LUT_file[f'radiance_{band_index+1}']
         bt = np.vectorize(find)(array)     
-        return xr.where(flags, bt, np.nan)
+        return bt
 
     else:
         # Initialized constants
