@@ -23,10 +23,10 @@ band_index = {  # Bands      - wavelength (um)   - resolution (m)    - group
 
 
 def Level1_ECOSTRESS(filepath: Path | str,
-                     radiometry: str ='reflectance',
-                     chunks: int =500,
-                     LUT_file: str =None,
-                     split: bool =False):
+                     radiometry: str = 'reflectance',
+                     chunks: int = 500,
+                     LUT_file: str = None,
+                     split: bool = False):
     # Revize variables
     filepath = Path(filepath)
     try:
@@ -51,6 +51,50 @@ def Level1_ECOSTRESS(filepath: Path | str,
         new_dims = [n.rows,n.columns,n.bands_tir]
         coords = {n.bands_tir: list(band_index.keys())}
     else: new_dims, coords = [n.rows,n.columns], {}
+    
+    revize_dims = dict(zip(list(l1.dims), new_dims))
+    l1 = l1.rename_dims(revize_dims)
+    l1 = l1.assign_coords(coords)
+    
+    # Summarize Attributes
+    to_parse = [attr.split("=") for attr in info.split('\n') if len(attr) != 0]
+    info = parse_attrs(to_parse)
+    l1.attrs['Description']     = str(attributes.LongName.values) 
+    l1.attrs[n.product_name]    = str(attributes.LocalGranuleID.values)[:-3]
+    l1.attrs[n.input_directory] = str(filepath.parent)
+    l1.attrs[n.datetime]   = str(attributes.ProductionDateTime.values)
+    l1.attrs[n.resolution] = 70
+    l1.attrs[n.platform]   = str(attributes.PlatformLongName.values)
+    l1.attrs[n.sensor]     = str(attributes.InstrumentShortName.values)
+    l1.attrs[n.shortname]  = str(attributes.ShortName.values)
+    l1.attrs['night']      = str(str(attributes.DayNightFlag.values) != 'Day')
+    l1.attrs['CRS']        = str(attributes.CRS.values)
+    l1.attrs['Boundary']   = str(attributes.SceneBoundaryLatLonWKT.values)
+    l1.attrs['version']    = str(attributes.PGEVersion.values)  
+    
+    l1 = supplement_latlon(l1, chunks)
+    return l1
+
+
+def Level2_ECOSTRESS(filepath: Path | str,
+                     radiometry: str = 'reflectance',
+                     chunks: int = 500,
+                     split: bool = False):
+    # Revize variables
+    filepath = Path(filepath)
+    try:
+        raw = xr.open_dataset(filepath, group='HDFEOS/GRIDS/ECO_L2G_LSTE_70m/Data Fields')
+    except ValueError as e: 
+        raise ImportError(f"You must install 'h5netcdf' library to use ECOSTRESS reader, got message : {e}")
+    l1 = raw.chunk(chunks=chunks)
+    
+    # Read Metadata
+    granule_mtd = xr.open_dataset(filepath, group='HDFEOS/ADDITIONAL/FILE_ATTRIBUTES/ProductMetadata')
+    attributes  = xr.open_dataset(filepath, group='HDFEOS/ADDITIONAL/FILE_ATTRIBUTES/StandardMetadata')
+    info = str(xr.open_dataset(filepath, group='HDFEOS INFORMATION')['StructMetadata.0'].values)
+    
+    # Change dimensions name and update coordinates
+    new_dims, coords = [n.rows,n.columns], {}
     
     revize_dims = dict(zip(list(l1.dims), new_dims))
     l1 = l1.rename_dims(revize_dims)
