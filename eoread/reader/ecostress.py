@@ -135,7 +135,8 @@ def transform_radiometry(raw_data, radiometry, split, granule_mtd, LUT_file):
         bt, unit = n.BT, 'Kelvin'
         for i in range(len(bands_tir)):
             band = level1[f'radiance_{i+1}']
-            level1[f'radiance_{i+1}'] = calibrate_bt(band, i, granule_mtd, flags, LUT_file)
+            invalid = band.isnull()
+            level1[f'radiance_{i+1}'] = calibrate_bt(band, i, granule_mtd, invalid, LUT_file)
     else: 
         bt, unit = n.Ltoa_tir, raw_data['radiance_1'].units
     rename = {f'radiance_{i+1}':bt+f'_{i+1}' for i in range(len(bands_tir))}
