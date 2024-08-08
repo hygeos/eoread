@@ -17,6 +17,11 @@ from dask.diagnostics.progress import ProgressBar
 from .naming import naming
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 def to_netcdf(ds: xr.Dataset, *,
               filename: Union[str, Path] = None,
               dirname: Union[str, Path] = None,

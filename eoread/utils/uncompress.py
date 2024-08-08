@@ -17,6 +17,11 @@ from datetime import datetime, timedelta
 from tempfile import TemporaryDirectory, gettempdir, mkdtemp
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 class ErrorUncompressed(Exception):
     """
     Raised when input file is already not compressed

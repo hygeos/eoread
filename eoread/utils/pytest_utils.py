@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 def parametrize_dict(d) -> dict:
     """
     Allow passing args and ids to `pytest.mark.parametrize` with a dict syntax

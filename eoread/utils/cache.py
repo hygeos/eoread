@@ -13,6 +13,10 @@ from .save import to_netcdf
 from .fileutils import filegen, safe_move
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 def cachefunc(cache_file: Path|str,
               reader: Callable,
               writer: Callable,

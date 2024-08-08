@@ -22,6 +22,12 @@ class MethodIsAbstract(Exception):
 class InterfaceException(Exception):
     pass
 
+
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 def freeze(my_class):
     """
     Declare a class as frozen after construction,

@@ -8,6 +8,10 @@ Uniform naming definition of parameters
 
 from pathlib import Path
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 
 class Naming:
     '''

@@ -1,5 +1,9 @@
 from datetime import datetime, timedelta
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 
 def round_date(date, h):
     """

@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 
 from eoread.download.download_base import DownloadBase
 
+import warnings
+warnings.warn('Module `eoread.download_modis` will be deprecated, please use new HYGEOS library', DeprecationWarning)
+
 
 # BASED ON : https://github.com/fraymio/modis-tools/
 

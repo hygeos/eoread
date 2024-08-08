@@ -18,6 +18,10 @@ from pathlib import Path
 from eoread.utils.uncompress import uncompress as uncomp
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 def safe_move(src, dst, makedirs=True):
     """
     Move `src` file to `dst`

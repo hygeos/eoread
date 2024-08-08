@@ -6,6 +6,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 
 def interp(
     da: xr.DataArray,

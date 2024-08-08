@@ -9,6 +9,11 @@ from tempfile import TemporaryDirectory
 from itertools import product
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 def to_tif(ds: xr.Dataset, *,
            filename: str | Path = None,
            nodata: int | float = None,

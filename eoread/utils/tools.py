@@ -19,6 +19,11 @@ from dateutil.parser import parse
 from .naming import naming
 
 
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
+
 def datetime(ds: xr.Dataset):
     '''
     Parse datetime (in isoformat) from `ds` attributes

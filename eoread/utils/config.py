@@ -9,6 +9,11 @@ from typing import Dict
 
 import click
 
+
+########################################################################################
+# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
+########################################################################################
+
 """
 Configuration file management
 """
