@@ -161,8 +161,8 @@ def supplement_latlon(l1, chunks):
     border = np.array((np.min(latlon,axis=0), np.max(latlon,axis=0)))
     step = (border[1]-border[0])/size
 
-    lat = da.arange(border[0,0],border[1,0],step[0])
-    lon = da.arange(border[0,1],border[1,1],step[1])
+    lat = da.arange(border[0,1],border[1,1],step[1])
+    lon = da.arange(border[0,0],border[1,0],step[0])
     lat = lat[:size[0]].reshape((size[0],1))
     lon = lon[:size[1]].reshape((1,size[1]))
     l1[n.lat] = xr.DataArray(da.repeat(lat, size[1], axis=1), 
