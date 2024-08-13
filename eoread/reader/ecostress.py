@@ -163,11 +163,11 @@ def supplement_latlon(l1, chunks):
 
     lat = da.arange(border[0,1],border[1,1],step[1])
     lon = da.arange(border[0,0],border[1,0],step[0])
-    lat = lat[:size[0]].reshape((size[0],1))
-    lon = lon[:size[1]].reshape((1,size[1]))
-    l1[n.lat] = xr.DataArray(da.repeat(lat, size[1], axis=1), 
+    lat = lat[:size[1]].reshape((1,size[1]))
+    lon = lon[:size[0]].reshape((size[0],1))
+    l1[n.lon] = xr.DataArray(da.repeat(lon, size[1], axis=1), 
                              dims = [n.rows,n.columns]).chunk(chunks=chunks)
-    l1[n.lon] = xr.DataArray(da.repeat(lon, size[0], axis=0), 
+    l1[n.lat] = xr.DataArray(da.repeat(lat, size[0], axis=0), 
                              dims = [n.rows,n.columns]).chunk(chunks=chunks)
     
     return l1
