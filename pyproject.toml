@@ -6,10 +6,10 @@ authors = ["HYGEOS Team"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4"
+python = ">=3.10,<3.13"
 rasterio = "1.3.10"
 dask = "2024.8.0"
-numpy = "2.0.1"
+numpy = "1.26"
 matplotlib = "3.9.1"
 shapely = "2.0.5"
 scipy = "1.14.0"
@@ -26,6 +26,11 @@ sandd = {git = "ssh://git@github.com/hygeos/sandd.git"}
 pytest = ">=6.0.1"
 pytest-html = ">=2.1.1"
 pytest-xdist = ">=2.1.0"
+
+[tool.poetry.group.dev.dependencies]
+h5netcdf = "^1.3.0"
+pyhdf = "^0.11.4"
+h5py = "^3.11.0"
 
 [build-system]
 requires = ["poetry-core"]
