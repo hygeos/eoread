@@ -2,20 +2,12 @@
 # -*- coding: utf-8 -*-
 
 
-########################################################################################
-# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
-########################################################################################
+import warnings
 
+from core.pytest_utils import parametrize_dict
 
-def parametrize_dict(d) -> dict:
-    """
-    Allow passing args and ids to `pytest.mark.parametrize` with a dict syntax
+warnings.warn(
+    "This module is deprecated, please use module `core.pytest_utils`",
+    DeprecationWarning,
+)
 
-    @pytest.mark.parametrize('a',  **parametrize_dict({
-        'first case': 1,
-        'second case': 2,
-    }))   # equivalent to parametrize('a', [1, 2], ids=['first_case', 'second case'])
-    def test(a):
-        pass
-    """
-    return {"argvalues": list(d.values()), "ids": list(d.keys())}
