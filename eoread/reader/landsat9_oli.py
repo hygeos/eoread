@@ -34,9 +34,7 @@ from .. import common
 from ..utils.naming import naming
 from ..utils.tools import merge
 from ..raster import ArrayLike_GDAL
-from eoread.utils.config import load_config
-from eoread.download.download_landsat import DownloadLandsat
-from eoread.utils.config import load_config
+from sandd.usgs import DownloadUSGS
 
 
 PYPROJ_VERSION = int(pyproj.__version__.split('.')[0])
@@ -634,8 +632,9 @@ def read_meta_xml(filename):
     return data
 
 def get_sample():
-    dl = DownloadLandsat(data_collection='LANDSAT-9', save_dir=load_config()['dir_samples'],
-                    start_date='2021-01-01', end_date='2022-02-01', product='landsat_tm_c2_l1',
-                    bbox=(-4.15, -3.58, 46.16, 46.51))
+
+    dl = DownloadUSGS('LANDSAT-9', 1)
+    dl.query(start_date='2021-01-01', end_date='2022-02-01', product='landsat_tm_c2_l1',
+             bbox=(-4.15, -3.58, 46.16, 46.51))
     prod = dl.list_prod_id[0]
     return dl.get(prod)
