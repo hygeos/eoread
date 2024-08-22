@@ -161,7 +161,7 @@ def get_S2_google_url(filename):
 
 def download_S2_google(product, dirname, **kwargs) -> Path:
     target = Path(dirname)/(product+'.SAFE')
-    @filegen(**kwargs)
+    @filegen(if_exists="skip", **kwargs)
     def down_S2(path):
         with timeit('Downloading'):
             print(f'Downloading {product}...')

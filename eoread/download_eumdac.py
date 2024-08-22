@@ -121,7 +121,7 @@ def download_product(target, product):
         func_uncompress(target_compressed, target.parent)
 
 
-@filegen()
+@filegen(if_exists='skip')
 def download_eumdac(target: Path,
                     collections: Optional[list]=None):
     """
