@@ -1,4 +1,4 @@
-from eoread.utils.config import load_config
+from core import config
 from eoread.utils.fileutils import mdir
 from eoread.utils.naming import naming
 from eoread.common import bin_centers
@@ -28,7 +28,7 @@ class ArrayLike_SRTM:
         self.verbose    = verbose
         self.directory  = Path(directory)
 
-        static = mdir(load_config()['dir_static'])
+        static = mdir(config.get('dir_static'))
         system(f'wget https://docs.hygeos.com/s/Fy2bYLpaxGncgPM/download?files=valid_{self.srtm}_tiles.txt -c -O {static}/valid_{self.srtm}_tiles.txt')
         self.tiles_list = np.loadtxt(f'{static}/valid_{self.srtm}_tiles.txt', dtype=str)
 
@@ -146,7 +146,7 @@ def SRTM(directory=None, agg=1, missing=None, type_srtm=1, chunk=10000, verbose=
 
     srtm = 'SRTM' + str(type_srtm)
     if directory is None:
-        directory = mdir(load_config()['dir_ancillary']/srtm)
+        directory = mdir(config.get('dir_ancillary')/srtm)
 
     # concat the delayed dask objects for all tiles
     srtm = ArrayLike_SRTM(directory=directory, agg=agg, missing=missing, 
@@ -197,7 +197,7 @@ def GTOPO30(directory=None, agg=1, missing=None, chunk=500):
     """
     
     if directory is None:
-        directory = mdir(load_config()['dir_ancillary']/'GTOPO30')
+        directory = mdir(config.get('dir_ancillary')/'GTOPO30')
 
     # concat the delayed dask objects for all tiles
     filepath = '/archive2/data/DEM/GLOBE/GTOPO30_DZ_MLUT.nc'

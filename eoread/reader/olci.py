@@ -9,7 +9,7 @@ import numpy as np
 from xml.dom.minidom import parseString
 from datetime import datetime
 from pathlib import Path
-from eoread.utils.config import load_config
+from core import config
 
 
 from ..eo import init_Rtoa
@@ -64,7 +64,7 @@ def get_sample(kind: str, dir_samples: Optional[Path] = None) -> Path:
     }[kind]
 
     if dir_samples is None:
-        dir_samples = load_config()["dir_samples"]
+        dir_samples = config.get("dir_samples")
     target = dir_samples/pname
     download_eumdac(target)
     return target

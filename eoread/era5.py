@@ -8,7 +8,7 @@ ERA5 Ancillary data provider
 
 import argparse
 
-from eoread.utils.config import load_config
+from core import config
 from eoread.utils.tools import wrap
 from .utils.fileutils import filegen, mdir
 from pathlib import Path
@@ -69,7 +69,7 @@ class ERA5:
                  verbose=False,
                  ):
         if directory is None:
-            self.directory = mdir(load_config()['dir_ancillary']/'ERA5')
+            self.directory = mdir(config.get('dir_ancillary')/'ERA5')
         else:
             self.directory = Path(directory)
 

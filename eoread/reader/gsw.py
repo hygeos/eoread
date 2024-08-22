@@ -24,7 +24,7 @@ from dask import array as da
 from urllib.request import urlopen
 from threading import Lock
 
-from eoread.utils.config import load_config
+from core import config
 from eoread.utils.fileutils import mdir
 from ..common import bin_centers
 from ..raster import ArrayLike_GDAL
@@ -182,7 +182,7 @@ def GSW(directory=None,
     A xarray.DataArray of the water occurrence between 0 and 100
     """
     if directory is None:
-        directory = mdir(load_config()['dir_ancillary']/'GSW')
+        directory = mdir(config.get('dir_ancillary')/'GSW')
 
     lats, lons = list_tiles()
 

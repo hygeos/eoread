@@ -1,5 +1,5 @@
 from eoread.utils.tools import merge
-from eoread.utils.config import load_config
+from core import config
 from eoread.utils.naming import naming as n
 from eoread.download.download_nextcloud import download_nextcloud
 from pathlib import Path
@@ -221,4 +221,4 @@ def parse_attrs(stack, out_dic={}):
 
 def get_sample():
     product_name = 'ECOv002_L1CG_RAD_example.h5'
-    return download_nextcloud(product_name, load_config()['dir_samples'], 'SampleData')
+    return download_nextcloud(product_name, config.get('dir_samples'), 'SampleData')

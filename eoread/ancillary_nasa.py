@@ -8,10 +8,8 @@ https://oceancolor.gsfc.nasa.gov/docs/ancillary/
 
 '''
 
-from tempfile import TemporaryDirectory
 from datetime import datetime
 from pathlib import Path
-from os import system, rename
 import xarray as xr
 import numpy as np
 from .utils.datetime_utils import round_date
@@ -19,7 +17,7 @@ from .nasa import nasa_download
 from .utils.naming import naming
 from dateutil.parser import parse
 
-from eoread.utils.config import load_config
+from core import config
 
 
 # resources are a list of functions taking the date, and returning the list
@@ -90,7 +88,7 @@ class Ancillary_NASA:
           defaults to <dir_ancillary>/NASA (see config.py)
         """
         if directory is None:
-            self.directory = load_config()['dir_ancillary']/'NASA'
+            self.directory = config.get('dir_ancillary')/'NASA'
         else:
             self.directory = Path(directory)
 

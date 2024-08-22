@@ -7,7 +7,7 @@ Define and download test products defined in products.py
 
 from pathlib import Path
 from .download_legacy import download_multi
-from eoread.utils.config import load_config
+from core import config
 
 
 def product_getter(request):
@@ -37,7 +37,7 @@ def get_sample_products(dir_samples=None):
     """
     # TODO: don't use this function in the tests. Use a fixture based on product_getter instead
     if dir_samples is None:
-        dir_samples = load_config()['dir_samples']
+        dir_samples = config.get('dir_samples')
     else:
         dir_samples = Path(dir_samples)
 
