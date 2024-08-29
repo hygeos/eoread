@@ -10,10 +10,11 @@ import pandas as pd
 import xarray as xr
 from datetime import datetime
 
-from ..common import Interpolator, DataArray_from_array
-from ..utils.tools import raiseflag, merge
-from ..utils.naming import naming, flags
-from ..eo import init_geometry as init_geo
+from .common import Interpolator, DataArray_from_array
+from .utils.tools import raiseflag, merge
+from .utils.naming import naming, flags
+from .eo import init_geometry as init_geo
+from core import config
 
 
 sgli_bands = [
@@ -29,6 +30,14 @@ sgli_bands = [
     868, #'VN10'
     869, #'VN11'
 ]
+
+def get_sample() -> Path:
+    # Assumes that sample file exists locally in dir_samples
+    # Downloaded from /standard/GCOM-C/GCOM-C.SGLI/L1B/2/2019/12/05
+    sample = config.get('dir_samples')/'SGLI'/'GC1SG1_201912050159F05712_1BSG_VNRDQ_2000.h5'
+    assert sample.exists()
+    return sample
+
 
 sgli_central_wavelengths = np.array([
     380.00, 412.00, 443.00, 490.00,
@@ -208,7 +217,7 @@ def calc_central_wavelength():
         index_col=False,
     )
 
-    rsr = rsr.rename(x=dict(zip(
+    rsr = rsr.rename(columns=dict(zip(
         [x for x in rsr.columns if x.startswith('WL')],
         [x.replace('RSR_', 'WL_') for x in rsr.columns if x.startswith('RSR')],
     )))
