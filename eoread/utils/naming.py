@@ -99,9 +99,8 @@ class Naming:
         self.dim3 = (self.bands, self.rows, self.columns)
         self.dim3_tir = (self.bands_tir, self.rows, self.columns)
 
-        for k, v in kwargs.items():
-            assert k in self.__dict__
-            self.__dict__[k] = v
+        # Specific dimensions
+        self.bands_tir = 'bands_tir'
 
         # Ancillary data
         self.total_column_ozone = 'total_column_ozone'
@@ -119,6 +118,10 @@ class Naming:
             self.raa  : 'float32',
             self.flags: 'uint16',
         }
+
+        for k, v in kwargs.items():
+            assert k in self.__dict__
+            self.__dict__[k] = v
 
 
     def name(self, name):
