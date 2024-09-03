@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "eoread"
 version = "0.2-dev"
-license = {text = "Apache 2.0 License"}
+license = "Apache 2.0"
 description = "Modular implementation of satellite data input/output relying on xarray."
 authors = ["HYGEOS Team"]
 readme = "README.md"
