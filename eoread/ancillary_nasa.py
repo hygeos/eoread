@@ -4,7 +4,7 @@
 '''
 NASA ancillary data provider
 
-https://oceancolor.gsfc.nasa.gov/docs/ancillary/
+https://oceancolor.gsfc.nasa.gov/resources/docs/ancillary/
 
 '''
 
@@ -80,12 +80,21 @@ class Ancillary_NASA:
                  offline=False,
                  verbose=False,
                  ):
-        """
-        Initialize a provider for NASA ancillary data
+        """ Initialize a provider for NASA ancillary data
+
         (https://oceancolor.gsfc.nasa.gov/docs/ancillary/)
 
-        - directory: base directory for storing ancillary data.
-          defaults to <dir_ancillary>/NASA (see config.py)
+
+        Parameters
+        ----------
+        directory : base directory for storing ancillary data.
+            defaults to <dir_ancillary>/NASA (see config.py)
+        allow_forecast : bool, optional
+            whether to allow forecast data, by default True
+        offline : bool, optional
+            if True, avoid all download, only rely on existing files, by default False
+        verbose : bool, optional
+            verbose mode
         """
         if directory is None:
             self.directory = config.get('dir_ancillary')/'NASA'

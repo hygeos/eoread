@@ -31,29 +31,32 @@ def open_ERA5(filename):
     ds = xr.open_dataset(filename, chunks={})
     ds[naming.horizontal_wind] = np.sqrt(ds.u10**2 + ds.v10**2)
     ds = ds.rename({
-        'sp': naming.sea_level_pressure,
+        'sp': naming.sea_level_pressure,  # FIXME: SP/SLP
         'tco3': naming.total_column_ozone,
     }).squeeze()
     return wrap(ds, 'longitude', -180, 180)
 
 
 class ERA5:
-    '''
-    Ancillary data provider using ERA5
+    """ Ancillary data provider using ERA5
     https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5
 
-    Arguments:
+    Parameters
     ----------
-    directory: str
-        base directory for storing the ERA5 files
-    pattern: str
-        pattern for storing the ERA5 files in NetCDF format
-    time_resolution: timedelta
-        time resolution
-    variables: list or None
-        list of variables to download
+    directory : _type_, optional
+        base directory for storing the ERA5 files, by default None
+    pattern : str, optional
+        pattern for storing the ERA5 files in NetCDF format, by default '%Y/%m/%d/era5_%Y%m%d_%H%M%S.nc'
+    time_resolution : timedelta, optional
+        time resolution, by default timedelta(hours=1)
+    offline : bool, optional
+        Offline mode (reluy only on existing files, avoid downloading), by default False
+    variables : list, optional
+        List of required variables, by default [ '10m_u_component_of_wind', '10m_v_component_of_wind', 'surface_pressure', 'total_column_ozone', 'total_column_water_vapour', ]
+    verbose : bool, optional
+        Verbose mode, by default False
 
-    '''
+    """
     def __init__(self,
                  directory=None,
                  pattern='%Y/%m/%d/era5_%Y%m%d_%H%M%S.nc',
