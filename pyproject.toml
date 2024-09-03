@@ -21,7 +21,7 @@ h5netcdf = "*"
 xarray = "*"
 pyepr = "*"
 core = {git = "ssh://git@github.com/hygeos/core.git"}
-sandd = {git = "ssh://git@github.com/hygeos/sandd.git"}
+sandd = {git = "ssh://git@github.com/hygeos/sandd.git", optional=true}
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
