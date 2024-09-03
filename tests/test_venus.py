@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
-from eoread.reader.venus import Level1_VENUS, Level2_VENUS, get_SRF
+from eoread.reader.venus import Level1_VENUS, Level2_VENUS, get_SRF, get_sample
 from eoread.utils.graphics import plot_srf
 from . import generic
 from eoread import eo
@@ -13,9 +13,9 @@ import pytest
 import xarray as xr
 
 
+product_l1 = get_sample('level1')
+product_l2 = get_sample('level2')
 
-product_l1 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/')
-product_l2 = Path('/mnt/ceph/data/VENUS/VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

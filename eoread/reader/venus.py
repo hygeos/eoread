@@ -468,5 +468,20 @@ def get_SRF(
 
     return ds
 
-def get_sample():
-    return
+def get_sample(kind='level1') -> Path:
+    """
+    Returns path to a sample VENUS product
+
+    (should be existing)
+    """
+    dir_venus = config.get('dir_samples')/'VENUS'
+    if kind == 'level1':
+        product = dir_venus/'VENUS-XS_20230116-112657-000_L1C_VILAINE_C_V3-1/'
+    elif kind == 'level2':
+        product = dir_venus/'VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1/'
+    else:
+        raise ValueError(kind)
+
+    assert product.exists()
+
+    return product
