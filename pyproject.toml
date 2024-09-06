@@ -20,6 +20,7 @@ lxml = "*"
 h5netcdf = "*"
 xarray = "*"
 pyepr = "*"
+rioxarray = "*"
 core = {git = "ssh://git@github.com/hygeos/core.git"}
 
 [tool.poetry.dev-dependencies]
