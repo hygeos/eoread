@@ -51,7 +51,7 @@ class HDF4_ArrayLike:
     def __getitem__(self, keys):
         return self.sds.__getitem__(keys)
 
-def load_hdf4(filename, trim_dims=False, chunks=1000):
+def load_hdf4(filename, trim_dims=False, chunks=1000, lazy=False):
     """
     Loads a hdf4 file as a lazy xarray object
     """
@@ -59,8 +59,12 @@ def load_hdf4(filename, trim_dims=False, chunks=1000):
     ds = xr.Dataset()
     for name, (dims, shp, dtype, index) in hdf.datasets().items():
         sds = hdf.select(name)
+        if lazy:
+            data = HDF4_ArrayLike(sds)
+        else:
+            data = HDF4_ArrayLike(sds)[:]
         ds[name] = DataArray_from_array(
-            HDF4_ArrayLike(sds),
+            data,
             dims,
             chunks=chunks,
         )
