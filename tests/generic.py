@@ -13,7 +13,7 @@ import dask
 import numpy as np
 import pytest
 
-from eoread.utils.tools import datetime
+from core.tools import datetime
 from eoread.utils.naming import naming as n
 
 

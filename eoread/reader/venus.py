@@ -26,18 +26,17 @@ from pathlib import Path
 from typing import Optional
 from lxml import objectify
 
-import dask.array as da
 import numpy as np
 import pandas as pd
 import pyproj
 import xarray as xr
 import rioxarray as rio
 from eoread.download_legacy import download_url
-from eoread.utils.fileutils import mdir
+from core.fileutils import mdir
 from core import config
 
 from ..common import DataArray_from_array, Interpolator, Repeat
-from ..utils.tools import raiseflag, merge
+from core.tools import raiseflag, merge
 from ..utils.naming import flags, naming as n
 
 venus_band_names = {

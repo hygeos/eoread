@@ -32,7 +32,7 @@ except ModuleNotFoundError:
     gdal_major_version = None
 from .. import common
 from ..utils.naming import naming
-from ..utils.tools import merge
+from core.tools import merge
 from ..raster import ArrayLike_GDAL
 from sandd.usgs import DownloadUSGS
 

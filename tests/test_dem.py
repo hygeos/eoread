@@ -1,7 +1,6 @@
-import pytest
 
 from eoread.reader.dem import SRTM, GTOPO30
-from eoread.utils.tools import xrcrop
+from core.tools import xrcrop
 from eoread.reader.landsat9_oli import Level1_L9_OLI
 
 

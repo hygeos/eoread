@@ -1,10 +1,6 @@
 from matplotlib import pyplot as plt
 import xarray as xr
 
-########################################################################################
-# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
-########################################################################################
-
 
 def plot_srf(srf: xr.Dataset):
     """

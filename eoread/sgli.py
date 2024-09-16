@@ -11,7 +11,7 @@ import xarray as xr
 from datetime import datetime
 
 from .common import Interpolator, DataArray_from_array
-from .utils.tools import raiseflag, merge
+from core.tools import raiseflag, merge
 from .utils.naming import naming, flags
 from .eo import init_geometry as init_geo
 from core import config

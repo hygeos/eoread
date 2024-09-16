@@ -14,11 +14,6 @@ The final product can be written by filtering the Dataset for only keeping the
 """
 
 
-########################################################################################
-# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
-########################################################################################
-
-
 def tag_add(da: xr.DataArray, tag: Union[List[str], str]):
     """
     Add one or several tags to DataArray A

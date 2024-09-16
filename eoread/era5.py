@@ -9,8 +9,8 @@ ERA5 Ancillary data provider
 import argparse
 
 from core import config
-from eoread.utils.tools import wrap
-from .utils.fileutils import filegen, mdir
+from core.tools import wrap
+from core.fileutils import filegen, mdir
 from pathlib import Path
 from datetime import datetime, timedelta
 from .utils.naming import naming
@@ -20,7 +20,6 @@ import xarray as xr
 import cdsapi
 
 from .common import floor_dt, ceil_dt
-from . import eo
 
 
 def open_ERA5(filename):

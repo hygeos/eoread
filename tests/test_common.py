@@ -13,9 +13,9 @@ from eoread.common import Interpolator, ceil_dt, floor_dt
 from eoread.common import DataArray_from_array, timeit
 from eoread.reader import msi
 from eoread.reader.gsw import GSW
-from eoread.utils.fileutils import PersistentList
-from eoread.utils.interpolate import selinterp
-from eoread.utils.tools import split, merge, wrap, raiseflag, convert, locate, xrcrop
+from core.fileutils import PersistentList
+from core.interpolate import selinterp
+from core.tools import split, merge, wrap, raiseflag, convert, locate, xrcrop
 from time import sleep
 from pathlib import Path
 from tempfile import TemporaryDirectory

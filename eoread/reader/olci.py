@@ -13,7 +13,7 @@ from core import config
 
 
 from ..eo import init_Rtoa
-from ..utils.tools import getflags, raiseflag
+from core.tools import getflags, raiseflag
 from ..common import Interpolator
 from ..utils.naming import naming, flags
 from ..common import DataArray_from_array

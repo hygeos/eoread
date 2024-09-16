@@ -1,8 +1,8 @@
 from core import config
-from eoread.utils.fileutils import mdir
+from core.fileutils import mdir
 from eoread.utils.naming import naming
 from eoread.common import bin_centers
-from eoread.utils.uncompress import uncompress
+from core.uncompress import uncompress
 from eoread.download_legacy import download_url
 
 from os.path import exists, join, basename, getsize

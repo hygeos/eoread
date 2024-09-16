@@ -1,4 +1,4 @@
-from ..utils.fileutils import filegen
+from core.fileutils import filegen
 
 from datetime import date
 from pathlib import Path

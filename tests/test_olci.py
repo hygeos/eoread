@@ -6,12 +6,11 @@ from matplotlib import pyplot as plt
 from eoread.reader.olci import get_sample
 from eoread.autodetect import Level1, Level2
 from eoread.reader.olci import get_valid_l2_pixels
-from eoread.reader import olci
 from eoread import eo
-from eoread.utils.tools import chunk, contains
+from core.tools import chunk, contains
 from . import generic
 from .generic import param, indices, scheduler  # noqa (fixtures)
-from .conftest import savefig
+from core.conftest import savefig
 
 
 olci_level1 = pytest.fixture(lambda: get_sample('level1_fr'))

@@ -12,9 +12,9 @@ from warnings import warn
 from sentinelsat import SentinelAPI
 from typing import Dict
 from eoread.download_S2 import get_sentinel2_image
-from eoread.utils.uncompress import uncompress as uncomp
+from core.uncompress import uncompress as uncomp
 from .common import timeit
-from .utils.fileutils import filegen
+from core.fileutils import filegen
 
 from core import download, auth, ftp
 

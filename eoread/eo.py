@@ -10,11 +10,11 @@ import xarray as xr
 from numpy import cos, radians, sqrt
 
 # backward compatibility:
-from eoread.utils.save import to_netcdf # noqa
-from eoread.utils.tools import datetime  # noqa
-from eoread.utils.tools import (contains, getflag, haversine, locate,# noqa
-                                merge, raiseflag, split, sub, sub_pt, sub_rect,
-                                wrap, getflags)
+from core.save import to_netcdf
+from core.tools import datetime
+from core.tools import (contains, getflag, haversine, locate,
+                        merge, raiseflag, split, sub, sub_pt, sub_rect,
+                        wrap, getflags)
 
 from .utils.naming import naming
 

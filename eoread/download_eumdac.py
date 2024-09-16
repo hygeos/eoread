@@ -4,9 +4,9 @@ from typing import Optional
 import eumdac
 from tqdm import tqdm
 from eoread import download_legacy as download
-from eoread.utils.fileutils import filegen
+from core.fileutils import filegen
 import shutil
-from eoread.utils.uncompress import uncompress as func_uncompress
+from core.uncompress import uncompress as func_uncompress
 import warnings
 
 

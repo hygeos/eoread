@@ -25,10 +25,10 @@ from urllib.request import urlopen
 from threading import Lock
 
 from core import config
-from eoread.utils.fileutils import mdir
+from core.fileutils import mdir
 from ..common import bin_centers
 from ..raster import ArrayLike_GDAL
-from ..utils.save import to_netcdf
+from core.save import to_netcdf
 from ..utils.naming import naming
 
 lock = Lock()

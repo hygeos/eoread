@@ -2,10 +2,6 @@ import xarray as xr
 import numpy as np
 
 
-########################################################################################
-# THIS MODULE WILL BE DEPRECATED, PLEASE DO NOT UPDATE THIS CODE AS IT WILL BE DELETED #
-########################################################################################
-
 """
 Interface with binned L3 products (GSFC)
 

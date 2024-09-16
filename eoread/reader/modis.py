@@ -1,5 +1,5 @@
 from eoread.reader.hdf4 import load_hdf4
-from eoread.utils.tools import merge
+from core.tools import merge
 from core import config
 from eoread.utils.naming import naming as n
 from eoread.download.download_nextcloud import download_nextcloud

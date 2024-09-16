@@ -9,8 +9,6 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from scipy.ndimage import distance_transform_edt
-from itertools import product
-import math as m
 
 
 class AtIndex:

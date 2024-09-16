@@ -8,7 +8,7 @@ from pathlib import Path
 import os
 from sys import argv
 from tempfile import TemporaryDirectory
-from ..utils.fileutils import safe_move
+from core.fileutils import safe_move
 
 
 def makeL1C(filename_l1a, dirname=None):

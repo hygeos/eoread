@@ -39,9 +39,9 @@ from lxml import objectify
 
 from eoread.download_legacy import download_S2_google, download_url
 from core import config
-from eoread.utils.fileutils import mdir
+from core.fileutils import mdir
 
-from ..utils.tools import merge, raiseflag
+from core.tools import merge, raiseflag
 from ..common import DataArray_from_array, Interpolator, Repeat
 from ..utils.naming import flags, naming as n
 

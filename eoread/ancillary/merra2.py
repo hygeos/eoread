@@ -5,12 +5,12 @@ from datetime import datetime, date
 from pathlib import Path
 import requests
 
-from ..utils.fileutils import filegen
+from core.fileutils import filegen
 from ..utils.cache import cache_json 
 from .. import download_legacy as dl
 
 
-from ..utils.tools import wrap
+from core.tools import wrap
 
 import numpy as np
 

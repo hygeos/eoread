@@ -1,6 +1,6 @@
 import pytest 
 
-from eoread.utils.save import to_netcdf
+from core.save import to_netcdf
 from eoread.utils.save_aux import to_tif, to_img, to_gif
 from eoread.reader.landsat9_oli import Level1_L9_OLI
 

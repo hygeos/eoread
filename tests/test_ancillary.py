@@ -11,7 +11,7 @@ from eoread.era5 import ERA5
 from eoread.ancillary_nasa import Ancillary_NASA, open_NASA
 from eoread.reader.meris import Level1_MERIS
 from eoread.sample_products import get_sample_products
-from eoread.utils.tools import datetime
+from core.tools import datetime
 from . import conftest
 
 p = get_sample_products()
