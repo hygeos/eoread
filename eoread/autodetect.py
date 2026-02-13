@@ -42,7 +42,7 @@ def Level2(path: Path, **kwargs) -> xr.Dataset:
         'Path does not correspond to a level 2 product'
     
     # Import reader and read provided file
-    assert dict_pattern['reader'] != '', f'No reader exists for {dict_pattern['Name']}'
+    assert dict_pattern['reader'] != '', f"No reader exists for {dict_pattern['Name']}"
     to_import = dict_pattern['reader'].split()
     module = importlib.import_module(to_import[0])
     try: reader = getattr(module, to_import[1].replace('Level','Level2'))
