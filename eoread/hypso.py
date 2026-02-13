@@ -58,6 +58,8 @@ def Level1_HYPSO(filepath: str|Path,
             log.debug('Unsupported HYPSO product level.')
             return
 
+    
+    print(ds_root['metadata']['corrections'].attrs['radiometric_coefficents_version'])
 
 
     if isinstance(chunks, int): chunks = [chunks]*2
@@ -109,9 +111,11 @@ def Level1_HYPSO(filepath: str|Path,
         ds[str(polymer_product_name)].attrs['unit'] = units
 
         wavelengths = np.array(wavelengths)
+
         wavelengths = np.around(wavelengths,1) # round to one decimal like hypso-package L1 processing
         wavelengths = np.array(wavelengths).astype(np.int32) # convert to int like hypso-package L1 processing
         wavelengths = np.array(wavelengths, dtype='float32') # convert to float for NetCDF writing compatibility
+
 
 
     log.debug('Extract central wavelength')
@@ -121,8 +125,6 @@ def Level1_HYPSO(filepath: str|Path,
     ds = ds.assign({str(n.cwav): ((str(n.bands)), wavelengths),
          str(n.wav): ((str(n.bands)), wavelengths),
          str(n.bnames): ((str(n.bands)), ds[str(n.bands)].data.astype(str))})
-
-    ds
 
     if load_f0:
         # read solar irradiance
