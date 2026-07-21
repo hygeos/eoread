@@ -5,10 +5,63 @@ from contextlib import contextmanager
 from datetime import datetime
 from time import perf_counter
 
+import dask.array as da
 import numpy as np
+import xarray as xr
 
 from warnings import warn
 warn('The module `common` will be deprecated from eoread package. Please use functions from `core` instead.', DeprecationWarning)
+
+
+class Interpolator:
+    '''
+    An array-like object to interpolate a 2-D array `A` to a new `shape`.
+
+    Uses xarray's ``.interp()`` under the hood, called lazily via
+    ``__getitem__`` so that dask can consume it chunk-by-chunk.
+    '''
+    def __init__(self, shape, A, method='linear'):
+        self.shape = shape
+        self.dtype = A.dtype
+        self.A = A
+        assert A.ndim == 2
+        self.ndim = A.ndim
+        self.method = method
+        self.dims = A.dims
+
+    def __getitem__(self, key):
+        ret = self.A.interp(
+            {
+                self.dims[0]: np.arange(self.shape[0])[key[0]],
+                self.dims[1]: np.arange(self.shape[1])[key[1]],
+            },
+            method=self.method,
+        )
+        return ret.values.astype(self.dtype)
+
+
+def DataArray_from_array(A, dims, chunks):
+    '''
+    Returns a dask-backed DataArray from an array-like ``A``.
+
+    Arguments
+    ---------
+    A : array-like
+        Must have ``.shape`` and ``.dtype`` attributes (e.g. an ``Interpolator``).
+    dims : tuple of str
+        Dimension names, e.g. ``('rows', 'columns')``.
+    chunks : int
+        Chunk size along each dimension.
+    '''
+    assert not isinstance(chunks, dict)
+    return xr.DataArray(
+        da.from_array(
+            A,
+            meta=np.array([], A.dtype),
+            chunks=chunks,
+        ),
+        dims=dims,
+    )
 
 
 def len_slice(s, l):

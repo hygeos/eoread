@@ -11,10 +11,12 @@ from warnings import filterwarnings
 from re import findall
 
 from core import log
+from core.interpolate import Interpolator, Linear, Nearest
 from core.table import read_xml
 from core.geo.naming import names
 from core.tools import getflag, getflags
 
+from eoread.common import Interpolator as InterpolatorCommon, DataArray_from_array
 from eoread.flags import FlagsReaderBase, GenericFlags
 from eoread.tools import (
     spatial_resample, 
@@ -35,6 +37,7 @@ def Level1_OLCI(
         metadata_template: Union[list, None] = None, 
         v1_compat: bool = False,
         engine: str | None = None,
+        angle_method: Literal['spatial_resample', 'interpolator', 'polymer', 'core_interpolator'] = 'spatial_resample',
         verbose: bool = True
     ) -> xr.Dataset:
     """
@@ -62,6 +65,13 @@ def Level1_OLCI(
         If True, formats output to match version 1 structure. Default is False.
     engine : str or None, optional
         xarray engine for opening NetCDF files. Default is None.
+    angle_method : {'spatial_resample', 'interpolator', 'polymer', 'core_interpolator'}, optional
+        Method for angle interpolation:
+        - 'spatial_resample': Current implementation using spatial_resample
+        - 'interpolator': Faster implementation using Interpolator (from commit 5b7631f)
+        - 'polymer': Implementation using scipy.ndimage.map_coordinates (from polymer_py)
+        - 'core_interpolator': Implementation using core.interpolate.Interpolator (blockwise)
+        Default is 'spatial_resample'.
     verbose : bool, optional
         If True, print debug information. Default is True.
         
@@ -128,7 +138,16 @@ def Level1_OLCI(
 
     # tie geometry interpolation
     if verbose: log.debug('read geometric tie points')
-    _Internal.read_angle(ds, dirname, interp_angles, chunks, engine)
+    if angle_method == 'spatial_resample':
+        _Internal.read_angle(ds, dirname, interp_angles, chunks, engine)
+    elif angle_method == 'interpolator':
+        _Internal.read_angle_interpolator(ds, dirname, interp_angles, chunks, engine)
+    elif angle_method == 'polymer':
+        _Internal.read_angle_polymer(ds, dirname, interp_angles, chunks, engine)
+    elif angle_method == 'core_interpolator':
+        _Internal.read_angle_core_interpolator(ds, dirname, interp_angles, chunks, engine)
+    else:
+        raise ValueError(f"Invalid angle_method '{angle_method}'")
 
     # tie meteo interpolation
     if verbose: log.debug('read meteorological tie points')
@@ -490,6 +509,278 @@ class _Internal:
             
             # Add tie points            
             ds[ds_full] = raster.rename(mapping).transpose('rows', 'columns')
+            ds[ds_full].attrs = tie_ds[ds_tie].attrs
+            ds[ds_full+'_tie'] = tie_ds[ds_tie]
+        
+        # check subsampling factors
+        assert ((ds.sizes['columns']-1) == ac_factor*(tie_ds.sizes['tie_columns']-1))
+        assert ((ds.sizes['rows']-1) == al_factor*(tie_ds.sizes['tie_rows']-1))
+    
+    @staticmethod
+    def read_angle_interpolator(ds: xr.Dataset, dirname: str, interp_angles: str, chunks: dict, engine: str | None = None) -> None:
+        """Read and interpolate viewing/solar angles from tie points to full grid.
+        
+        Uses Interpolator + DataArray_from_array (from commit 5b7631f) for faster interpolation.
+        """
+        # Open the dataset containing geometric information
+        ac_factor = ds.latitude.ac_subsampling_factor
+        al_factor = ds.latitude.al_subsampling_factor
+        tie_geom_file = dirname/'tie_geometries.nc'
+        tie_ds = xr.open_dataset(tie_geom_file, engine=engine, chunks=-1)
+        tie_ds = tie_ds.assign_coords(
+            tie_columns=np.arange(tie_ds.sizes['tie_columns'])*ac_factor,
+            tie_rows=np.arange(tie_ds.sizes['tie_rows'])*al_factor,
+        )
+        
+        # Check first and last items are the same
+        assert tie_ds.tie_columns[0] == ds['columns'][0]
+        assert tie_ds.tie_columns[-1] == ds['columns'][-1]
+        assert tie_ds.tie_rows[0] == ds['rows'][0]
+        assert tie_ds.tie_rows[-1] == ds['rows'][-1]
+        
+        # Determine interpolation strategy
+        if interp_angles == 'linear': interp_aa, interp_za = 'linear', 'linear'
+        elif interp_angles == 'atan2': interp_aa, interp_za = 'atan2', 'atan2'
+        elif interp_angles == 'legacy': interp_aa, interp_za = 'nearest', 'linear'
+        else: raise ValueError(f'Invalid interp_angles "{interp_angles}"')
+        
+        # Iterate over all angles using Interpolator
+        shape2 = ds.latitude.shape
+        dims2 = ('rows', 'columns')
+        # Use the chunk size from the 'rows' dimension (same for both dimensions)
+        chunk_size = chunks['rows']
+        
+        for (ds_full, ds_tie, method) in [
+                    (str(names.sza), 'SZA', interp_za),
+                    (str(names.saa), 'SAA', interp_aa),
+                    (str(names.vza), 'OZA', interp_za),
+                    (str(names.vaa), 'OAA', interp_aa),
+                ]:
+            
+            if method == 'atan2':
+                _cos = DataArray_from_array(
+                    InterpolatorCommon(shape2, np.cos(np.radians(tie_ds[ds_tie].astype('float32'))), 'linear'),
+                    dims2,
+                    chunk_size,
+                )
+                _sin = DataArray_from_array(
+                    InterpolatorCommon(shape2, np.sin(np.radians(tie_ds[ds_tie].astype('float32'))), 'linear'),
+                    dims2,
+                    chunk_size,
+                )
+                ds[ds_full] = np.degrees(np.arctan2(_sin, _cos))
+            else:
+                ds[ds_full] = DataArray_from_array(
+                    InterpolatorCommon(shape2, tie_ds[ds_tie].astype('float32'), method),
+                    dims2,
+                    chunk_size,
+                )
+            ds[ds_full].attrs = tie_ds[ds_tie].attrs
+            ds[ds_full+'_tie'] = tie_ds[ds_tie]
+        
+        # check subsampling factors
+        assert ((ds.sizes['columns']-1) == ac_factor*(tie_ds.sizes['tie_columns']-1))
+        assert ((ds.sizes['rows']-1) == al_factor*(tie_ds.sizes['tie_rows']-1))
+    
+    @staticmethod
+    def read_angle_polymer(ds: xr.Dataset, dirname: str, interp_angles: str, chunks: dict, engine: str | None = None) -> None:
+        """Read and interpolate viewing/solar angles from tie points to full grid.
+        
+        Uses scipy.ndimage.map_coordinates (from polymer_py/polymer/level1_safe.py).
+        This approach uses linear spacing and scipy interpolation instead of xarray interp.
+        """
+        from scipy.ndimage import map_coordinates
+        
+        # Open the dataset containing geometric information
+        ac_factor = ds.latitude.ac_subsampling_factor
+        al_factor = ds.latitude.al_subsampling_factor
+        tie_geom_file = dirname/'tie_geometries.nc'
+        tie_ds = xr.open_dataset(tie_geom_file, engine=engine, chunks=-1)
+        
+        # Check first and last items are the same
+        tie_ds = tie_ds.assign_coords(
+            tie_columns=np.arange(tie_ds.sizes['tie_columns'])*ac_factor,
+            tie_rows=np.arange(tie_ds.sizes['tie_rows'])*al_factor,
+        )
+        assert tie_ds.tie_columns[0] == ds['columns'][0]
+        assert tie_ds.tie_columns[-1] == ds['columns'][-1]
+        assert tie_ds.tie_rows[0] == ds['rows'][0]
+        assert tie_ds.tie_rows[-1] == ds['rows'][-1]
+        
+        # Determine interpolation strategy
+        if interp_angles == 'linear':
+            interp_aa = 'linear'
+            interp_za = 'linear'
+        elif interp_angles == 'atan2':
+            interp_aa = 'atan2'
+            interp_za = 'atan2'
+        elif interp_angles == 'legacy':
+            interp_aa = 'nearest'
+            interp_za = 'linear'
+        else:
+            raise ValueError(f'Invalid interp_angles "{interp_angles}"')
+        
+        # Get tie point data
+        tie_rows_count = tie_ds.sizes['tie_rows']
+        tie_cols_count = tie_ds.sizes['tie_columns']
+        full_rows_count = ds.sizes['rows']
+        full_cols_count = ds.sizes['columns']
+        
+        # Create coordinate grids for map_coordinates
+        # The tie point indices span from 0 to (tie_count-1)
+        # We need to map from tie point grid to full resolution grid
+        col_coords = np.linspace(0, tie_cols_count - 1, full_cols_count)
+        row_coords = np.linspace(0, tie_rows_count - 1, full_rows_count)
+        col_grid, row_grid = np.meshgrid(col_coords, row_coords)
+        
+        for (ds_full, ds_tie, method) in [
+                    (str(names.sza), 'SZA', interp_za),
+                    (str(names.saa), 'SAA', interp_aa),
+                    (str(names.vza), 'OZA', interp_za),
+                    (str(names.vaa), 'OAA', interp_aa),
+                ]:
+            
+            # Get tie point data as numpy array
+            tie_data = tie_ds[ds_tie].values.astype('float32')
+            
+            if method == 'atan2':
+                # Interpolate sin and cos separately
+                cos_data = np.cos(np.radians(tie_data))
+                sin_data = np.sin(np.radians(tie_data))
+                
+                cos_interp = map_coordinates(cos_data, (row_grid, col_grid), order=1)
+                sin_interp = map_coordinates(sin_data, (row_grid, col_grid), order=1)
+                
+                raster = np.degrees(np.arctan2(sin_interp, cos_interp))
+            else:
+                # Determine interpolation order
+                order = 0 if method == 'nearest' else 1
+                
+                raster = map_coordinates(tie_data, (row_grid, col_grid), order=order)
+            
+            # Create DataArray from result
+            dims2 = ('rows', 'columns')
+            da = xr.DataArray(
+                raster,
+                dims=dims2,
+                coords={
+                    'rows': ds['rows'],
+                    'columns': ds['columns']
+                }
+            )
+            
+            ds[ds_full] = da
+            ds[ds_full].attrs = tie_ds[ds_tie].attrs
+            ds[ds_full+'_tie'] = tie_ds[ds_tie]
+        
+        # check subsampling factors
+        assert ((ds.sizes['columns']-1) == ac_factor*(tie_ds.sizes['tie_columns']-1))
+        assert ((ds.sizes['rows']-1) == al_factor*(tie_ds.sizes['tie_rows']-1))
+    
+    @staticmethod
+    def read_angle_core_interpolator(ds: xr.Dataset, dirname: str, interp_angles: str, chunks: dict, engine: str | None = None) -> None:
+        """Read and interpolate viewing/solar angles from tie points to full grid.
+        
+        Uses core.interpolate.Interpolator.process_block for direct tie-point 
+        interpolation. This approach leverages the Interpolator's optimized 
+        regular-grid lookups without the overhead of map_blocks.
+        
+        Note: process_block modifies the block_ds in-place, adding interpolated 
+        variables. The output dimensions follow the block_ds variable dimensions.
+        """
+        # Open the dataset containing geometric information
+        ac_factor = ds.latitude.ac_subsampling_factor
+        al_factor = ds.latitude.al_subsampling_factor
+        tie_geom_file = dirname/'tie_geometries.nc'
+        tie_ds = xr.open_dataset(tie_geom_file, engine=engine, chunks=-1)
+        tie_ds = tie_ds.assign_coords(
+            tie_columns=np.arange(tie_ds.sizes['tie_columns'])*ac_factor,
+            tie_rows=np.arange(tie_ds.sizes['tie_rows'])*al_factor,
+        )
+        
+        # Check first and last items are the same
+        assert tie_ds.tie_columns[0] == ds['columns'][0]
+        assert tie_ds.tie_columns[-1] == ds['columns'][-1]
+        assert tie_ds.tie_rows[0] == ds['rows'][0]
+        assert tie_ds.tie_rows[-1] == ds['rows'][-1]
+        
+        # Determine interpolation strategy
+        if interp_angles == 'linear':
+            interp_aa = 'linear'
+            interp_za = 'linear'
+        elif interp_angles == 'atan2':
+            interp_aa = 'atan2'
+            interp_za = 'atan2'
+        elif interp_angles == 'legacy':
+            interp_aa = 'nearest'
+            interp_za = 'linear'
+        else:
+            raise ValueError(f'Invalid interp_angles "{interp_angles}"')
+        
+        # Target coordinate arrays for interpolation
+        target_rows = ds['rows']
+        target_columns = ds['columns']
+        
+        for (ds_full, ds_tie, method) in [
+                    (str(names.sza), 'SZA', interp_za),
+                    (str(names.saa), 'SAA', interp_aa),
+                    (str(names.vza), 'OZA', interp_za),
+                    (str(names.vaa), 'OAA', interp_aa),
+                ]:
+            
+            # Build block dataset with target coordinates
+            # Variable names must match what Linear/Nearest specs reference
+            block_ds = xr.Dataset({
+                'target_rows': ('rows', target_rows.values),
+                'target_columns': ('columns', target_columns.values),
+            })
+            
+            if method == 'atan2':
+                # Interpolate sin and cos separately (reuse tie_ds directly)
+                tie_ds_cos = tie_ds.assign({
+                    '_cos': np.cos(np.radians(tie_ds[ds_tie].astype('float32')))
+                })
+                tie_ds_sin = tie_ds.assign({
+                    '_sin': np.sin(np.radians(tie_ds[ds_tie].astype('float32')))
+                })
+                
+                # Create interpolators (reuse tie_ds with coords already assigned)
+                interp_cos = Interpolator(
+                    tie_ds_cos[['_cos', 'tie_rows', 'tie_columns']],
+                    tie_rows=Linear('target_rows', bounds='clip'),
+                    tie_columns=Linear('target_columns', bounds='clip'),
+                )
+                interp_sin = Interpolator(
+                    tie_ds_sin[['_sin', 'tie_rows', 'tie_columns']],
+                    tie_rows=Linear('target_rows', bounds='clip'),
+                    tie_columns=Linear('target_columns', bounds='clip'),
+                )
+                
+                # process_block modifies block_ds in-place
+                block_cos = block_ds.copy()
+                interp_cos.process_block(block_cos)
+                cos_result = block_cos['_cos'].transpose('rows', 'columns')
+                
+                block_sin = block_ds.copy()
+                interp_sin.process_block(block_sin)
+                sin_result = block_sin['_sin'].transpose('rows', 'columns')
+                
+                raster = np.degrees(np.arctan2(sin_result, cos_result))
+            else:
+                # Linear or nearest interpolation
+                interp_cls = Nearest if method == 'nearest' else Linear
+                
+                interpolator = Interpolator(
+                    tie_ds[[ds_tie, 'tie_rows', 'tie_columns']].compute(scheduler='sync'),
+                    tie_rows=interp_cls('target_rows', bounds='clip'),
+                    tie_columns=interp_cls('target_columns', bounds='clip'),
+                )
+                
+                # process_block modifies block_ds in-place
+                interpolator.process_block(block_ds)
+                raster = block_ds[ds_tie].transpose('rows', 'columns')
+            
+            ds[ds_full] = raster
             ds[ds_full].attrs = tie_ds[ds_tie].attrs
             ds[ds_full+'_tie'] = tie_ds[ds_tie]
         
