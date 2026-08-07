@@ -1,0 +1,40 @@
+
+name: docs
+ 
+# execute this workflow automatically when a we push to master
+on:
+  push:
+    branches: [ main ]
+ 
+jobs:
+ 
+  build_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.10.0
+
+      - name: Install quarto and ghp-import (with pixi)
+        run: pixi add quarto ghp-import
+
+      - name: Initialize Data Directory
+        run: echo "DIR_DATA=${{ runner.temp }}/data" >> $GITHUB_ENV
+
+      - name: Create the subfolder
+        run: |
+          mkdir -p "$DIR_DATA"
+
+      - name: Generate the docs
+        run: pixi run docs-render
+        
+      - name: Run ghp-import
+        run: |
+          pixi run ghp-import -n -p -f docs/_site/
