@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 MERIS level1 reader
 
 l1 = Level1_MERIS('MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1')
-'''
+"""
 
 
 from datetime import datetime
@@ -37,19 +37,28 @@ def Level1_MERIS(
         v1_compat: bool = False,
         verbose: bool = True
     ) -> xr.Dataset:
-    '''
-    Read an MERIS Level1 product as an xarray.Dataset
+    """
+    Read an MERIS Level1 product as an xarray.Dataset.
     Formats the Dataset so that it contains the TOA radiances,
     the angles on the full grid, etc.
 
-    Arguments:
-        filepath: Path of the MERIS file path (ex: 'MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1')
-        dir_smile: Relative path to MERIS per-detector characterization (default: '../auxdata/meris/')
-        read_auxdata: Option read auxilary data contained in dir_smile
-        chunks: Size of chunks for spatial axis
-        metadata_template: If None, add all metadata in output xarray.Dataset attributes else add only specified metadata.
-        v1_compat: Option to format output xarray.Dataset such as version 1
-    '''
+    Parameters
+    ----------
+    filepath : str or Path
+        Path of the MERIS file path (ex: 'MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1').
+    dir_smile : str or Path, optional
+        Relative path to MERIS per-detector characterization. Default is '../auxdata/meris/'.
+    read_auxdata : bool, optional
+        If True, read auxiliary data contained in dir_smile. Default is False.
+    chunks : int or tuple, optional
+        Size of chunks for spatial axis. Default is 500.
+    metadata_template : list, optional
+        If None, add all metadata in output xarray.Dataset attributes else add only specified metadata. Default is None.
+    v1_compat : bool, optional
+        If True, format output xarray.Dataset such as version 1. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
+    """
     
     ds = xr.Dataset()
     filepath = Path(filepath)
@@ -174,9 +183,12 @@ class FlagsReader_MERIS(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the MERIS dataset.
         
-        Args:
-            ds: MERIS dataset containing l1_flags variable
-            flag_name: Standard flag identifier (currently only L1_INVALID supported)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            MERIS dataset containing l1_flags variable.
+        flag_name : GenericFlags
+            Standard flag identifier (currently only L1_INVALID supported).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['l1_flags']
@@ -229,9 +241,9 @@ class _Internal:
 
     # FIXME : Following classes should be revized
     class READ_MERIS:
-        '''
-        An array-like to read data from a given MERIS band
-        '''
+        """
+        An array-like to read data from a given MERIS band.
+        """
         def __init__(self, band, lock):
             width = band.product.get_scene_width()
             height = band.product.get_scene_height()

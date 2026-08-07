@@ -113,36 +113,34 @@ def SRTM(directory=None, agg=1, missing=None, type_srtm=1, chunk=10000, verbose=
 
     1 or 3 arc-second (~30m or ~90m) - Between 56S and 60N
 
-    Args:
-    -----
-
-    directory: str
-        directory for tile storage
-
-    agg: int
-        aggregation factor (a power of 2)
-        original resolution of SRTM is about 30M or 90M at equator
-        reduce this resolution by agg x agg to approximately match the sensor resolution
+    Parameters
+    ----------
+    directory : str, optional
+        Directory for tile storage.
+    agg : int, optional
+        Aggregation factor (a power of 2). Original resolution of SRTM is about
+        30m or 90m at equator. Reduce this resolution by agg x agg to approximately
+        match the sensor resolution:
             1 -> 30m
             2 -> 60m
             4 -> 120m
             8 -> 240m
             16 -> 480m
-    
-    missing: what to provide in case of missing value
-        * a float
-        * None : raise an error
+    missing : float, optional
+        Value to provide in case of missing data. If None, raise an error.
+    type_srtm : int, optional
+        Number of arc-second to choose:
+            1 -> 30m
+            3 -> 90m
+    chunk : int, optional
+        Size of chunks.
+    verbose : bool, optional
+        Print debug messages.
 
-    type: number of arc-second to choose
-        * 1 -> 30m
-        * 3 -> 90m
-
-    chunk: set size of chunks
-
-    Returns:
+    Returns
     -------
-
-    A xarray.DataArray of the DEM
+    xr.DataArray
+        A xarray.DataArray of the DEM.
     """
     raise RuntimeError('SRTM is no more distributed by USGS.')
     assert type_srtm in [1,3]
@@ -175,28 +173,26 @@ def GTOPO30(directory=None, agg=1, missing=None, chunk=500):
 
     30 arc-second (~1km) - Between 56S and 60N
 
-    Args:
-    -----
-
-    directory: str
-        directory for tile storage
-
-    agg: int
-        aggregation factor (a power of 2)
-        original resolution of GTOPO is about 1KM at equator
-        reduce this resolution by agg x agg to approximately match the sensor resolution
+    Parameters
+    ----------
+    directory : str, optional
+        Directory for tile storage.
+    agg : int, optional
+        Aggregation factor (a power of 2). Original resolution of GTOPO is about
+        1km at equator. Reduce this resolution by agg x agg to approximately match
+        the sensor resolution:
             1 -> 1km
             2 -> 2km
             4 -> 4km
-    
-    missing: float to provide in case of missing value
+    missing : float, optional
+        Value to provide in case of missing data.
+    chunk : int, optional
+        Size of chunks.
 
-    chunk: set size of chunks
-
-    Returns:
+    Returns
     -------
-
-    A xarray.DataArray of the DEM
+    xr.DataArray
+        A xarray.DataArray of the DEM.
     """
     
     if directory is None:

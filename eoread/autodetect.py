@@ -20,21 +20,29 @@ def Level1(path: Path, **kwargs) -> xr.Dataset:
     This function analyzes the filename pattern to determine the sensor type and
     dispatches to the corresponding Level1 reader function.
     
-    Args:
-        path: Path to the satellite product file or directory
-        **kwargs: Additional arguments passed to the specific reader function
+    Parameters
+    ----------
+    path : Path
+        Path to the satellite product file or directory.
+    **kwargs : dict
+        Additional arguments passed to the specific reader function.
         
-    Returns:
-        xr.Dataset: Loaded Level 1 product data
+    Returns
+    -------
+    xr.Dataset
+        Loaded Level 1 product data.
         
-    Raises:
-        AssertionError: If the path does not correspond to a Level 1 product or
-                       if no reader exists for the detected product type
-                       
-    Example:
-        >>> from pathlib import Path
-        >>> ds = Level1(Path('S2A_MSIL1C_*.SAFE'))
-        >>> ds = Level1(Path('MER_FRS_*.N1'), chunks=1000)
+    Raises
+    ------
+    AssertionError
+        If the path does not correspond to a Level 1 product or
+        if no reader exists for the detected product type.
+        
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> ds = Level1(Path('S2A_MSIL1C_*.SAFE'))
+    >>> ds = Level1(Path('MER_FRS_*.N1'), chunks=1000)
     """
     # Detect product type
     dict_pattern = get_pattern(path.stem)
@@ -58,20 +66,28 @@ def Level2(path: Path, **kwargs) -> xr.Dataset:
     This function analyzes the filename pattern to determine the sensor type and
     dispatches to the corresponding Level2 reader function.
     
-    Args:
-        path: Path to the satellite product file or directory
-        **kwargs: Additional arguments passed to the specific reader function
+    Parameters
+    ----------
+    path : Path
+        Path to the satellite product file or directory.
+    **kwargs : dict
+        Additional arguments passed to the specific reader function.
         
-    Returns:
-        xr.Dataset: Loaded Level 2 product data
+    Returns
+    -------
+    xr.Dataset
+        Loaded Level 2 product data.
         
-    Raises:
-        AssertionError: If the path does not correspond to a Level 2 product or
-                       if no reader exists for the detected product type
-                       
-    Example:
-        >>> from pathlib import Path
-        >>> ds = Level2(Path('S3A_OL_2_WFR____*.SEN3'))
+    Raises
+    ------
+    AssertionError
+        If the path does not correspond to a Level 2 product or
+        if no reader exists for the detected product type.
+        
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> ds = Level2(Path('S3A_OL_2_WFR____*.SEN3'))
     """
     # Detect product type
     dict_pattern = get_pattern(path.stem)

@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-'''
-ERA5 Ancillary data provider
-'''
+"""ERA5 Ancillary data provider"""
 
 import argparse
 import warnings
@@ -24,10 +22,10 @@ from .common import floor_dt, ceil_dt
 warnings.warn("This module will be deprecated. Please use HARP instead.")
 
 def open_ERA5(filename):
-    '''
+    """
     Open an ERA5 file and format it for consistency
     with the other ancillary data sources
-    '''
+    """
     ds = xr.open_dataset(filename, chunks={})
     ds["horizontal_wind"] = np.sqrt(ds.u10**2 + ds.v10**2)
     ds = ds.rename({
@@ -133,9 +131,15 @@ class ERA5:
         """
         Download ERA5 at a given time `dt` and returns the corresponding dataset
 
-        Args:
-        -----
-        dt: datetime
+        Parameters
+        ----------
+        dt : datetime
+            Time to download ERA5 data for (must be on the hour).
+
+        Returns
+        -------
+        xr.Dataset
+            ERA5 dataset interpolated to the requested time.
         """
         assert dt.minute == 0
         assert dt.second == 0

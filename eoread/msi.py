@@ -43,17 +43,28 @@ def Level1_MSI(
     MSI (MultiSpectral Instrument) provides 13 spectral bands from visible to SWIR
     with spatial resolutions of 10m, 20m, and 60m.
 
-    Args:
-        dirname: Path to the Sentinel-2 .SAFE directory
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-                If tuple, should be (rows_chunk, columns_chunk)
-        resolution: Resample all bands to provided resolution and concatenate.
-                If None, keep original resolutions (10m, 20m, 60m) separate.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-        v1_compat: If True, formats output to match version 1 structure
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the Sentinel-2 .SAFE directory.
+    chunks : int, tuple, or dict, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        If tuple, should be (rows_chunk, columns_chunk). Default is 500.
+    resolution : {10, 20, 60, None}, optional
+        Resample all bands to provided resolution and concatenate.
+        If None, keep original resolutions (10m, 20m, 60m) separate. Default is 60.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata. Default is None.
+    read_mask : bool, optional
+        If True, read quality masks. Default is False.
+    v1_compat : bool, optional
+        If True, formats output to match version 1 structure. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
     
-    Example:
-        >>> ds = Level1_MSI('S2A_MSIL1C_*.SAFE', chunks=1000)
+    Examples
+    --------
+    >>> ds = Level1_MSI('S2A_MSIL1C_*.SAFE', chunks=1000)
     """
     
     # Check that folder exists
@@ -179,21 +190,29 @@ def Level2_MSI(
         read_mask: bool = False,
         verbose: bool = True
     ) -> xr.Dataset:
-    '''
+    """
     Read a Sentinel-2 MSI Level2A product as an xarray.Dataset.
     
     MSI (MultiSpectral Instrument) provides 13 spectral bands from visible to SWIR
     with spatial resolutions of 10m, 20m, and 60m.
 
-    Args:
-        dirname: Path to the Sentinel-2 .SAFE directory
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-                If tuple, should be (rows_chunk, columns_chunk)
-        resolution: Resample all bands to provided resolution and concatenate.
-                If None, keep original resolutions (10m, 20m, 60m) separate.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-        v1_compat: If True, formats output to match version 1 structure
-    '''
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the Sentinel-2 .SAFE directory.
+    chunks : int, tuple, or dict, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        If tuple, should be (rows_chunk, columns_chunk). Default is 500.
+    resolution : {10, 20, 60}, optional
+        Resample all bands to provided resolution and concatenate.
+        If None, keep original resolutions (10m, 20m, 60m) separate. Default is 60.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata. Default is None.
+    read_mask : bool, optional
+        If True, read quality masks. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
+    """
     
     # Check that folder exists
     ds = xr.Dataset()
@@ -321,14 +340,20 @@ def get_sample(level: int = 1) -> Path:
     
     Requires the 'sand' module for Copernicus Data Space access.
 
-    Args:
-        level: Processing level (1 for Level1C, 2 for Level2A)
+    Parameters
+    ----------
+    level : int, optional
+        Processing level (1 for Level1C, 2 for Level2A). Default is 1.
 
-    Returns:
-        Path to the downloaded .SAFE directory
+    Returns
+    -------
+    Path
+        Path to the downloaded .SAFE directory.
         
-    Raises:
-        ImportError: If the 'sand' module is not installed
+    Raises
+    ------
+    ImportError
+        If the 'sand' module is not installed.
     """
     return collect_sample(f'LEVEL{level}_MSI', 'cdse', 'SENTINEL-2-MSI', level)
 
@@ -353,15 +378,22 @@ class FlagsReader_MSI(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the MSI dataset.
         
-        Args:
-            ds: MSI dataset
-            flag_name: Standard flag identifier (currently only L1_INVALID supported)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            MSI dataset.
+        flag_name : GenericFlags
+            Standard flag identifier (currently only L1_INVALID supported).
             
-        Returns:
-            Boolean DataArray indicating invalid pixels (True where VZA is NaN)
+        Returns
+        -------
+        xr.DataArray
+            Boolean DataArray indicating invalid pixels (True where VZA is NaN).
             
-        Raises:
-            ValueError: If the requested flag type is not supported
+        Raises
+        ------
+        ValueError
+            If the requested flag type is not supported.
         """
         if flag_name == GenericFlags.L1_INVALID:
             # L1_INVALID is True where vza is NaN (invalid data)

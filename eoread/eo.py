@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Various utility functions for exploiting eoread objects
-'''
+"""
 
 import xarray as xr
 import dask.array as da
@@ -22,11 +22,11 @@ warn('The module `eo` will be deprecated from eoread package. Every remaining fu
 
 
 def init_Rtoa(ds: xr.Dataset):
-    '''
-    Initialize TOA reflectances from radiance (in place)
+    """
+    Initialize TOA reflectances from radiance (in place).
 
-    Implies init_geometry
-    '''
+    Implies init_geometry.
+    """
     init_geometry(ds)
 
     # TOA reflectance
@@ -39,21 +39,33 @@ def init_Rtoa(ds: xr.Dataset):
 
 def scattering_angle(mu_s, mu_v, phi):
     """
-    Scattering angle in degrees
+    Scattering angle in degrees.
 
-    mu_s: cos of the sun zenith angle
-    mu_v: cos of the view zenith angle
-    phi: relative azimuth angle in degrees
+    Parameters
+    ----------
+    mu_s : float or array_like
+        Cosine of the sun zenith angle.
+    mu_v : float or array_like
+        Cosine of the view zenith angle.
+    phi : float or array_like
+        Relative azimuth angle in degrees.
     """
     sa = -mu_s*mu_v - sqrt((1.-mu_s*mu_s)*(1.-mu_v*mu_v)) * cos(radians(phi))
     return da.arccos(sa)*180./da.pi
 
 
-def init_geometry(ds: xr.Dataset, 
-                  scat_angle: bool =False):
-    '''
-    Initialize geometric variables (in place)
-    '''
+def init_geometry(ds: xr.Dataset,
+                  scat_angle: bool = False):
+    """
+    Initialize geometric variables (in place).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset to modify in place.
+    scat_angle : bool, optional
+        If True, also compute the scattering angle. Default is False.
+    """
 
     # mus and muv
     if str(n.mus) not in ds:

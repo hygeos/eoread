@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
+"""
 NASA ancillary data provider
 
 https://oceancolor.gsfc.nasa.gov/resources/docs/ancillary/
-
-'''
+"""
 
 import warnings
 
@@ -35,10 +34,10 @@ default_resources = [
 
 
 def wrap_lon(da, dim='longitude'):
-    '''
-    returns a wrapped dataarray along dimension `dim`, whereby
-    the first element of dim is duplicated to the last position
-    '''
+    """
+    Return a wrapped DataArray along dimension `dim`, whereby
+    the first element of dim is duplicated to the last position.
+    """
     merid = da.isel({dim: 0})
     assert merid.longitude == -180
     return xr.concat([da, merid.assign_coords(longitude=180)], dim=dim)
@@ -116,9 +115,9 @@ class Ancillary_NASA:
                  dt: datetime,
                  pattern: str,
                  offline: bool = False):
-        '''
-        Download ancillary product at a given time (where product exists)
-        '''
+        """
+        Download ancillary product at a given time (where product exists).
+        """
 
         filename = dt.strftime(pattern)
 
@@ -137,9 +136,9 @@ class Ancillary_NASA:
         return target
 
     def get(self, dt: datetime):
-        '''
-        Interpolate two brackting products at the given `dt`
-        '''
+        """
+        Interpolate two bracketing products at the given `dt`.
+        """
         list_ds = None
         for offline in ([True] if self.offline else [True, False]):
             for res in self.resources:

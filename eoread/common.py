@@ -12,11 +12,11 @@ warn('The module `common` will be deprecated from eoread package. Please use fun
 
 
 def len_slice(s, l):
-    '''
-    returns the length of slice `s` applied to an iterable of length `l`
+    """
+    Return the length of slice `s` applied to an iterable of length `l`.
 
     (thus, `len(range(l)[s])`)
-    '''
+    """
     # https://stackoverflow.com/questions/36188429
     start, stop, step = s.indices(l)
 
@@ -39,7 +39,8 @@ def timeit(desc=None, verbose=True):
     """
     A decorator/context to print the execution time of a callable
 
-    Example:
+    Examples
+    --------
     1) As a decorator:
         @timeit()
         def f():
@@ -64,11 +65,10 @@ def floor_dt(dt, delta):
     """
     Round `dt` to the previous time period `delta`
 
-    Args:
-    -----
-    dt: datetime
-
-    delta: timedelta
+    Parameters
+    ----------
+    dt : datetime
+    delta : timedelta
     """
     # https://stackoverflow.com/questions/13071384/python-ceil-a-datetime-to-next-quarter-of-an-hour
     return dt - (dt - datetime.min) % delta
@@ -78,11 +78,10 @@ def ceil_dt(dt, delta):
     """
     Round `dt` to the next time period `delta`
 
-    Args:
-    -----
-    dt: datetime
-
-    delta: timedelta
+    Parameters
+    ----------
+    dt : datetime
+    delta : timedelta
     """
     return dt + (datetime.min - dt) % delta
 

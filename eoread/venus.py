@@ -44,21 +44,32 @@ def Level1_VENUS(
     VENµS (Vegetation and Environment monitoring on a New Micro-Satellite) provides
     12 superspectral bands from 420nm to 910nm with 5m spatial resolution.
 
-    Args:
-        dirname: Path to the VENµS product directory
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-                If tuple, should be (rows_chunk, columns_chunk)
-        read_masks: If True, reads compressed quality masks (PIX, SAT, CLD, USI).
-                   Warning: Uncompressing masks is time-consuming.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-        v1_compat: If True, formats output to match version 1 structure
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the VENµS product directory.
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        If tuple, should be (rows_chunk, columns_chunk). Default is 500.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata. Default is None.
+    read_masks : bool, optional
+        If True, reads compressed quality masks (PIX, SAT, CLD, USI).
+        Warning: Uncompressing masks is time-consuming. Default is True.
+    v1_compat : bool, optional
+        If True, formats output to match version 1 structure. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
     
-    Raises:
-        AssertionError: If the directory does not exist
+    Raises
+    ------
+    AssertionError
+        If the directory does not exist.
         
-    Example:
-        >>> ds = Level1_VENUS('VENUS-XS_*_L1C_*', chunks=1000)
-        >>> print(ds.Rtoa.sel(bands='B8'))  # Red edge band
+    Examples
+    --------
+    >>> ds = Level1_VENUS('VENUS-XS_*_L1C_*', chunks=1000)
+    >>> print(ds.Rtoa.sel(bands='B8'))  # Red edge band
     """
     
     # Check that folder exists
@@ -151,10 +162,21 @@ def Level2_VENUS(
     
     Processes Level2A surface reflectance products with atmospheric correction.
 
-    Args:
-        dirname: Path to the VENµS Level2A product directory
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the VENµS Level2A product directory.
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        Default is 500.
+    metadata_template : list, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Default is None.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing surface reflectance, geometry, and quality flags.
     """
     ds = xr.Dataset()
     dirname = Path(dirname)
@@ -215,14 +237,20 @@ def get_sample(level: int = 1) -> Path:
     
     Returns paths to pre-configured sample products from environment variables.
 
-    Args:
-        level: Processing level (1 for Level1C, 2 for Level2A)
+    Parameters
+    ----------
+    level : int, optional
+        Processing level (1 for Level1C, 2 for Level2A). Default is 1.
 
-    Returns:
-        Path to the VENµS product directory
+    Returns
+    -------
+    Path
+        Path to the VENµS product directory.
         
-    Raises:
-        ValueError: If level is not 1 or 2
+    Raises
+    ------
+    ValueError
+        If level is not 1 or 2.
     """
     
     # Check if user has provided a path
@@ -264,20 +292,30 @@ def get_SRF(
     
     Downloads SRF data from the official repository if not already cached.
 
-    Args:
-        ds_in: Optional dataset with band names. If provided, output bands
-               are referenced by ds_in.bands. Otherwise uses band IDs 1-12.
-        dir_data: Directory to cache SRF data. If None, uses default static directory.
+    Parameters
+    ----------
+    ds_in : xr.Dataset, optional
+        Optional dataset with band names. If provided, output bands
+        are referenced by ds_in.bands. Otherwise uses band IDs 1-12.
+        Default is None.
+    dir_data : Path, optional
+        Directory to cache SRF data. If None, uses default static directory.
+        Default is None.
 
-    Returns:
-        xarray.Dataset containing:
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing:
             - SRF curves for each VENµS band
             - wav: Wavelength coordinate in nanometers
             - Band variables named by band ID or from ds_in.bands
-    
-    Example:
-        >>> srf = get_SRF()
-        >>> print(srf.sel(wav=550, method='nearest'))  # SRF at 550nm
+
+    Examples
+    --------
+        Load SRF and query at 550nm:
+
+    >>> srf = get_SRF()
+    >>> print(srf.sel(wav=550, method='nearest'))  # SRF at 550nm
     """
     from core.network.download import download_url
     from core.table import read_csv
@@ -331,9 +369,12 @@ class FlagsReader_VENUS(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the VENµS dataset.
         
-        Args:
-            ds: VENµS dataset containing CLA_ALL and CLD_XS variables
-            flag_name: Standard flag identifier (L1_INVALID or CLOUD)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            VENµS dataset containing CLA_ALL and CLD_XS variables.
+        flag_name : GenericFlags
+            Standard flag identifier (L1_INVALID or CLOUD).
         """
         if flag_name == GenericFlags.L1_INVALID:
             # L1_INVALID is True where vza is NaN (invalid data)

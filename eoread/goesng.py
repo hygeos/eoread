@@ -30,28 +30,39 @@ def Level1_GOESNG(filepath: str|Path,
     Advanced Baseline Imager (ABI). This reader formats the dataset to contain
     TOA reflectances, viewing/solar angles on the full grid, and geolocation.
 
-    Args:
-        filepath: Path to the 1km resolution file (e.g., 'Emultic1kmNC4_goes16_201808101100.nc')
-        auxfile: Path to auxiliary angles file. If None, uses config['auxfile'].
-                Default: 'ANCILLARY/GOESNG-0750.1km.hdf'
-        convert_auxfile: If True, converts HDF4 auxiliary file to NetCDF for faster access 
-        cloudmask: If True, includes cloud mask from NWC SAF product
-        chunksize: Chunk size (int or dict with 'x' and 'y' keys). 
-                  Must be divisible by 4 for proper resampling between 500m, 1km, and 4km grids.
+    Parameters
+    ----------
+    filepath : str or Path
+        Path to the 1km resolution file (e.g., 'Emultic1kmNC4_goes16_201808101100.nc').
+    auxfile : str or Path, optional
+        Path to auxiliary angles file. If None, uses config['auxfile'].
+        Default: 'ANCILLARY/GOESNG-0750.1km.hdf'.
+    convert_auxfile : bool, optional
+        If True, converts HDF4 auxiliary file to NetCDF for faster access.
+    cloudmask : bool, optional
+        If True, includes cloud mask from NWC SAF product.
+    chunksize : int or dict, optional
+        Chunk size (int or dict with 'x' and 'y' keys). Must be divisible by 4
+        for proper resampling between 500m, 1km, and 4km grids.
         
-    Returns:
-        xr.Dataset containing:
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing:
             - Rtoa: Top-of-atmosphere reflectance for 4 bands (470, 640, 865, 1610 nm)
             - VZA, VAA, SZA, SAA: Viewing and solar geometry angles
             - lat, lon: Geolocation arrays
             - Optional cloud mask if cloudmask=True
             
-    Raises:
-        AssertionError: If required files (1km and 500m) don't exist or chunk size 
-                       is not divisible by 4
+    Raises
+    ------
+    AssertionError
+        If required files (1km and 500m) don't exist or chunk size is not
+        divisible by 4.
                        
-    Example:
-        >>> ds = Level1_GOESNG('Emultic1kmNC4_goes16_201808101100.nc', chunksize={'x': 1000, 'y': 1000})
+    Examples
+    --------
+    >>> ds = Level1_GOESNG('Emultic1kmNC4_goes16_201808101100.nc', chunksize={'x': 1000, 'y': 1000})
     """
     ds = xr.Dataset()
     

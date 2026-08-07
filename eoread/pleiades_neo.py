@@ -139,15 +139,29 @@ def Level1_PNEO(
     chunks={"y": 1024, "x": 1024},
 ) -> xr.Dataset:
     """
-    Args:
-        product (Path): Path to the uncompressed Pleiades NEO product directory.
-        meta_data (bool): If True, include full XML metadata in the Dataset attributes.
-        subset_meta_data (list[str]): List of dot-separated paths to specific XML keys 
-                                      to include in attributes.
-        chunks (dict): Dask chunking configuration for lazy loading.
+    Read a Pleiades NEO Level-1 product as an xarray.Dataset.
+    
+    Pleiades NEO satellites provide high-resolution optical imagery with
+    multiple spectral bands at ~50cm ground sample distance.
 
-    Returns:
-        xr.Dataset: A georeferenced Xarray dataset with TOA reflectance and geometry layers.
+    Parameters
+    ----------
+    product : Path
+        Path to the uncompressed Pleiades NEO product directory.
+    meta_data : bool, optional
+        If True, include full XML metadata in the Dataset attributes.
+        Default is False.
+    subset_meta_data : list[str], optional
+        List of dot-separated paths to specific XML keys to include
+        in attributes. Default is empty list.
+    chunks : dict, optional
+        Dask chunking configuration for lazy loading.
+        Default is {"y": 1024, "x": 1024}.
+
+    Returns
+    -------
+    xr.Dataset
+        A georeferenced Xarray dataset with TOA reflectance and geometry layers.
     """
     if not product.exists():
         raise FileNotFoundError(f"Pleiades NEO product not found: {product}")

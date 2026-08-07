@@ -6,11 +6,14 @@ Read global surface water from https://global-surface-water.appspot.com/
 
 https://doi.org/10.1038/nature20584
 
-Example:
--------
+Examples
+--------
+Create water mask with aggregation factor 8:
 
 >>> gsw = GSW(agg=8)
-Create water mask
+
+Create water mask at specific location:
+
 >>> mask = gsw.sel(latitude=lat, longitude=lon, method='nearest') > 50
 """
 
@@ -83,11 +86,11 @@ class _GSW_tile:
 
 
 def read_tile(tile_name, agg, directory):
-    '''
-    Read a single tile as a dask array
+    """
+    Read a single tile as a dask array.
 
-    Data is accessed on demand
-    '''
+    Data is accessed on demand.
+    """
     tile = _GSW_tile(tile_name, agg, directory)
     return da.from_array(tile, meta=np.array([], tile.dtype))
 
@@ -139,26 +142,24 @@ def GSW(directory=None, agg=1) -> xr.DataArray:
     """
     Global surface water reader
 
-    Args:
-    -----
-
-    directory: str
-        directory for tile storage
-
-    agg: int
-        aggregation factor (a power of 2)
-        original resolution of GSW is about 55M at equator
-        reduce this resolution by agg x agg to approximately match the sensor resolution
+    Parameters
+    ----------
+    directory : str or Path, optional
+        Directory for tile storage.
+    agg : int, optional
+        Aggregation factor (a power of 2). Original resolution of GSW is about
+        55m at equator. Reduce this resolution by agg x agg to approximately
+        match the sensor resolution. Default is 1.
             1 -> 55m
             2 -> 110m
             4 -> 220m
             8 -> 440m
             16 -> 880m
 
-    Returns:
+    Returns
     -------
-
-    A xarray.DataArray of the water occurrence between 0 and 100
+    xr.DataArray
+        Water occurrence between 0 and 100.
     """
     
     if directory is None:

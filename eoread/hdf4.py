@@ -24,11 +24,15 @@ def clean_attrs(A):
     HDF4 files often contain null-terminated strings in attributes.
     This function strips trailing '\x00' characters from string values.
     
-    Args:
-        A: Dictionary of HDF4 attributes
+    Parameters
+    ----------
+    A : dict
+        Dictionary of HDF4 attributes.
         
-    Returns:
-        Dictionary with cleaned attribute values (non-strings unchanged)
+    Returns
+    -------
+    dict
+        Dictionary with cleaned attribute values (non-strings unchanged).
     """
     def clean(x):
         if isinstance(x, str):
@@ -74,11 +78,15 @@ class HDF4_ArrayLike:
         """
         Read data from HDF4 dataset using NumPy-style indexing.
         
-        Args:
-            keys: Slice or index specification
+        Parameters
+        ----------
+        keys : slice or tuple of slices
+            Slice or index specification.
             
-        Returns:
-            NumPy array with requested data
+        Returns
+        -------
+        np.ndarray
+            NumPy array with requested data.
         """
         return self.sds.__getitem__(keys)
 
@@ -89,18 +97,25 @@ def load_hdf4(filename, trim_dims=False, lazy=False):
     This function provides an alternative to xarray's pynio engine, which is
     complex to install. All datasets are wrapped in Dask arrays for consistency.
     
-    Args:
-        filename: Path to the HDF4 file (.hdf)
-        trim_dims: If True, removes unused dimensions from the dataset
-        lazy: If True, uses lazy loading (Dask arrays). If False, loads data immediately.
+    Parameters
+    ----------
+    filename : Path or str
+        Path to the HDF4 file (.hdf).
+    trim_dims : bool, optional
+        If True, removes unused dimensions from the dataset. Default is False.
+    lazy : bool, optional
+        If True, uses lazy loading (Dask arrays). If False, loads data immediately. Default is False.
         
-    Returns:
-        xr.Dataset with variables from the HDF4 file. Each variable includes its
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables from the HDF4 file. Each variable includes its
         original HDF4 attributes, and the dataset has global file attributes.
         
-    Example:
-        >>> ds = load_hdf4('MODIS_L1B.hdf', lazy=True)
-        >>> ds = load_hdf4('ancillary_data.hdf', trim_dims=True)
+    Examples
+    --------
+    >>> ds = load_hdf4('MODIS_L1B.hdf', lazy=True)
+    >>> ds = load_hdf4('ancillary_data.hdf', trim_dims=True)
     """
     hdf = SD(str(filename))
     ds = xr.Dataset()

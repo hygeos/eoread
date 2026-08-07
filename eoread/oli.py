@@ -57,28 +57,37 @@ def Level1_OLI(
     OLI (Operational Land Imager) provides 9 spectral bands from coastal aerosol
     to SWIR with 30m resolution, plus a 15m panchromatic band.
 
-    Args:
-        dirname: Path to the Landsat OLI directory
-                (Example: 'LC09_L1TP_014034_20220618_20230411_02_T1/')
-        l9_angles: Path to l9_angles executable for generating angle files when missing.
-                  The program generates sensor and solar angles with:
-                  `l9_angles LC0*_ANG.txt BOTH 1 -b 1`
-                  
-                  Available at: https://www.usgs.gov/land-resources/nli/landsat/
-                  solar-illumination-and-sensor-viewing-angle-coefficient-files
-                  
-                  Can be compiled with:
-                  ```
-                  wget https://landsat.usgs.gov/sites/default/files/documents/L9_ANGLES_2_7_0.tgz
-                  tar xzf L9_ANGLES_2_7_0.tgz && cd l9_angles && make
-                  ```
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-                          Use empty list [] for minimal metadata.
-        v1_compat: If True, formats output to match version 1 structure
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the Landsat OLI directory
+        (Example: 'LC09_L1TP_014034_20220618_20230411_02_T1/').
+    l9_angles : str, Path, or None, optional
+        Path to l9_angles executable for generating angle files when missing.
+        The program generates sensor and solar angles with:
+        `l9_angles LC0*_ANG.txt BOTH 1 -b 1`
         
-    Example:
-        >>> ds = Level1_OLI('LC09_L1TP_014034_20220618_20230411_02_T1/')
+        Available at: https://www.usgs.gov/land-resources/nli/landsat/
+        solar-illumination-and-sensor-viewing-angle-coefficient-files
+        
+        Can be compiled with:
+        ```
+        wget https://landsat.usgs.gov/sites/default/files/documents/L9_ANGLES_2_7_0.tgz
+        tar xzf L9_ANGLES_2_7_0.tgz && cd l9_angles && make
+        ```
+        Default is None.
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        Default is 500.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Use empty list [] for minimal metadata. Default is None.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
+        
+    Examples
+    --------
+    >>> ds = Level1_OLI('LC09_L1TP_014034_20220618_20230411_02_T1/')
     """
     
     ds = xr.Dataset()
@@ -150,19 +159,30 @@ def get_sample(level: int, mission: int = 8) -> Path:
     
     Returns paths to pre-configured sample products from environment variables.
 
-    Args:
-        level: Processing level (1 for Level1, 2 for Level2)
-        mission: Landsat mission number (8 for Landsat-8, 9 for Landsat-9)
+    Parameters
+    ----------
+    level : int
+        Processing level (1 for Level1, 2 for Level2).
+    mission : int, optional
+        Landsat mission number (8 for Landsat-8, 9 for Landsat-9).
+        Default is 8.
 
-    Returns:
-        Path to the Landsat OLI product directory
+    Returns
+    -------
+    Path
+        Path to the Landsat OLI product directory.
         
-    Raises:
-        ValueError: If level is not 1 or 2
+    Raises
+    ------
+    ValueError
+        If level is not 1 or 2.
         
-    Example:
-        >>> oli_dir = get_sample(level=1, mission=9)
-        >>> ds = Level1_OLI(oli_dir)
+    Examples
+--------
+    Get sample and read:
+
+    >>> oli_dir = get_sample(level=1, mission=9)
+    >>> ds = Level1_OLI(oli_dir)
     """
     collec = f'LANDSAT-{mission}-OLI'
     return collect_sample(f'LEVEL{level}_L{mission}', 'usgs', collec, level)
@@ -188,9 +208,12 @@ class FlagsReader_OLI(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the OLI dataset.
         
-        Args:
-            ds: OLI dataset containing QA_PIXEL variable
-            flag_name: Standard flag identifier (currently only L1_INVALID supported)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            OLI dataset containing QA_PIXEL variable.
+        flag_name : GenericFlags
+            Standard flag identifier (currently only L1_INVALID supported).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['QA_PIXEL']

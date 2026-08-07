@@ -101,12 +101,20 @@ def Level1B_PACE_OCI(
 
 def get_sample(level: int = 1) -> Path:
     """
-    Return sample PACE Level-1B products
+    Return sample PACE Level-1B products.
 
-    Returns: a dict with keys:
-        path: path to the product
-        roi: region of interest within the full product
-        px: sample pixel coordinates within the roi
+    Parameters
+    ----------
+    level : int, optional
+        Processing level of the product. Default is 1.
+
+    Returns
+    -------
+    Path
+        Path to the PACE product. Includes:
+        - path: path to the product
+        - roi: region of interest within the full product
+        - px: sample pixel coordinates within the roi
     """
     return collect_sample(f'LEVEL{level}_PACE', 'nasa', 'PACE-OCI', level)
 
@@ -131,9 +139,12 @@ class FlagsReader_PACE(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the PACE dataset.
         
-        Args:
-            ds: PACE dataset containing quality_flag and water variables
-            flag_name: Standard flag identifier (L1_INVALID or LAND)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            PACE dataset containing quality_flag and water variables.
+        flag_name : GenericFlags
+            Standard flag identifier (L1_INVALID or LAND).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['quality_flag']

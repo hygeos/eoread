@@ -29,16 +29,21 @@ def check_nasa_download(filename):
     
     Checks for HTML error pages that indicate authentication or download failures.
     
-    Args:
-        filename: Path to the downloaded file to check
+    Parameters
+    ----------
+    filename : Path or str
+        Path to the downloaded file to check.
         
-    Raises:
-        RuntimeError: If the file contains HTML error content, indicating
-                     authentication failure or file not found
-                     
-    Note:
-        Requires .netrc file with NASA EarthData credentials.
-        See: https://support.earthdata.nasa.gov/index.php?/Knowledgebase/Article/View/43/21/
+    Raises
+    ------
+    RuntimeError
+        If the file contains HTML error content, indicating authentication
+        failure or file not found.
+        
+    Notes
+    -----
+    Requires .netrc file with NASA EarthData credentials.
+    See: https://support.earthdata.nasa.gov/index.php?/Knowledgebase/Article/View/43/21/
     """
     errormsg = 'Error authenticating to NASA EarthData for downloading ancillary data. ' \
     'Please provide authentication through .netrc. See more information on ' \
@@ -60,22 +65,32 @@ def nasa_download(product, dirname, tmpdir=None, verbose=True, wget_extra=""):
     Supports MODIS, VIIRS, SeaWiFS, and Sentinel-3 OLCI products.
     Automatically handles authentication using wget cookie files.
     
-    Args:
-        product: Product filename or full URL to download
-        dirname: Target directory for the downloaded file
-        tmpdir: Temporary directory for partial downloads
-        verbose: If True, prints download progress
-        wget_extra: Additional wget command-line options
+    Parameters
+    ----------
+    product : str
+        Product filename or full URL to download.
+    dirname : str or Path
+        Target directory for the downloaded file.
+    tmpdir : str or Path, optional
+        Temporary directory for partial downloads.
+    verbose : bool, optional
+        If True, prints download progress. Default is True.
+    wget_extra : str, optional
+        Additional wget command-line options.
         
-    Returns:
-        Path to the downloaded file
+    Returns
+    -------
+    Path
+        Path to the downloaded file.
         
-    Example:
-        >>> nasa_download('A2005005002500.L1A_LAC.bz2', '/data/')
-        >>> nasa_download('S3A_OL_1_EFR_*.zip', '/data/')  # Sentinel-3
+    Examples
+    --------
+    >>> nasa_download('A2005005002500.L1A_LAC.bz2', '/data/')
+    >>> nasa_download('S3A_OL_1_EFR_*.zip', '/data/')  # Sentinel-3
     
-    Note:
-        Full URLs can be provided instead of just product names.
+    Notes
+    -----
+    Full URLs can be provided instead of just product names.
     """
     if product.startswith('https://'):
         url = product
@@ -104,12 +119,17 @@ def nasa_download_uncompress(product, dirname) -> Path:
     Combines nasa_download with automatic decompression of .bz2, .gz,
     and .zip archives.
     
-    Args:
-        product: Product filename to download
-        dirname: Target directory
+    Parameters
+    ----------
+    product : str
+        Product filename to download.
+    dirname : str or Path
+        Target directory.
         
-    Returns:
-        Path to the uncompressed file
+    Returns
+    -------
+    Path
+        Path to the uncompressed file.
     """
     return uncompress_decorator()(nasa_download)(product, dirname)
 
@@ -120,28 +140,34 @@ def nasa_search(**kwargs):
     
     Uses the NASA OceanColor API to find products matching the search criteria.
     
-    Args:
-        **kwargs: Search parameters passed to the API, such as:
-            - sensor: Sensor name ('seawifs', 'modis', 'viirs', etc.)
-            - sdate: Start date (YYYY-MM-DD)
-            - edate: End date (YYYY-MM-DD)
-            - dtype: Data type ('L1', 'L2', 'L3', etc.)
-            - search: Filename pattern
-            
-    Returns:
-        List of product filenames matching the search criteria
+    Parameters
+    ----------
+    **kwargs : dict
+        Search parameters passed to the API, such as:
+        - sensor: Sensor name ('seawifs', 'modis', 'viirs', etc.)
+        - sdate: Start date (YYYY-MM-DD)
+        - edate: End date (YYYY-MM-DD)
+        - dtype: Data type ('L1', 'L2', 'L3', etc.)
+        - search: Filename pattern
         
-    Example:
-        >>> products = nasa_search(
-        ...     sensor='seawifs',
-        ...     sdate='2000-04-17',
-        ...     edate='2000-04-17',
-        ...     dtype='L1',
-        ...     search='*L1A_GAC'
-        ... )
+    Returns
+    -------
+    list
+        List of product filenames matching the search criteria.
+        
+    Examples
+    --------
+    >>> products = nasa_search(
+    ...     sensor='seawifs',
+    ...     sdate='2000-04-17',
+    ...     edate='2000-04-17',
+    ...     dtype='L1',
+    ...     search='*L1A_GAC'
+    ... )
     
-    See:
-        https://oceancolor.gsfc.nasa.gov/data/download_methods/#api
+    See
+    ---
+    https://oceancolor.gsfc.nasa.gov/data/download_methods/#api
     """
     query = [f'{k}={v}' for k, v in kwargs.items()]
     query += ['addurl=0', 'results_as_file=1']
@@ -169,29 +195,36 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
     L1C products are generated with SeaDAS l2gen to include polarization
     correction and other radiometric corrections.
     
-    Args:
-        filename: Path to the NASA L1C NetCDF file
-        chunks: Chunk size for spatial dimensions
-        normalize_orientation: If True (default), normalize the spatial
-                orientation so that latitude increases from bottom to top
-                and longitude increases from left to right. This is done
-                by reversing rows and columns for sensors that store data
-                in scan order (see _SENSOR_REVERSE). Set to False to get
-                raw data in the file's native orientation.
+    Parameters
+    ----------
+    filename : Path or str
+        Path to the NASA L1C NetCDF file.
+    chunks : int, optional
+        Chunk size for spatial dimensions. Default is 500.
+    normalize_orientation : bool, optional
+        If True (default), normalize the spatial orientation so that latitude
+        increases from bottom to top and longitude increases from left to right.
+        This is done by reversing rows and columns for sensors that store data
+        in scan order (see _SENSOR_REVERSE). Set to False to get raw data in
+        the file's native orientation.
         
-    Returns:
-        xr.Dataset containing:
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing:
             - Rtoa: Top-of-atmosphere reflectance (polarization corrected)
             - VZA, VAA, SZA, SAA: Viewing and solar geometry
             - lat, lon: Geolocation
             - flags: Quality flags (LAND, L1_INVALID)
-            
-    Note:
-        Requires SeaDAS OCSSW installation. See:
-        https://seadas.gsfc.nasa.gov/downloads/
+
+    Notes
+    -----
+    Requires SeaDAS OCSSW installation. See:
+    https://seadas.gsfc.nasa.gov/downloads/
         
-    Example:
-        >>> ds = Level1_NASA('A2005005002500.L1C.nc', chunks=1000)
+    Examples
+    --------
+    >>> ds = Level1_NASA('A2005005002500.L1C.nc', chunks=1000)
     """
     ds = xr.open_dataset(filename, chunks=chunks)
     # TODO: use xr.open_datatree instead of several xr.open_dataset

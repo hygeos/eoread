@@ -50,12 +50,17 @@ class FlagsReaderBase(ABC):
         """
         Retrieve a flag from the dataset using the standard flag name.
 
-        Args:
-            ds (xr.Dataset): The dataset.
-            flag_name (str | GenericFlags): The flag name.
+        Parameters
+        ----------
+        ds : xr.Dataset
+            The dataset.
+        flag_name : str or GenericFlags
+            The flag name.
 
-        Returns:
-            xr.DataArray: The flag data (bool).
+        Returns
+        -------
+        xr.DataArray
+            The flag data (bool).
         """
         pass
 
@@ -65,12 +70,17 @@ class FlagsReaderBase(ABC):
         
         This method is not mandatory, as it is not used by `FlagsInit`.
 
-        Args:
-            ds (xr.Dataset): The dataset.
-            flag_name (str): The raw flag name.
+        Parameters
+        ----------
+        ds : xr.Dataset
+            The dataset.
+        flag_name : str
+            The raw flag name.
 
-        Returns:
-            xr.DataArray: The flag data (bool)
+        Returns
+        -------
+        xr.DataArray
+            The flag data (bool).
         """
         raise NotImplementedError
 
@@ -87,15 +97,17 @@ class FlagsReader(FlagsReaderBase):
         """
         Initialize the FlagsReader.
 
-        Args:
-            mapping (dict[GenericFlags, str]): Mapping from standard flags to raw flag expressions.
-                Mapping may start with a '~' for logical inversion:
-                mapping = {
-                    GenericFlags.LAND: "~WATER",
-                    GenericFlags.L1_INVALID: "NODATA",
-                }
-
-            flags_var (str): Name of the variable in the dataset containing the flags.
+        Parameters
+        ----------
+        mapping : dict[GenericFlags, str]
+            Mapping from standard flags to raw flag expressions.
+            Mapping may start with a '~' for logical inversion:
+            mapping = {
+                GenericFlags.LAND: "~WATER",
+                GenericFlags.L1_INVALID: "NODATA",
+            }
+        flags_var : str
+            Name of the variable in the dataset containing the flags.
         """
         self.mapping = mapping
         self.flags_var = flags_var
@@ -112,12 +124,17 @@ class FlagsReader(FlagsReaderBase):
         """
         Retrieve a flag from the dataset using the standard flag name.
 
-        Args:
-            ds (xr.Dataset): The dataset.
-            flag_name (str | StdFlags): The flag name.
+        Parameters
+        ----------
+        ds : xr.Dataset
+            The dataset.
+        flag_name : str or GenericFlags
+            The flag name.
 
-        Returns:
-            xr.DataArray: The flag data.
+        Returns
+        -------
+        xr.DataArray
+            The flag data.
         """
         negate = False
         raw_flag_name = self.mapping[flag_name]
@@ -136,12 +153,17 @@ class FlagsReader(FlagsReaderBase):
         """
         Retrieve a raw flag from the dataset.
 
-        Args:
-            ds (xr.Dataset): The dataset.
-            flag_name (str): The raw flag name.
+        Parameters
+        ----------
+        ds : xr.Dataset
+            The dataset.
+        flag_name : str
+            The raw flag name.
 
-        Returns:
-            xr.DataArray: The flag data (bool)
+        Returns
+        -------
+        xr.DataArray
+            The flag data (bool).
         """
         return tools.getflag(ds[self.flags_var], flag_name)
 

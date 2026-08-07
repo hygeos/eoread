@@ -51,17 +51,26 @@ def Level1_MODIS(
     bands from visible to thermal infrared with spatial resolutions of 250m,
     500m, and 1000m.
 
-    Args:
-        filepath: Path to the MODIS HDF4 file (.hdf)
-        chunks: Size of chunks for spatial dimensions
-        resolution: Resample all bands to provided resolution and concatenate.
-                If None, keep original resolutions (250m, 500m, 1km) separate.
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-                          Use empty list [] for minimal metadata.
-        v1_compat: If True, formats output to match version 1 structure
+    Parameters
+    ----------
+    filepath : Path or str
+        Path to the MODIS HDF4 file (.hdf).
+    chunks : int, optional
+        Size of chunks for spatial dimensions. Default is 100.
+    resolution : {250, 500, 1000, None}, optional
+        Resample all bands to provided resolution and concatenate.
+        If None, keep original resolutions (250m, 500m, 1km) separate. Default is 250.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Use empty list [] for minimal metadata. Default is None.
+    v1_compat : bool, optional
+        If True, formats output to match version 1 structure. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
         
-    Example:
-        >>> ds = Level1_MODIS('MOD021KM.A2023001.0000.061.*.hdf')
+    Examples
+    --------
+    >>> ds = Level1_MODIS('MOD021KM.A2023001.0000.061.*.hdf')
     """
     
     filepath = Path(filepath)
@@ -178,9 +187,12 @@ class FlagsReader_MODIS(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the MODIS dataset.
         
-        Args:
-            ds: MODIS dataset containing gflags variable
-            flag_name: Standard flag identifier (currently only L1_INVALID supported)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            MODIS dataset containing gflags variable.
+        flag_name : GenericFlags
+            Standard flag identifier (currently only L1_INVALID supported).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['gflags']

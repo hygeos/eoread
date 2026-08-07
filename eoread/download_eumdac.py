@@ -11,16 +11,19 @@ from core.files.uncompress import uncompress as func_uncompress
 warnings.warn('Please use DownloadEumDAC class from SAND library')
 
 def query(collection, **kwargs):
-    '''
-    Query products with EUMDAC
+    """
+    Query products with EUMDAC.
     
-    Collection: example 'EO:EUM:DAT:MSG:HRSEVIRI'
-
-    kwargs: query arguments. Ex:
-        title = 'MSG4-SEVI-MSG15-0100-NA-20221110081242.653000000Z-NA',
-        dtstart = datetime.datetime(2022, 11, 10, 8, 0)
-        dtend = datetime.datetime(2022, 11, 10, 8, 15)
-    '''
+    Parameters
+    ----------
+    collection : str
+        Collection identifier. Example: 'EO:EUM:DAT:MSG:HRSEVIRI'.
+    **kwargs : dict
+        Query arguments. Examples:
+        - title: 'MSG4-SEVI-MSG15-0100-NA-20221110081242.653000000Z-NA'
+        - dtstart: datetime.datetime(2022, 11, 10, 8, 0)
+        - dtend: datetime.datetime(2022, 11, 10, 8, 15)
+    """
     auth = get_auth('data.eumetsat.int')
     credentials = (auth['user'], auth['password'])   # key, secret
     token = eumdac.AccessToken(credentials)
@@ -46,9 +49,14 @@ def download_product(target, product):
 def download_eumdac(target: Path,
                     collections: Optional[list]=None):
     """
-    Download a product on EUMETSAT data store
+    Download a product on EUMETSAT data store.
     
-    collections: list of collections. Ex:
+    Parameters
+    ----------
+    target : Path
+        Target path for the downloaded product.
+    collections : list, optional
+        List of collection identifiers. Examples:
         - 'EO:EUM:DAT:MSG:HRSEVIRI' for SEVIRI
         - 'EO:EUM:DAT:0409' or 'EO:EUM:DAT:0577' for OLCI L1B FR
         - 'EO:EUM:DAT:0410' or 'EO:EUM:DAT:0578' for OLCI L1B RR

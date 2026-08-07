@@ -29,15 +29,24 @@ def Level1C_ECOSTRESS(
     ECOSTRESS (Ecosystem Spaceborne Thermal Radiometer Experiment on Space Station)
     provides high-resolution thermal infrared measurements across 5 spectral bands.
 
-    Args:
-        filepath: Path to the ECOSTRESS HDF5 file (.h5)
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-                If list, should be [rows_chunk, columns_chunk]
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-                          Use empty list [] for minimal metadata.
+    Parameters
+    ----------
+    filepath : Path or str
+        Path to the ECOSTRESS HDF5 file (.h5).
+    chunks : int, list, or dict, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        If list, should be [rows_chunk, columns_chunk]. Default is 500.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Use empty list [] for minimal metadata. Default is None.
+    v1_compat : bool, optional
+        If True, formats output to match version 1 structure. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
         
-    Example:
-        >>> ds = Level1_ECOSTRESS('ECOv002_L1CG_RAD_*.h5', chunks=1000)
+    Examples
+    --------
+    >>> ds = Level1_ECOSTRESS('ECOv002_L1CG_RAD_*.h5', chunks=1000)
     """
     
     # Check that file exists
@@ -115,16 +124,25 @@ def Level2_ECOSTRESS(
     
     Processes Level2 Land Surface Temperature and Emissivity (LSTE) data.
 
-    Args:
-        filepath: Path to the ECOSTRESS Level2 HDF5 file (.h5)
-        chunks: Size of chunks for spatial dimensions
+    Parameters
+    ----------
+    filepath : Path or str
+        Path to the ECOSTRESS Level2 HDF5 file (.h5).
+    chunks : int, list, or dict, optional
+        Size of chunks for spatial dimensions. Default is 500.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata. Default is None.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
 
-    Returns:
+    Returns
+    -------
+    xr.Dataset
         xarray.Dataset containing:
-            - Surface temperature and emissivity products
-            - Quality masks and flags
-            - Geolocation arrays (lat, lon)
-            - Metadata attributes
+        - Surface temperature and emissivity products
+        - Quality masks and flags
+        - Geolocation arrays (lat, lon)
+        - Metadata attributes
     """
     # Revise variables
     filepath = Path(filepath)
@@ -165,15 +183,22 @@ def get_sample(level: int = 1) -> Path:
     
     Requires the 'sand' module for NASA data access.
 
-    Args:
-        level: Processing level of the product (1 or 2). Level 1 provides
-               radiance/brightness temperature, Level 2 provides surface temperature.
+    Parameters
+    ----------
+    level : int, optional
+        Processing level of the product (1 or 2). Level 1 provides
+        radiance/brightness temperature, Level 2 provides surface temperature.
+        Default is 1.
 
-    Returns:
-        Path to the downloaded ECOSTRESS HDF5 file
+    Returns
+    -------
+    Path
+        Path to the downloaded ECOSTRESS HDF5 file.
         
-    Raises:
-        ImportError: If the 'sand' module is not installed
+    Raises
+    ------
+    ImportError
+        If the 'sand' module is not installed.
     """
     return collect_sample(f'LEVEL{level}_ECOSTRESS', 'nasa', 'ISS-ECOSTRESS', level)
 
@@ -198,9 +223,12 @@ class FlagsReader_ECOSTRESS(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the ECOSTRESS dataset.
         
-        Args:
-            ds: ECOSTRESS dataset containing flag variables
-            flag_name: Standard flag identifier (L1_INVALID, LAND, L1_DEGRADED, or CLOUD)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            ECOSTRESS dataset containing flag variables.
+        flag_name : GenericFlags
+            Standard flag identifier (L1_INVALID, LAND, L1_DEGRADED, or CLOUD).
         """
         if flag_name == GenericFlags.L1_INVALID:
             # L1_INVALID is True where vza is NaN (invalid data)

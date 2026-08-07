@@ -109,15 +109,30 @@ def Level1_GEOSAT(
     chunks={"x": 1024, "y": 1024},
 ):
     """
-    Args:
-        product (Path): Path to the uncompressed Geosat product directory.
-        meta_data (bool): If True, include full XML metadata in the Dataset attributes.
-        subset_meta_data (list[str]): List of dot-separated paths to specific XML keys 
-                                      to include in attributes.
-        chunks (dict): Dask chunking configuration for lazy loading.
+    Read a GEOSAT Level-1 product as an xarray.Dataset.
+    
+    GEOSAT satellites provide high-resolution optical imagery in multiple
+    spectral bands. This reader handles both GEOSAT-1 (DE-1) and GEOSAT-2 (DE-2)
+    products with different georeferencing schemes.
 
-    Returns:
-        xr.Dataset: A georeferenced Xarray dataset with TOA Radiance and geometry layers.
+    Parameters
+    ----------
+    product : Path
+        Path to the uncompressed Geosat product directory.
+    meta_data : bool, optional
+        If True, include full XML metadata in the Dataset attributes.
+        Default is False.
+    subset_meta_data : list[str], optional
+        List of dot-separated paths to specific XML keys to include
+        in attributes. Default is empty list.
+    chunks : dict, optional
+        Dask chunking configuration for lazy loading.
+        Default is {"x": 1024, "y": 1024}.
+
+    Returns
+    -------
+    xr.Dataset
+        A georeferenced Xarray dataset with TOA Radiance and geometry layers.
     """
     if not product.exists():
         raise FileNotFoundError(f"GEOSAT product not found: {product}")
@@ -315,8 +330,10 @@ def get_sample(kind: int) -> Path:
     """
     Download GEOSAT-1 or GEOSAT-2 sample products
 
-    Args:
-        satellite (int): 1 or 2
+    Parameters
+    ----------
+    kind : int
+        1 or 2, indicating GEOSAT-1 or GEOSAT-2.
     """
 
     if kind == 1:
@@ -340,12 +357,20 @@ def read_geosat_srf(
     """
     Read GEOSAT-2 Spectral Response Function (SRF) data from Excel file.
     
-    Args:
-        file_path: Path to the Excel file containing SRF data. Defaults to 
-                   'data/srfs/SpectralResponses_GEOSAT-2.xlsx'
+    Parameters
+    ----------
+    sensor : {'DE-1', 'DE-2'}
+        Sensor identifier.
+    file_path : Path or str, optional
+        Path to the Excel file containing SRF data. Defaults to
+        'data/srfs/SpectralResponses_GEOSAT-2.xlsx'.
+    panchromatic : bool, optional
+        Whether to return panchromatic SRF data.
     
-    Returns:
-        xarray.Dataset: Dataset containing SRF data with:
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing SRF data with:
             - One variable for each band containing SRF response values
             - Each band has its own 'wavelengths' coordinate array
     """

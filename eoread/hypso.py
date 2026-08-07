@@ -25,27 +25,37 @@ def Level1_HYPSO(
     The dataset contains TOA radiances, viewing/solar angles on the full grid,
     and geolocation information.
 
-    Args:
-        filepath: Path to the HYPSO HDF5 file (.h5)
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-                If tuple, should be (rows_chunk, columns_chunk)
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-                          Use empty list [] for minimal metadata.
-        verbose: If True, prints debug messages during reading
+    Parameters
+    ----------
+    filepath : Path or str
+        Path to the HYPSO HDF5 file (.h5).
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions.
+        If tuple, should be (rows_chunk, columns_chunk).
+    metadata_template : list, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Use empty list [] for minimal metadata.
+    verbose : bool, optional
+        If True, prints debug messages during reading.
         
-    Returns:
-        xr.Dataset containing:
+    Returns
+    -------
+    xr.Dataset
+        Dataset containing:
             - Lt: Top-of-atmosphere radiance (W/sr/m^2)
             - VZA, VAA, SZA, SAA: Viewing and solar geometry angles
             - lat, lon: Geolocation arrays
             - central_wavelength: Band wavelengths
             - Metadata attributes
             
-    Raises:
-        AssertionError: If the file does not exist
+    Raises
+    ------
+    AssertionError
+        If the file does not exist.
         
-    Example:
-        >>> ds = Level1_HYPSO('hypso_product.h5', chunks=1000)
+    Examples
+    --------
+    >>> ds = Level1_HYPSO('hypso_product.h5', chunks=1000)
     """
     
     ds = xr.Dataset()
@@ -103,18 +113,26 @@ def get_sample(level: int=1) -> Path:
     
     Returns path to a pre-configured HYPSO sample product from environment variables.
 
-    Args:
-        level: Processing level of the product (currently only level=1 is supported)
+    Parameters
+    ----------
+    level : int, optional
+        Processing level of the product (currently only level=1 is supported).
+        Default is 1.
         
-    Returns:
-        Path to the HYPSO HDF5 file
+    Returns
+    -------
+    Path
+        Path to the HYPSO HDF5 file.
         
-    Raises:
-        AssertionError: If the sample directory does not exist
+    Raises
+    ------
+    AssertionError
+        If the sample directory does not exist.
         
-    Example:
-        >>> hypso_file = get_sample(level=1)
-        >>> ds = Level1_HYPSO(hypso_file)
+    Examples
+    --------
+    >>> hypso_file = get_sample(level=1)
+    >>> ds = Level1_HYPSO(hypso_file)
     """
     sample = env.getdir('DIR_SAMPLE_HYPSO')
     assert sample.exists()

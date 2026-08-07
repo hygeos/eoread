@@ -43,19 +43,31 @@ def Level1_OLCI(
     OLCI (Ocean and Land Colour Instrument) provides 21 spectral bands from
     400nm to 1020nm with 300m spatial resolution.
 
-    Args:
-        dirname: Path to the OLCI .SEN3 directory
-        chunks: Size of chunks for spatial dimensions. If int, applies to both dimensions.
-        interp_angles: Interpolation method for angles:
-                      - 'linear': Linear interpolation for all angles
-                      - 'atan2': Trigonometric interpolation (sin/cos then atan2)
-                      - 'legacy': Backward compatible (nearest for azimuth, linear for zenith)
-        metadata_template: List of metadata keys to include. If None, includes all metadata.
-                          Use empty list [] for minimal metadata.
-        v1_compat: If True, formats output to match version 1 structure
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the OLCI .SEN3 directory.
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. If int, applies to both dimensions. Default is 500.
+    interp_angles : {'atan2', 'linear', 'legacy'}, optional
+        Interpolation method for angles:
+        - 'linear': Linear interpolation for all angles
+        - 'atan2': Trigonometric interpolation (sin/cos then atan2)
+        - 'legacy': Backward compatible (nearest for azimuth, linear for zenith).
+        Default is 'linear'.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata.
+        Use empty list [] for minimal metadata. Default is None.
+    v1_compat : bool, optional
+        If True, formats output to match version 1 structure. Default is False.
+    engine : str or None, optional
+        xarray engine for opening NetCDF files. Default is None.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
         
-    Example:
-        >>> ds = Level1_OLCI('S3A_OL_1_EFR____*.SEN3/', chunks=1000)
+    Examples
+    --------
+    >>> ds = Level1_OLCI('S3A_OL_1_EFR____*.SEN3/', chunks=1000)
     """
     ds = xr.Dataset()
     dirname = Path(dirname)
@@ -177,12 +189,20 @@ def Level2_OLCI(
     Processes Level2 water products including water-leaving reflectances,
     chlorophyll concentration, aerosol properties, and quality flags.
 
-    Args:
-        dirname: Path to the OLCI Level2 .SEN3 directory
-        chunks: Size of chunks for spatial dimensions
-        tie_param: If True, keeps tie-point data in the output dataset
-        init_spectral: If True, initializes spectral variables (wavelength, solar flux)
-        interp_angles: Interpolation method for angles ('atan2', 'linear', or 'legacy')
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the OLCI Level2 .SEN3 directory.
+    chunks : int or tuple, optional
+        Size of chunks for spatial dimensions. Default is 500.
+    interp_angles : {'atan2', 'linear', 'legacy'}, optional
+        Interpolation method for angles. Default is 'linear'.
+    metadata_template : list or None, optional
+        List of metadata keys to include. If None, includes all metadata. Default is None.
+    engine : str or None, optional
+        xarray engine for opening NetCDF files. Default is None.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
     """
     ds = xr.Dataset()
     dirname = Path(dirname)
@@ -317,9 +337,12 @@ class FlagsReader_OLCI(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the OLCI dataset.
         
-        Args:
-            ds: OLCI dataset containing quality_flags variable
-            flag_name: Standard flag identifier
+        Parameters
+        ----------
+        ds : xr.Dataset
+            OLCI dataset containing quality_flags variable.
+        flag_name : GenericFlags
+            Standard flag identifier.
         """
         if flag_name == GenericFlags.LAND:
             # Combine land and fresh_inland_water flags

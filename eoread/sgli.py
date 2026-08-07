@@ -25,9 +25,10 @@ def get_sample(level: int=1) -> Path:
     """
     Bring a SGLI file path to test reading function
 
-    Args:
-        level (int, optional): Level of the product. Defaults to 1.
-        use_cache (bool, optional): Option to save the result of the query to the download API to speed up the process. Defaults to True.
+    Parameters
+    ----------
+    level : int, optional
+        Level of the product. Default is 1.
     """
     return collect_sample(f'LEVEL{level}_SGLI', None)
 
@@ -46,16 +47,22 @@ def Level1_SGLI(
         verbose: bool = True
     ) -> xr.Dataset:
     """
-    Read an SGLI Level1 product as an xarray.Dataset
+    Read an SGLI Level1 product as an xarray.Dataset.
     Formats the Dataset so that it contains the TOA radiances,
     the angles on the full grid, etc.
 
-    Arguments:
-        filepath: Path of the ECOSTRESS H5file (Ex: GC1SG1_201912050000N02307_1BSG_VNRDK_1007.h5)
-        chunks: Size of chunks for spatial axis
-        metadata_template: If None, add all metadata in output xarray.Dataset attributes else add only specified metadata.
-        add_ancillary_data: Option to add ancillary data contained in provided file to the output dataset
-        v1_compat: Option to format output xarray.Dataset such as version 1
+    Parameters
+    ----------
+    filepath : str or Path
+        Path of the ECOSTRESS H5file (Ex: GC1SG1_201912050000N02307_1BSG_VNRDK_1007.h5).
+    chunks : int or tuple, optional
+        Size of chunks for spatial axis. Default is 500.
+    metadata_template : list or None, optional
+        If None, add all metadata in output xarray.Dataset attributes else add only specified metadata. Default is None.
+    add_ancillary_data : bool, optional
+        If True, add ancillary data contained in provided file to the output dataset. Default is False.
+    verbose : bool, optional
+        If True, print debug information. Default is True.
     """
     
     ds = xr.Dataset()
@@ -134,9 +141,12 @@ class FlagsReader_SGLI(FlagsReaderBase):
         """
         Retrieve a specific quality flag from the SGLI dataset.
         
-        Args:
-            ds: SGLI dataset containing quality_flag and water variables
-            flag_name: Standard flag identifier (L1_INVALID or LAND)
+        Parameters
+        ----------
+        ds : xr.Dataset
+            SGLI dataset containing quality_flag and water variables.
+        flag_name : GenericFlags
+            Standard flag identifier (L1_INVALID or LAND).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['quality_flag']

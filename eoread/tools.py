@@ -19,23 +19,30 @@ def format_chunks(chunks: Union[int, list, tuple, dict]) -> dict:
     Converts various chunk size specifications (int, list, tuple) to a
     standardized dictionary with 'rows' and 'columns' keys.
     
-    Args:
-        chunks: Chunk size specification:
-                - int: Same chunk size for both dimensions
-                - list/tuple: [rows_chunk, columns_chunk]
-                - dict: Already in correct format
-                
-    Returns:
-        Dictionary with 'rows' and 'columns' chunk sizes
+    Parameters
+    ----------
+    chunks : int, list, tuple, or dict
+        Chunk size specification:
+        - int: Same chunk size for both dimensions
+        - list/tuple: [rows_chunk, columns_chunk]
+        - dict: Already in correct format
         
-    Raises:
-        AssertionError: If chunks format is invalid
+    Returns
+    -------
+    dict
+        Dictionary with 'rows' and 'columns' chunk sizes.
         
-    Example:
-        >>> format_chunks(500)
-        {'rows': 500, 'columns': 500}
-        >>> format_chunks([1000, 500])
-        {'rows': 1000, 'columns': 500}
+    Raises
+    ------
+    AssertionError
+        If chunks format is invalid.
+        
+    Examples
+    --------
+    >>> format_chunks(500)
+    {'rows': 500, 'columns': 500}
+    >>> format_chunks([1000, 500])
+    {'rows': 1000, 'columns': 500}
     """
     
     # Manage different chunk types
@@ -54,15 +61,19 @@ def filter_metadata(metadata: dict, template: list) -> dict:
     """
     Short method to filter metadata dictionary based on a template
 
-    Args:
-        metadata (dict): Dictionary corresponding to metadata
-        template (list): List of list describing nodes to keep
+    Parameters
+    ----------
+    metadata : dict
+        Dictionary corresponding to metadata.
+    template : list
+        List of list describing nodes to keep.
     
-    Examples:
-        >> d = {'a': 0, 'b': {'c': 1, 'd':2}}
-        >> t = [['a'], ['b','c']]
-        >> filter_metadata(d, t)
-        {'a': 0, 'b': {'c': 1}}
+    Examples
+    --------
+    >> d = {'a': 0, 'b': {'c': 1, 'd':2}}
+    >> t = [['a'], ['b','c']]
+    >> filter_metadata(d, t)
+    {'a': 0, 'b': {'c': 1}}
     """  
     
     # Populate new dictionary with nodes to kept 
@@ -157,21 +168,32 @@ def open_raster(
     Searches for a single file matching the pattern and optionally
     decompresses it before opening.
     
-    Args:
-        dirname: Directory to search in
-        pattern: Glob pattern to match (e.g., '*_B01.jp2')
-        compress_ext: If provided, uncompresses file with this extension first
-        engine: xarray engine for opening the file (default: 'h5netcdf')
+    Parameters
+    ----------
+    dirname : str or Path
+        Directory to search in.
+    pattern : str
+        Glob pattern to match (e.g., '*_B01.jp2').
+    compress_ext : str, optional
+        If provided, uncompresses file with this extension first.
+        Default is None.
+    engine : str, optional
+        xarray engine for opening the file. Default is 'h5netcdf'.
         
-    Returns:
-        DataArray with the raster data (squeezed to remove size-1 dimensions)
+    Returns
+    -------
+    DataArray
+        DataArray with the raster data (squeezed to remove size-1 dimensions).
         
-    Raises:
-        AssertionError: If pattern matches zero or multiple files
+    Raises
+    ------
+    AssertionError
+        If pattern matches zero or multiple files.
         
-    Example:
-        >>> arr = open_raster('/data/', '*_B02.tif', engine='rasterio')
-        >>> arr = open_raster('/data/', '*_CLD.zip', compress_ext='.zip')
+    Examples
+    --------
+    >>> arr = open_raster('/data/', '*_B02.tif', engine='rasterio')
+    >>> arr = open_raster('/data/', '*_CLD.zip', compress_ext='.zip')
     """
     # Find file path
     path = only(list(Path(dirname).glob(pattern)))
@@ -244,13 +266,20 @@ def crop(
     """
     Crop output of eoread reader based on latitude and longitude arrays.
 
-    Args:
-        ds (xr.Dataset): Output from an eoread reader
-        latmin (float | None, optional): Minimun of latitude. Defaults to None.
-        latmax (float | None, optional): Maximum of latitude. Defaults to None.
-        lonmin (float | None, optional): Minimun of longitude. Defaults to None.
-        lonmax (float | None, optional): Maximum of longitude. Defaults to None.
-        drop (bool, optional): Option to drop invalid pixels. If False, invalid pixels are set to NaN. Defaults to True.
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Output from an eoread reader.
+    latmin : float or None, optional
+        Minimum of latitude. Default is None.
+    latmax : float or None, optional
+        Maximum of latitude. Default is None.
+    lonmin : float or None, optional
+        Minimum of longitude. Default is None.
+    lonmax : float or None, optional
+        Maximum of longitude. Default is None.
+    drop : bool, optional
+        Option to drop invalid pixels. If False, invalid pixels are set to NaN. Default is True.
     """
     # Filter latitude and longitude
     latmask = (ds[str(names.lat)] >= latmin) & (ds[str(names.lat)] <= latmax)
