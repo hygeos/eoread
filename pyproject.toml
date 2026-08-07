@@ -31,6 +31,9 @@ sand = { git = "git+https://github.com/hygeos/SAND.git" }
 [tool.pixi.tasks]
 tests = "pytest tests/"
 reader = "python3 scripts/eval_readers.py"
+docs-build = "quartodoc build --config docs/_quarto.yml"
+docs-render = { cmd = "quarto render docs/", depends-on = ["docs-build"] }
+docs-preview = { cmd = "quarto preview docs/", depends-on = ["docs-build"] }
 
 [tool.pixi.dependencies]
 pytest = "*"
@@ -41,6 +44,11 @@ ipykernel = "*"
 libgdal-jp2openjpeg = "*"  # Required to read compress jp2 file in MSI reader
 pyhdf = "*"
 numba = "*"
+quartodoc = "*"
+nbformat = "*"
+nbclient = "*"
+jupyter-cache = "*"
+griffe = ">=1.0,<2.0"
 
 [tool.pixi.environments]
 default = { features = ["hyp", "sys"], solve-group = "default" }

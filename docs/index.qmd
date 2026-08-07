@@ -1,0 +1,46 @@
+---
+title: eoread
+subtitle: "Read satellite products as xarray Datasets"
+---
+
+## What is eoread?
+
+eoread provides a modular implementation of satellite data input/output built on [xarray](https://docs.xarray.dev/) and [dask](https://docs.dask.org/). It offers unified readers for a wide range of Earth observation satellite products, returning lazy `xarray.Dataset` objects ready for subsetting, processing, and analysis.
+
+## Features
+
+- **Unified API** — Each sensor has a `Level1_*` (or `Level2_*`) reader function that returns a consistent `xarray.Dataset` with standard variable names.
+- **Lazy loading** — All raster data are backed by dask arrays, enabling out-of-core and parallel processing.
+- **Auto-detection** — The `Level1()` and `Level2()` functions automatically detect the sensor type from the filename and dispatch to the correct reader.
+- **Quality flags** — A `FlagsReaderBase` interface provides sensor-agnostic access to land masks, cloud flags, and data quality indicators.
+- **Chunking control** — All readers accept a `chunks` parameter for tuning spatial block sizes to match your workload.
+
+## Supported Sensors
+
+| Category | Sensors |
+|----------|----------|
+| ESA Sentinel | Sentinel-2 MSI, Sentinel-3 OLCI, MERIS |
+| Landsat | Landsat 8/9 OLI |
+| NASA | MODIS, ECOSTRESS, PACE OCI |
+| Other | VENµS, SGLI, HYPSO-1, GOES-NG, Pleiades, Pleiades Neo, PlanetScope |
+
+## Installation
+
+```bash
+hyp add --hygeos eoread
+```
+
+## Quick Example
+
+```python
+from eoread.autodetect import Level1
+from pathlib import Path
+
+# Auto-detect sensor and read
+l1 = Level1(Path("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE"))
+
+# Inspect the dataset
+print(l1)
+```
+
+For more detailed examples, see the [Getting Started](articles/getting-started.qmd) guide.

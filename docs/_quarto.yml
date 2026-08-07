@@ -1,0 +1,130 @@
+project:
+  type: website
+  preview:
+    port: 8000
+    browser: false
+
+# tell quarto to read the generated sidebar and styles
+metadata-files:
+  - reference/_sidebar.yml
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    css:
+      - _extensions/hygeos-docs/css/hygeos-docs.css
+    toc: true
+
+execute:
+  echo: false
+  cache: true
+  warning: false
+
+
+website:
+  title: "eoread"
+  site-url: "https://hygeos.github.io/Eoread/"
+  repo-url: "https://github.com/hygeos/Eoread"
+  repo-actions: [issue]
+  page-navigation: true
+  open-graph: true
+  search:
+    location: navbar
+    type: overlay
+  navbar:
+    background: primary
+    search: true
+    logo: _extensions/hygeos-docs/logo-carre-blanc.png
+    logo-alt: "HYGEOS"
+    left:
+      - text: "Home"
+        file: index.qmd
+      - text: "Reference"
+        href: reference/
+      - text: "Guides"
+        menu:
+          - text: "Getting Started"
+            file: articles/getting-started.qmd
+    right:
+      - icon: github
+        href: "https://github.com/hygeos/Eoread"
+        aria-label: "GitHub Repository"
+  page-footer:
+    center: |
+      Powered by [HYGEOS](https://www.hygeos.com) | eoread &copy; 2026 | version 0.5.0
+  sidebar:
+    - title: "Overview"
+      contents:
+        - index.qmd
+    - title: "Guides"
+      contents:
+        - articles/getting-started.qmd
+
+
+quartodoc:
+  package: eoread
+  dir: reference
+  title: API Reference
+
+  # write sidebar and style data
+  sidebar: reference/_sidebar.yml
+  css: reference/_styles-quartodoc.css
+  
+  sections:
+    - title: Readers
+      desc: Readers for various satellite products
+      contents:
+        - ecostress
+        - geosat
+        - goesng
+        - hypso
+        - meris
+        - modis
+        - msi
+        - nasa
+        - olci
+        - oli
+        - pace
+        - pleiades
+        - pleiades_neo
+        - planetscope
+        - sgli
+        - venus
+
+    - title: Auto-detection
+      desc: Automatic product type detection and reader dispatch
+      contents:
+        - autodetect.Level1
+        - autodetect.Level2
+
+    - title: Flags
+      desc: Quality flag management interface for satellite products
+      contents:
+        - flags.GenericFlags
+        - flags.FlagsReaderBase
+
+    - title: Tools
+      desc: Shared utilities for raster I/O, resampling, metadata filtering, and chunking
+      contents:
+        - tools.open_raster
+        - tools.spatial_resample
+        - tools.filter_metadata
+        - tools.format_chunks
+        - tools.collect_sample
+
+    - title: Ancillary Data
+      desc: Ancillary data providers (DEM, ERA5, NASA, Global Surface Water)
+      contents:
+        - dem
+        - era5
+        - ancillary_nasa
+        - gsw
+
+    - title: Deprecated
+      desc: Legacy modules scheduled for removal (use `core` package instead)
+      contents:
+        - eo
+        - common
+        - utils

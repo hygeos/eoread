@@ -1,0 +1,14 @@
+title: HYGEOS Documentation Theme
+authors:
+  - name: HYGEOS team
+version: 0.1.0
+quarto-version: ">= 1.4.0"
+contributes:
+  formats:
+    hygeos-docs:
+      html:
+        css: css/hygeos-docs.css
+        theme:
+          light: cosmo
+          dark: darkly
+        toc: true
