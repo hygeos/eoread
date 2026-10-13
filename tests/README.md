@@ -10,6 +10,13 @@ every commit.
 The library never downloads data; `get_sample()` helpers in the legacy modules
 are test support only and are no longer called from the test suite.
 
+## Layout
+
+- `tests/` — v2 conformance tests (Phase 1 of the refactor and onward).
+- `tests/old/` — legacy v1 reader regression suite, kept as-is during the
+  coexistence period while readers are ported one by one.
+- `conftest.py` and `generic.py` are shared by both suites and stay at the root.
+
 ## Data manifest
 
 | Env var | Sample product | Used by |
