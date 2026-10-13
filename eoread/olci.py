@@ -13,7 +13,7 @@ from re import findall
 from core import log
 from core.table import read_xml
 from core.geo.naming import names
-from core.tools import getflag, getflags
+from core.tools import getflag, getflags, raiseflag
 
 from eoread.flags import FlagsReaderBase, GenericFlags
 from eoread.tools import (
@@ -579,7 +579,6 @@ def _v1_compat(ds: xr.Dataset) -> xr.Dataset:
     qf = getflags(ds.quality_flags)
 
     # raise LAND mask when land is raised but not fresh_inland_water
-    from .eo import raiseflag
     raiseflag(
         ds[str(names.flags)],
         "LAND", 1,

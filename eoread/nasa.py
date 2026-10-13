@@ -17,10 +17,68 @@ import xarray as xr
 from datetime import datetime
 import subprocess
 
+import dask.array as da
+from numpy import cos, radians, sqrt
+
 from core.files.uncompress import uncompress_decorator
 from core.network.download import download_url
+from core.geo import n
 from core.geo.naming import names
-from eoread import eo
+from core.tools import merge, raiseflag
+
+
+def _scattering_angle(mu_s, mu_v, phi):
+    """
+    Scattering angle in degrees.
+
+    Parameters
+    ----------
+    mu_s : float or array_like
+        Cosine of the sun zenith angle.
+    mu_v : float or array_like
+        Cosine of the view zenith angle.
+    phi : float or array_like
+        Relative azimuth angle in degrees.
+    """
+    sa = -mu_s*mu_v - sqrt((1.-mu_s*mu_s)*(1.-mu_v*mu_v)) * cos(radians(phi))
+    return da.arccos(sa)*180./da.pi
+
+
+def _init_geometry(ds: xr.Dataset,
+                   scat_angle: bool = False):
+    """
+    Initialize geometric variables (in place).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset to modify in place.
+    scat_angle : bool, optional
+        If True, also compute the scattering angle. Default is False.
+    """
+
+    # mus and muv
+    if str(n.mus) not in ds:
+        ds[str(n.mus)] = da.cos(da.radians(ds.sza))
+        ds[str(n.mus)].attrs['description'] = n.mus.desc
+    if str(n.muv) not in ds:
+        ds[str(n.muv)] = da.cos(da.radians(ds.vza))
+        ds[str(n.muv)].attrs['description'] = n.muv.desc
+
+    # relative azimuth angle
+    if str(n.raa) not in ds:
+        raa = ds[str(n.saa)] - ds[str(n.vaa)]
+        raa = raa % 360
+        ds[str(n.raa)] = raa.where(raa < 180, 360-raa)
+        ds.raa.attrs['description'] = n.raa.desc
+        ds.raa.attrs['unit'] = n.raa.unit
+
+    # scattering angle
+    if scat_angle:
+        ds['scat_angle'] = _scattering_angle(ds.mus, ds.muv, ds.raa)
+        ds['scat_angle'].attrs['description'] = 'scattering angle'
+
+    return ds
 
 
 def check_nasa_download(filename):
@@ -277,7 +335,7 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
                           ]:
         ds[name] = geo_data[param]
 
-    eo.init_geometry(ds)
+    _init_geometry(ds)
 
     ds[str(names.flags)] = xr.zeros_like(ds[str(names.lat)], dtype=names.flags.dtype)
     for flag, flag_list, flag_value in [
@@ -288,12 +346,12 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
         for f in flag_list:
             flag_mask += geo_data.l2_flags.flag_masks[geo_data.l2_flags.flag_meanings.split().index(f)]
 
-        eo.raiseflag(
+        raiseflag(
             ds[names.flags],
             flag,
             flag_value,
             (geo_data.l2_flags & flag_mask != 0),
         )
 
-    ds = eo.merge(ds, dim=str(names.bands))
+    ds = merge(ds, dim=str(names.bands))
     return ds
