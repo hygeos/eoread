@@ -3,12 +3,13 @@
 
 import pytest
 
-from eoread.oli import Level1_OLI, get_sample
+from .conftest import require_sample
+from eoread.legacy.oli import Level1_OLI
 from . import generic
 
 
-product_l1 = pytest.fixture(lambda: get_sample(1, 9), scope='module')
-product_l2 = pytest.fixture(lambda: get_sample(2, 9), scope='module')
+product_l1 = pytest.fixture(lambda: require_sample('LEVEL1_L9'), scope='module')
+product_l2 = pytest.fixture(lambda: require_sample('LEVEL2_L9'), scope='module')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

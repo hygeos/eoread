@@ -1,5 +1,6 @@
 from pathlib import Path
-from eoread.hypso import Level1_HYPSO, get_sample
+from .conftest import require_sample
+from eoread.legacy.hypso import Level1_HYPSO
 import xarray as xr
 from core.env import getdir
 
@@ -9,7 +10,7 @@ import pytest
 
 
 @pytest.fixture(scope="module")
-def level1_hypso() -> Path: return get_sample()
+def level1_hypso() -> Path: return require_sample('DIR_SAMPLE_HYPSO')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request): return request.param

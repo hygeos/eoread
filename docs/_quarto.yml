@@ -73,31 +73,31 @@ quartodoc:
   css: reference/_styles-quartodoc.css
   
   sections:
-    - title: Readers
-      desc: Readers for various satellite products
+    - title: Readers (legacy v1)
+      desc: Legacy readers for various satellite products, pending v2 port
       contents:
-        - ecostress
-        - geosat
-        - goesng
-        - hypso
-        - meris
-        - modis
-        - msi
-        - nasa
-        - olci
-        - oli
-        - pace
-        - pleiades
-        - pleiades_neo
-        - planetscope
-        - sgli
-        - venus
+        - legacy.ecostress
+        - legacy.geosat
+        - legacy.goesng
+        - legacy.hypso
+        - legacy.meris
+        - legacy.modis
+        - legacy.msi
+        - legacy.nasa
+        - legacy.olci
+        - legacy.oli
+        - legacy.pace
+        - legacy.pleiades
+        - legacy.pleiades_neo
+        - legacy.planetscope
+        - legacy.sgli
+        - legacy.venus
 
-    - title: Auto-detection
+    - title: Auto-detection (legacy v1)
       desc: Automatic product type detection and reader dispatch
       contents:
-        - autodetect.Level1
-        - autodetect.Level2
+        - legacy.autodetect.Level1
+        - legacy.autodetect.Level2
 
     - title: Flags
       desc: Quality flag management interface for satellite products
@@ -114,17 +114,4 @@ quartodoc:
         - tools.format_chunks
         - tools.collect_sample
 
-    - title: Ancillary Data
-      desc: Ancillary data providers (DEM, ERA5, NASA, Global Surface Water)
-      contents:
-        - dem
-        - era5
-        - ancillary_nasa
-        - gsw
 
-    - title: Deprecated
-      desc: Legacy modules scheduled for removal (use `core` package instead)
-      contents:
-        - eo
-        - common
-        - utils

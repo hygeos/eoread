@@ -16,7 +16,7 @@ hyp add --hygeos eoread
 Every eoread reader function returns a lazy `xarray.Dataset` backed by dask arrays. Data is only loaded from disk when you explicitly compute or access a variable. This enables efficient out-of-core processing of large satellite products.
 
 ```python
-from eoread.msi import Level1_MSI
+from eoread.legacy.msi import Level1_MSI
 
 # Returns a lazy xarray.Dataset — nothing is read from disk yet
 ds = Level1_MSI("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE")
@@ -30,17 +30,17 @@ print(ds)
 Each supported sensor has a dedicated reader function. The naming convention is `Level{level}_{sensor}`:
 
 ```python
-from eoread.msi import Level1_MSI
-from eoread.olci import Level1_OLCI, Level2_OLCI
-from eoread.meris import Level1_MERIS
-from eoread.oli import Level1_OLI
-from eoread.modis import Level1_MODIS
-from eoread.ecostress import Level1C_ECOSTRESS
-from eoread.pace import Level1B_PACE_OCI
-from eoread.venus import Level1_VENUS
-from eoread.sgli import Level1_SGLI
-from eoread.hypso import Level1_HYPSO
-from eoread.goesng import Level1_GOESNG
+from eoread.legacy.msi import Level1_MSI
+from eoread.legacy.olci import Level1_OLCI, Level2_OLCI
+from eoread.legacy.meris import Level1_MERIS
+from eoread.legacy.oli import Level1_OLI
+from eoread.legacy.modis import Level1_MODIS
+from eoread.legacy.ecostress import Level1C_ECOSTRESS
+from eoread.legacy.pace import Level1B_PACE_OCI
+from eoread.legacy.venus import Level1_VENUS
+from eoread.legacy.sgli import Level1_SGLI
+from eoread.legacy.hypso import Level1_HYPSO
+from eoread.legacy.goesng import Level1_GOESNG
 ```
 
 ### Auto-Detection
@@ -48,7 +48,7 @@ from eoread.goesng import Level1_GOESNG
 The `Level1()` and `Level2()` functions automatically detect the sensor type from the filename and dispatch to the appropriate reader:
 
 ```python
-from eoread.autodetect import Level1, Level2
+from eoread.legacy.autodetect import Level1, Level2
 from pathlib import Path
 
 # Automatically detects Sentinel-2 MSI from the filename
@@ -74,7 +74,7 @@ All readers produce a consistent set of standard variables:
 ### Example: Inspecting a Dataset
 
 ```python
-from eoread.msi import Level1_MSI
+from eoread.legacy.msi import Level1_MSI
 
 ds = Level1_MSI("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE",
                 chunks=1000, resolution=60)

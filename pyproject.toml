@@ -29,6 +29,9 @@ eoread = { path = ".", editable = true, extras = ["git"]}
 sand = { git = "git+https://github.com/hygeos/SAND.git" }
 
 [tool.pixi.tasks]
+# No-data gate: every module must import and the test suite must collect,
+# without any sample product available. Run in each matrix environment.
+gate = "python3 scripts/import_smoke.py && pytest tests/ --collect-only -q"
 tests = "pytest tests/"
 reader = "python3 scripts/eval_readers.py"
 docs-build = "quartodoc build --config docs/_quarto.yml"
@@ -52,12 +55,20 @@ griffe = ">=1.0,<2.0"
 
 [tool.pixi.environments]
 default = { features = ["hyp", "sys"], solve-group = "default" }
+# CI matrix: gate also runs against the older supported xarray generation
+xarray-2024 = { features = ["hyp-old", "sys"], solve-group = "xarray-2024" }
 
 [tool.pixi.feature.sys.dependencies]
 libgdal-jp2openjpeg = "*"
 
 [tool.pixi.feature.hyp.dependencies]
 xarray = "*"
+dask = "*"
+scipy = "*"
+numpy = "*"
+
+[tool.pixi.feature.hyp-old.dependencies]
+xarray = "2024.*"
 dask = "*"
 scipy = "*"
 numpy = "*"

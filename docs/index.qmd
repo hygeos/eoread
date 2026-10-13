@@ -33,7 +33,7 @@ hyp add --hygeos eoread
 ## Quick Example
 
 ```python
-from eoread.autodetect import Level1
+from eoread.legacy.autodetect import Level1
 from pathlib import Path
 
 # Auto-detect sensor and read

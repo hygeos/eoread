@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from eoread.venus import Level1_VENUS, Level2_VENUS, get_sample
+from eoread.legacy.venus import Level1_VENUS, Level2_VENUS
+from .conftest import require_sample
 from . import generic
 
 import pytest
 
 
-product_l1 = pytest.fixture(lambda: get_sample(1), scope='session')
-product_l2 = pytest.fixture(lambda: get_sample(2), scope='session')
+product_l1 = pytest.fixture(lambda: require_sample('LEVEL1_VENUS'), scope='session')
+product_l2 = pytest.fixture(lambda: require_sample('LEVEL2_VENUS'), scope='session')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

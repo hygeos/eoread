@@ -41,7 +41,7 @@ if args.cmd == 'list':
 if args.cmd == 'test':
     
     reader = args.reader
-    module = importlib.import_module('eoread.'+reader)
+    module = importlib.import_module('eoread.legacy.'+reader)
     reader = getattr(module, readers[reader])
     sample = getattr(module, 'get_sample')
     
@@ -53,7 +53,7 @@ if args.cmd == 'time':
     
     c = Chrono('reading time', unit='s')
     for name, reader in readers.items():
-        module = importlib.import_module('eoread.'+name)
+        module = importlib.import_module('eoread.legacy.'+name)
         reader = getattr(module, reader)
         sample = getattr(module, 'get_sample')
         

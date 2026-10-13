@@ -12,6 +12,7 @@ from .conftest import savefig
 from matplotlib import pyplot as plt
 from core.tests.graphics import xrimshow, downsample
 from eoread.flags import FlagsInit, GenericFlags
+from eoread.schema import validate
 from datetime import datetime
 from pathlib import Path
 from dask import config
@@ -215,7 +216,23 @@ class Test:
     def angles(ds):
         angles = [names.vaa, names.vza, names.saa, names.sza]
         assert all(str(angle) in ds for angle in angles)
-    
+
+        # Range sanity check (degrees) on a decimated sample, so the full grid
+        # is never computed; limits come from the naming registry.
+        sub = {str(a): ds[str(a)].isel({str(names.rows): slice(None, None, 50),
+                                        str(names.columns): slice(None, None, 50)}) for a in angles}
+        for angle in angles:
+            lo, hi = angle.attrs.get('minv'), angle.attrs.get('maxv')
+            if lo is None or hi is None: continue
+            v = sub[str(angle)].values
+            assert v.min() >= lo - 1e-3 and v.max() <= hi + 1e-3, \
+                f'{angle} out of range [{lo}, {hi}], got [{v.min()}, {v.max()}]'
+
+    @staticmethod
+    def v2_conformance(ds, primary=None, required_vars=()):
+        """Check a v2 reader output against the canonical schema (eoread.schema.validate)."""
+        validate(ds, primary=primary, required_vars=required_vars)
+
     @staticmethod
     def flagreader(ds):
         assert '_flag_reader' in ds.attrs

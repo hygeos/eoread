@@ -4,7 +4,8 @@
 
 from pathlib import Path
 import pytest
-from eoread.meris import Level1_MERIS, get_sample
+from .conftest import require_sample
+from eoread.legacy.meris import Level1_MERIS
 import xarray as xr
 from core.env import getdir
 from . import generic
@@ -13,7 +14,7 @@ from . import generic
 product = '/archive2/data/EOREAD_TESTDATA/MERIS/MER_RR__1PRACR20080701_014028_000026402070_00003_33123_0000.N1'
 
 @pytest.fixture(scope="module")
-def level1_meris(): return get_sample(1)
+def level1_meris(): return require_sample('LEVEL1_MERIS')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

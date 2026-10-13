@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from eoread.olci import get_sample, Level1_OLCI, Level2_OLCI
+from .conftest import require_sample
+from eoread.legacy.olci import Level1_OLCI, Level2_OLCI
 from . import generic
 
 
-olci_level1 = pytest.fixture(lambda: get_sample(1), scope='module')
-olci_level2 = pytest.fixture(lambda: get_sample(2), scope='module')
+olci_level1 = pytest.fixture(lambda: require_sample('LEVEL1_OLCI'), scope='module')
+olci_level2 = pytest.fixture(lambda: require_sample('LEVEL2_OLCI'), scope='module')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

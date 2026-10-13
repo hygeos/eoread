@@ -4,13 +4,14 @@
 import pytest
 import xarray as xr
 
-from eoread.oli import get_sample, Level1_OLI
+from .conftest import require_sample
+from eoread.legacy.oli import Level1_OLI
 from . import generic
 from core.env import getdir
 
 
-product_l1 = pytest.fixture(lambda: get_sample(1, 8), scope='session')
-product_l2 = pytest.fixture(lambda: get_sample(2, 8), scope='session')
+product_l1 = pytest.fixture(lambda: require_sample('LEVEL1_L8'), scope='session')
+product_l2 = pytest.fixture(lambda: require_sample('LEVEL2_L8'), scope='session')
 
 
 @pytest.fixture(params=[500, (400, 600)])

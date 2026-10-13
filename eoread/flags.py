@@ -234,7 +234,15 @@ class FlagsInit(BlockProcessor):
         strict: bool = True,
     ):
         self.flags = flags
-        self.flgreader: FlagsReaderBase = import_module(flag_reader)(**(flag_reader_kwargs or {}))
+        try:
+            flgreader_cls = import_module(flag_reader)
+        except ModuleNotFoundError:
+            # Legacy readers set _flag_reader to 'eoread.<sensor>.<Class>'; those
+            # modules now live under eoread.legacy (see REFACTORING.md).
+            if not flag_reader.startswith('eoread.'):
+                raise
+            flgreader_cls = import_module(flag_reader.replace('eoread.', 'eoread.legacy.', 1))
+        self.flgreader: FlagsReaderBase = flgreader_cls(**(flag_reader_kwargs or {}))
         self.dtype = dtype
         self.flags_varname = flags_varname
         self.strict = strict

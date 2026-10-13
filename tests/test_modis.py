@@ -1,13 +1,14 @@
 import xarray as xr
 import pytest
 
-from eoread.modis import Level1_MODIS, get_sample
+from .conftest import require_sample
+from eoread.legacy.modis import Level1_MODIS
 from core.env import getdir
 from . import generic
 
 
 @pytest.fixture(scope="module")
-def level1_modis(): return get_sample(1)
+def level1_modis(): return require_sample('LEVEL1_MODISA_MYD')
 
 @pytest.fixture(params=[200, (200, 300)])
 def chunks(request):

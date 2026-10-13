@@ -52,6 +52,8 @@ def Level1(path: Path, **kwargs) -> xr.Dataset:
     # Import reader and read provided file
     assert dict_pattern['reader'] != '', f'No reader exists for {dict_pattern['Name']}'
     to_import = dict_pattern['reader'].split()
+    if to_import[0].startswith('eoread.') and not to_import[0].startswith('eoread.legacy.'):
+        to_import[0] = 'eoread.legacy.' + to_import[0][len('eoread.'):]
     module = importlib.import_module(to_import[0])
     try: reader = getattr(module, to_import[1].replace('Level','Level1'))
     except AttributeError as e: log.error(f'Reader importaton failed, got {e}') 
@@ -97,6 +99,8 @@ def Level2(path: Path, **kwargs) -> xr.Dataset:
     # Import reader and read provided file
     assert dict_pattern['reader'] != '', f'No reader exists for {dict_pattern['Name']}'
     to_import = dict_pattern['reader'].split()
+    if to_import[0].startswith('eoread.') and not to_import[0].startswith('eoread.legacy.'):
+        to_import[0] = 'eoread.legacy.' + to_import[0][len('eoread.'):]
     module = importlib.import_module(to_import[0])
     try: reader = getattr(module, to_import[1].replace('Level','Level2'))
     except AttributeError as e: log.error(f'Reader importaton failed, got {e}') 
