@@ -49,16 +49,21 @@ def product_L1A(request):
 
 
 @pytest.mark.parametrize(
-    "method",
+    "method,ocssw_version",
     [
-        "docker",
-        "shell",
+        ("docker", "V2025.5"),
+        ("docker", "V2024.7"),
+        ("docker", "R2022.11"),
+        ("shell", None),
     ],
 )
-def test_L1C(method, product_L1A):
+def test_L1C(method, ocssw_version, product_L1A):
     with TemporaryDirectory() as tmpdir:
         p = Path(getvar(product_L1A["var"]))
-        out = makeL1C(p, Path(tmpdir), method=method, eline=100)
+        kwargs = {"eline": 100}
+        if ocssw_version is not None:
+            kwargs["ocssw_version"] = ocssw_version
+        out = makeL1C(p, Path(tmpdir), method=method, **kwargs)
         assert out.exists()
         print(f'Generated {out}')
 

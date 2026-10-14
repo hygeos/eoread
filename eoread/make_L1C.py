@@ -7,7 +7,7 @@ import shutil
 import re
 import subprocess
 from tempfile import TemporaryDirectory
-from typing import Literal, Union
+from typing import Literal
 from core.files.fileutils import filegen
 from core.env import getdir
 
@@ -27,6 +27,8 @@ def makeL1C(
     l1a: Path | str,
     dirname: Path | None = None,
     method: Literal["docker", "shell", "auto"] = "shell",
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
     **kwargs
 ) -> Path:
     """
@@ -74,19 +76,34 @@ def makeL1C(
     """
     l1a = Path(l1a)
     # sensor switch
+    ocssw_kwargs = {
+        "ocssw_version": ocssw_version,
+        "ocssw_tags": ocssw_tags,
+    }
     if l1a.name.startswith("A"):
-        return makeL1C_MODIS(l1a=l1a, dirname=dirname, method=method, **kwargs)
-    elif l1a.name.startswith("V") or l1a.name.startswith("JPSS1_VIIRS"):
-        return makeL1C_VIIRS(l1a=l1a, dirname=dirname, method=method, **kwargs)
+        return makeL1C_MODIS(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
+    elif (l1a.name.startswith("V")
+          or l1a.name.startswith("SNPP_VIIRS")
+          or l1a.name.startswith("JPSS1_VIIRS")):
+        # NB: must be checked before the generic "S" prefix below, since
+        # SNPP files are named "SNPP_VIIRS....L1A.nc" (SeaWiFS branch).
+        return makeL1C_VIIRS(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
     elif l1a.name.startswith("SEAHAWK1_HAWKEYE"):
-        return makeL1C_HAWKEYE(l1a=l1a, dirname=dirname, method=method, **kwargs)
+        return makeL1C_HAWKEYE(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
     elif l1a.name.startswith("S"):
-        return makeL1C_SeaWIFS(l1a=l1a, dirname=dirname, method=method, **kwargs)
+        return makeL1C_SeaWIFS(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
     else:
         raise ValueError(f"Invalid sensor in makeL1C ({l1a.name})")
 
 
-def makeL1C_HAWKEYE(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Path:
+def makeL1C_HAWKEYE(
+    l1a: Path,
+    dirname: Path | None,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+    **kwargs
+) -> Path:
     """
     Generate Level-1C product from SeaHawk-1 HAWKEYE L1A data.
     
@@ -113,16 +130,29 @@ def makeL1C_HAWKEYE(l1a: Path, dirname: Path | None, method: str, **kwargs) -> P
     l1c = (dirname or l1a.parent) / l1a.name.replace("L1A", "L1C")
     with TemporaryDirectory() as tmpdir:
         geo = Path(tmpdir) / (l1a.stem + ".GEO")
-        
+
         if not l1c.exists():
-            make_HAWKEYE_GEO(l1a=l1a, geo=geo, method=method)
+            make_HAWKEYE_GEO(
+                l1a=l1a, geo=geo, method=method,
+                ocssw_version=ocssw_version, ocssw_tags=ocssw_tags,
+            )
             assert geo.exists()
 
-        run_l2gen_L1C(ifile=l1a, l1c=l1c, nbands=8, method=method, geofile=geo, **kwargs)
+        run_l2gen_L1C(
+            ifile=l1a, l1c=l1c, nbands=8, method=method, geofile=geo,
+            ocssw_version=ocssw_version, ocssw_tags=ocssw_tags, **kwargs,
+        )
 
     return l1c
 
-def makeL1C_MODIS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Path:
+def makeL1C_MODIS(
+    l1a: Path,
+    dirname: Path | None,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+    **kwargs
+) -> Path:
     """
     Generate Level-1C product from MODIS (Aqua/Terra) L1A data.
     
@@ -159,9 +189,15 @@ def makeL1C_MODIS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Pat
 
         # Generate GEO and L1B files (temporary)
         if not l1c.exists():
-            make_MODIS_GEO(l1a=l1a, geo=geo, method=method)
+            make_MODIS_GEO(
+                l1a=l1a, geo=geo, method=method,
+                ocssw_version=ocssw_version, ocssw_tags=ocssw_tags,
+            )
             assert geo.exists()
-            make_L1B_MODIS(l1a=l1a, l1b=l1b, geo=geo, method=method)
+            make_L1B_MODIS(
+                l1a=l1a, l1b=l1b, geo=geo, method=method,
+                ocssw_version=ocssw_version, ocssw_tags=ocssw_tags,
+            )
 
         run_l2gen_L1C(
             ifile=l1b,
@@ -169,13 +205,22 @@ def makeL1C_MODIS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Pat
             geofile=geo,
             nbands=16,
             method=method,
+            ocssw_version=ocssw_version,
+            ocssw_tags=ocssw_tags,
         )
 
     return l1c
 
 
 @filegen(arg="l1b", if_exists="skip")
-def make_L1B_MODIS(l1a: Path, l1b: Path, geo: Path, method: str):
+def make_L1B_MODIS(
+    l1a: Path,
+    l1b: Path,
+    geo: Path,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+):
     """
     Generate MODIS Level-1B calibrated radiances from L1A data.
     
@@ -212,18 +257,25 @@ def make_L1B_MODIS(l1a: Path, l1b: Path, geo: Path, method: str):
         assert l1b.exists()
     else:
         # docker
-        cmd = "modis_L1B -y -z --okm={l1b} {l1a}"
+        cmd = "modis_L1B -y -z --okm={l1b} {l1a} {geo}"
         print(cmd)
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         app.run(
             cmd=cmd,
             l1a=l1a,
             l1b=l1b,
+            geo=geo,
         )
 
 
 @filegen(arg="geo", if_exists="skip")
-def make_MODIS_GEO(l1a: Path, geo: Path, method: str):
+def make_MODIS_GEO(
+    l1a: Path,
+    geo: Path,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+):
     """
     Generate MODIS geolocation file from L1A data.
     
@@ -261,7 +313,7 @@ def make_MODIS_GEO(l1a: Path, geo: Path, method: str):
         # Docker
         cmd = "modis_GEO --output={geo} {l1a}"
         print(cmd)
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         app.run(
             cmd=cmd,
             l1a=l1a,
@@ -269,7 +321,14 @@ def make_MODIS_GEO(l1a: Path, geo: Path, method: str):
         )
 
 
-def makeL1C_VIIRS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Path:
+def makeL1C_VIIRS(
+    l1a: Path,
+    dirname: Path | None,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+    **kwargs
+) -> Path:
     """
     Generate Level-1C product from VIIRS (SNPP or JPSS-1) L1A data.
     
@@ -314,12 +373,18 @@ def makeL1C_VIIRS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Pat
 
         # Generate GEO files
         if not l1c.exists():
-            make_VIIRS_GEO(l1a=l1a, geo=geo, method=method)
+            make_VIIRS_GEO(
+                l1a=l1a, geo=geo, method=method,
+                ocssw_version=ocssw_version, ocssw_tags=ocssw_tags,
+            )
             assert geo.exists()
-        
+
         # Generate VIIRS L1B
         if not l1c.exists():
-            make_L1B_VIIRS(l1a=l1a, l1b=l1b, method=method)
+            make_L1B_VIIRS(
+                l1a=l1a, l1b=l1b, method=method,
+                ocssw_version=ocssw_version, ocssw_tags=ocssw_tags,
+            )
             assert l1b.exists()
 
         run_l2gen_L1C(
@@ -328,13 +393,21 @@ def makeL1C_VIIRS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Pat
             geofile=geo,
             nbands=10,
             method=method,
+            ocssw_version=ocssw_version,
+            ocssw_tags=ocssw_tags,
         )
 
     return l1c
 
 
 @filegen(arg="geo", if_exists="skip")
-def make_VIIRS_GEO(l1a: Path, geo: Path, method: str):
+def make_VIIRS_GEO(
+    l1a: Path,
+    geo: Path,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+):
     """
     Generate VIIRS moderate-resolution geolocation file from L1A data.
     
@@ -359,7 +432,7 @@ def make_VIIRS_GEO(l1a: Path, geo: Path, method: str):
     if method == "auto":
         method = get_method_auto("geolocate_viirs")
     if method == "docker":
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         cmd = "geolocate_viirs ifile={l1a} geofile_mod={geo}"
         print(cmd)
         app.run(
@@ -377,7 +450,13 @@ def make_VIIRS_GEO(l1a: Path, geo: Path, method: str):
 
 
 @filegen(arg="l1b", if_exists="skip")
-def make_L1B_VIIRS(l1a: Path, l1b: Path, method: str):
+def make_L1B_VIIRS(
+    l1a: Path,
+    l1b: Path,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+):
     """
     Generate VIIRS Level-1B calibrated radiances from L1A data.
     
@@ -401,7 +480,7 @@ def make_L1B_VIIRS(l1a: Path, l1b: Path, method: str):
     if method == "auto":
         method = get_method_auto("calibrate_viirs")
     if method == "docker":
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         cmd = "calibrate_viirs ifile={l1a} l1bfile_mod={l1b}"
         print(cmd)
         app.run(
@@ -419,7 +498,13 @@ def make_L1B_VIIRS(l1a: Path, l1b: Path, method: str):
 
 
 @filegen(arg="geo", if_exists="skip")
-def make_HAWKEYE_GEO(l1a: Path, geo: Path, method: str):
+def make_HAWKEYE_GEO(
+    l1a: Path,
+    geo: Path,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+):
     """
     Generate SeaHawk-1 HAWKEYE geolocation file from L1A data.
     
@@ -444,7 +529,7 @@ def make_HAWKEYE_GEO(l1a: Path, geo: Path, method: str):
     if method == "auto":
         method = get_method_auto("geolocate_hawkeye")
     if method == "docker":
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         cmd = "geolocate_hawkeye {l1a} {geo}"
         print(cmd)
         app.run(
@@ -461,7 +546,14 @@ def make_HAWKEYE_GEO(l1a: Path, geo: Path, method: str):
             raise RuntimeError("Error in make_HAWKEYE_GEO")
 
 
-def makeL1C_SeaWIFS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> Path:
+def makeL1C_SeaWIFS(
+    l1a: Path,
+    dirname: Path | None,
+    method: str,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
+    **kwargs
+) -> Path:
     """
     Generate Level-1C product from SeaWiFS L1A data.
     
@@ -491,7 +583,10 @@ def makeL1C_SeaWIFS(l1a: Path, dirname: Path | None, method: str, **kwargs) -> P
         dname = Path(dirname)
     l1c = dname / (l1a.stem + ".L1C")
 
-    run_l2gen_L1C(ifile=l1a, l1c=l1c, nbands=8, method=method, **kwargs)
+    run_l2gen_L1C(
+        ifile=l1a, l1c=l1c, nbands=8, method=method,
+        ocssw_version=ocssw_version, ocssw_tags=ocssw_tags, **kwargs,
+    )
 
     return l1c
 
@@ -611,7 +706,7 @@ def l2gen_cmdline(
 
 
 def get_ocssw_docker_app(
-    version: Union[str, None] = None, tags: Union[list, None] = None
+    version: str | None = None, tags: list | None = None
 ):
     """
     Initialize OCSSW Docker application instance.
@@ -643,6 +738,8 @@ def run_l2gen_L1C(
     nbands: int,
     method: str,
     geofile: None | Path = None,
+    ocssw_version: str | None = None,
+    ocssw_tags: list | None = None,
     **kwargs
 ):
     """
@@ -681,7 +778,7 @@ def run_l2gen_L1C(
     if method == "auto":
         method = get_method_auto("l2gen")
     if method == "docker":
-        app = get_ocssw_docker_app()
+        app = get_ocssw_docker_app(version=ocssw_version, tags=ocssw_tags)
         if geofile is None:
             cmd = l2gen_cmdline(nbands, geofile=False, prefix=False, **kwargs)
             app.run(
