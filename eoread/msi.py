@@ -32,8 +32,9 @@ def Level1_MSI(
         dirname: Union[str, Path],
         chunks: Union[int, tuple, dict] = 500,
         resolution: Literal[10,20,60,None] = 60,
-        metadata_template: Union[list, None] = None, 
+        metadata_template: Union[list, None] = None,
         read_mask: bool = False,
+        angle_band: Union[int, str, None] = None,
         v1_compat: bool = False,
         verbose: bool = True
     ) -> xr.Dataset:
@@ -57,11 +58,18 @@ def Level1_MSI(
         List of metadata keys to include. If None, includes all metadata. Default is None.
     read_mask : bool, optional
         If True, read quality masks. Default is False.
+    angle_band : int, str, or None, optional
+        Band used for the viewing geometry (vza, vaa, and derived raa).
+        If None, uses the first band (B1) as a single 2D field (default, unchanged behavior).
+        If an int bandId (0-12) or a physicalBand name (e.g. 'B2', 'B8A'),
+        uses that single band as a 2D field.
+        If 'all', reads the viewing geometry for every band, producing 3D
+        (bands, rows, columns) fields. Solar angles (sza, saa) stay 2D in all cases.
     v1_compat : bool, optional
         If True, formats output to match version 1 structure. Default is False.
     verbose : bool, optional
         If True, print debug information. Default is True.
-    
+
     Examples
     --------
     >>> ds = Level1_MSI('S2A_MSIL1C_*.SAFE', chunks=1000)
@@ -103,6 +111,23 @@ def Level1_MSI(
         metadata['cwvl'].append(spec['Wavelength']['CENTRAL']['values'])
         metadata['name'].append(spec['attributes']['physicalBand'])
         metadata['resolution'].append(spec['RESOLUTION'])
+
+    # Resolve which band(s) to use for the viewing geometry
+    nbands = len(metadata['name'])
+    if angle_band is None:
+        band_ids, per_band = [0], False
+    elif angle_band == 'all':
+        band_ids, per_band = list(range(nbands)), True
+    elif isinstance(angle_band, int):
+        if not 0 <= angle_band < nbands:
+            raise ValueError(f'angle_band={angle_band} out of range [0, {nbands-1}]')
+        band_ids, per_band = [angle_band], False
+    elif isinstance(angle_band, str):
+        if angle_band not in metadata['name']:
+            raise ValueError(f"angle_band='{angle_band}' not in bands {metadata['name']}")
+        band_ids, per_band = [metadata['name'].index(angle_band)], False
+    else:
+        raise ValueError(f'Invalid angle_band: {angle_band!r}')
 
     # get platform
     tile_id = xmlgranule['General_Info']['TILE_ID']['values']
@@ -152,7 +177,7 @@ def Level1_MSI(
     # msi_read_geometry
     if verbose: log.debug('Read geometric angles')
     tileangles = xmlgranule['Geometric_Info']['Tile_Angles']
-    ds = _Internal.read_geometry(ds, tileangles, resolution, chunks)
+    ds = _Internal.read_geometry(ds, tileangles, resolution, chunks, band_ids, per_band)
     
     # msi read quality mask
     if read_mask:
@@ -665,9 +690,18 @@ class _Internal:
             ds: xr.Dataset, 
             tileangles: dict, 
             resolution: str,
-            chunks: dict
+            chunks: dict,
+            band_ids: Union[list, None] = None,
+            per_band: bool = False
         ) -> xr.Dataset:
-        """Read and interpolate geometric angles from tie points to full resolution."""
+        """Read and interpolate geometric angles from tie points to full resolution.
+
+        band_ids: list of bandIds to use for the viewing angles. If None, defaults to [0].
+        per_band: if True, produces 3D (bands, ...) viewing angles for every band in band_ids.
+        """
+        
+        if band_ids is None:
+            band_ids = [0]
         
         # read solar angles at tiepoints
         dims = ('tie_rows', 'tie_columns')
@@ -698,10 +732,26 @@ class _Internal:
         vza = {b: v.reshape(tie_shape) for b,v in vza.items()}
         vaa = {b: v.reshape(tie_shape) for b,v in vaa.items()}
 
-        # use the first band as vza and vaa
-        vza = vza[0]
-        vaa = vaa[0]
-        
+        # Select the band(s) used for the viewing angles
+        missing = [b for b in band_ids if b not in vza]
+        if missing:
+            raise ValueError(f'No viewing angles available for bandId(s) {missing}; available: {sorted(vza)}')
+
+        if per_band:
+            # No 'bands' coord here: it is aligned by position with the dataset's
+            # bands dim, whose coordinate is assigned later (physicalBand names).
+            vza = xr.DataArray(
+                np.stack([vza[b] for b in band_ids]),
+                dims=('bands', *dims)
+            )
+            vaa = xr.DataArray(
+                np.stack([vaa[b] for b in band_ids]),
+                dims=('bands', *dims)
+            )
+        else:
+            vza = vza[band_ids[0]]
+            vaa = vaa[band_ids[0]]
+
         # Assign coordinates for tie points dimensions
         tie_rows = np.int32(np.linspace(0, shape[0]-1, tie_shape[0]))
         tie_columns = np.int32(np.linspace(0, shape[1]-1, tie_shape[1]))
@@ -720,11 +770,22 @@ class _Internal:
         y = xr.DataArray(y, dims=(d['y'])).chunk(chunks[str(names.rows)])
         
         # Interpolate angle rasters
-        angles = [(names.sza, sza), (names.saa, saa), (names.vza, vza), (names.vaa, vaa)]
-        for name, tie in angles:
-            ds[str(name)+'_tie'] = xr.DataArray(tie, dims=dims)
+        vdims = ('bands', *dims) if per_band else dims
+        angles = [
+            (names.sza, sza, dims),
+            (names.saa, saa, dims),
+            (names.vza, vza, vdims),
+            (names.vaa, vaa, vdims),
+        ]
+        tie_coords = {'tie_rows': tie_rows, 'tie_columns': tie_columns}
+        for name, tie, tdims in angles:
+            if isinstance(tie, xr.DataArray):
+                tie_arr = tie.assign_coords(tie_coords)
+            else:
+                tie_arr = xr.DataArray(tie, dims=tdims, coords=tie_coords)
+            ds[str(name)+'_tie'] = tie_arr
             ds[str(name)] = interp(
-                ds[str(name) + "_tie"].compute(scheduler="sync"),
+                tie_arr.compute(scheduler="sync"),
                 tie_rows=Linear(y),
                 tie_columns=Linear(x),
             ).drop_vars([d['y'], d['x']], errors='ignore')

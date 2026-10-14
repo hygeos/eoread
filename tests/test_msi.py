@@ -4,6 +4,7 @@
 import pytest
 
 import numpy as np
+import eoread.eo as eo
 from core.geo.naming import names
 
 from . import generic
@@ -31,6 +32,25 @@ def S2_product(level1_msi, chunks, resolution):
     return Level1_MSI(level1_msi, chunks=chunks, resolution=resolution)
 
 
+@pytest.fixture(scope="session")
+def l1_angle_default(level1_msi):
+    ds = Level1_MSI(level1_msi, resolution=60, verbose=False)
+    eo.init_geometry(ds)
+    return ds
+
+@pytest.fixture(scope="session")
+def l1_angle_band2(level1_msi):
+    ds = Level1_MSI(level1_msi, resolution=60, angle_band=2, verbose=False)
+    eo.init_geometry(ds)
+    return ds
+
+@pytest.fixture(scope="session")
+def l1_angle_all(level1_msi):
+    ds = Level1_MSI(level1_msi, resolution=60, angle_band='all', verbose=False)
+    eo.init_geometry(ds)
+    return ds
+
+
 ################################################################################
 # Tests for Level-1
 ################################################################################
@@ -41,7 +61,47 @@ def test_instantiation(level1_msi, resolution, chunks):
 def test_main(level1_msi, chunks):
     l1 = Level1_MSI(level1_msi, chunks=chunks, resolution=60).compute()
     generic.Test.main(l1, angle_data=True)
-    
+
+def test_angle_default_2d(l1_angle_default):
+    """Default (angle_band=None) reads band-0 geometry as 2D fields (unchanged)."""
+    ds = l1_angle_default
+    for v in (names.sza, names.saa, names.vza, names.vaa, names.raa):
+        assert ds[str(v)].dims == (str(names.rows), str(names.columns))
+
+def test_angle_single_band(l1_angle_band2, level1_msi):
+    """A single band selected by id or name yields the same 2D geometry."""
+    ds_int = l1_angle_band2
+    band_name = ds_int[str(names.bands)].values[2]
+    ds_name = Level1_MSI(level1_msi, resolution=60, angle_band=band_name, verbose=False)
+    eo.init_geometry(ds_name)
+    for v in (names.vza, names.vaa, names.raa):
+        assert ds_int[str(v)].dims == (str(names.rows), str(names.columns))
+        assert np.allclose(ds_int[str(v)], ds_name[str(v)], equal_nan=True)
+
+def test_angle_all_bands(l1_angle_all, l1_angle_band2):
+    """angle_band='all' yields 3D per-band viewing geometry; solar angles stay 2D."""
+    ds = l1_angle_all
+    bands, rows, cols = str(names.bands), str(names.rows), str(names.columns)
+    assert ds[str(names.vza)].dims == (bands, rows, cols)
+    assert ds[str(names.vaa)].dims == (bands, rows, cols)
+    assert ds[str(names.sza)].dims == (rows, cols)
+    assert ds[str(names.saa)].dims == (rows, cols)
+    assert ds[str(names.vza)].shape[0] == len(ds[bands])
+    assert np.isfinite(ds[str(names.vza)].compute().values).any()
+    # each band must match the corresponding single-band read
+    band_name = ds[bands].values[2]
+    assert np.allclose(
+        ds[str(names.vza)].sel({bands: band_name}),
+        l1_angle_band2[str(names.vza)],
+        equal_nan=True,
+    )
+
+def test_angle_invalid(level1_msi):
+    with pytest.raises(ValueError):
+        Level1_MSI(level1_msi, resolution=60, angle_band=99, verbose=False)
+    with pytest.raises(ValueError):
+        Level1_MSI(level1_msi, resolution=60, angle_band='B99', verbose=False)
+
 def test_time(level1_msi, chunks): 
     params = {'dirname': level1_msi, 'chunks': chunks}
     generic.Test.execution_time(Level1_MSI, params)
