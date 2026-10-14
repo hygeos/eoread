@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from eoread.legacy.venus import Level1_VENUS, Level2_VENUS
-from .conftest import require_sample
-from . import generic
+from ..conftest import require_sample
+from .. import generic
 
 import pytest
 

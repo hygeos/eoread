@@ -1,4 +1,4 @@
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.autodetect import Level1, Level2
 import pytest
 

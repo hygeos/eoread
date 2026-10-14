@@ -4,11 +4,11 @@
 
 from pathlib import Path
 import pytest
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.meris import Level1_MERIS
 import xarray as xr
 from core.env import getdir
-from . import generic
+from .. import generic
 
 
 product = '/archive2/data/EOREAD_TESTDATA/MERIS/MER_RR__1PRACR20080701_014028_000026402070_00003_33123_0000.N1'

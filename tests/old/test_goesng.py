@@ -6,8 +6,8 @@ import pytest
 from matplotlib import pyplot as plt
 from eoread.legacy.goesng import Level1_GOESNG, config
 from eoread.hdf4 import load_hdf4
-from . import conftest
-from . import generic
+from .. import conftest
+from .. import generic
 
 product_l1 = '/archive'
 product_l2 = '/mnt/ceph/data/LAN/'

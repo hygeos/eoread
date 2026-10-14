@@ -4,9 +4,9 @@
 import pytest
 import xarray as xr
 
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.oli import Level1_OLI
-from . import generic
+from .. import generic
 from core.env import getdir
 
 

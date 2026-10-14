@@ -1,7 +1,7 @@
 import pytest
 
-from . import generic
-from .conftest import require_sample
+from .. import generic
+from ..conftest import require_sample
 from eoread.legacy.pace import Level1B_PACE_OCI
 from core.tests import conftest
 

@@ -3,8 +3,8 @@
 
 import pytest
 
-from . import generic
-from .conftest import require_sample
+from .. import generic
+from ..conftest import require_sample
 from eoread.legacy.msi import Level1_MSI, Level2_MSI
 
 

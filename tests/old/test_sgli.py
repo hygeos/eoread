@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 import xarray as xr
 
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.sgli import Level1_SGLI
 from core.env import getdir
-from . import generic
+from .. import generic
 
 
 

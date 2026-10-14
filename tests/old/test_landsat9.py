@@ -3,9 +3,9 @@
 
 import pytest
 
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.oli import Level1_OLI
-from . import generic
+from .. import generic
 
 
 product_l1 = pytest.fixture(lambda: require_sample('LEVEL1_L9'), scope='module')

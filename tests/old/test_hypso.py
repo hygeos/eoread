@@ -1,10 +1,10 @@
 from pathlib import Path
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.hypso import Level1_HYPSO
 import xarray as xr
 from core.env import getdir
 
-from . import generic
+from .. import generic
 
 import pytest 
 

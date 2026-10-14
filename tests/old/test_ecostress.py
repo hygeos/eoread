@@ -1,7 +1,7 @@
 import pytest
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.ecostress import Level1C_ECOSTRESS
-from . import generic
+from .. import generic
 
 
 @pytest.fixture(scope="session")

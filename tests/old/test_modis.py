@@ -1,10 +1,10 @@
 import xarray as xr
 import pytest
 
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.modis import Level1_MODIS
 from core.env import getdir
-from . import generic
+from .. import generic
 
 
 @pytest.fixture(scope="module")

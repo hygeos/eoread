@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-from .conftest import require_sample
+from ..conftest import require_sample
 from eoread.legacy.olci import Level1_OLCI, Level2_OLCI
-from . import generic
+from .. import generic
 
 
 olci_level1 = pytest.fixture(lambda: require_sample('LEVEL1_OLCI'), scope='module')
