@@ -8,7 +8,9 @@ requires-python = "< 3.14"
 readme = "README.md"
 dependencies = [
     "lxml", "pyproj", "pysolar", "pyepr",
-    "rioxarray", "h5netcdf", "h5py", "netcdf4"
+    "rioxarray", "h5netcdf", "h5py", "netcdf4",
+    # newer eccodes bindings / C library crash at interpreter exit (double free)
+    "cfgrib", "eccodes < 2.45", "eccodeslib < 2.45"
 ]
 
 [project.optional-dependencies]

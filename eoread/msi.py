@@ -141,6 +141,14 @@ def Level1_MSI(
     if verbose: log.debug('Generate latlon rasters')
     ds = _Internal.supplement_latlon(ds, chunks, xmlgranule)
 
+    # Read embedded ancillary data (ECMWFT)
+    aux_file = granule_dir/'AUX_DATA'/'AUX_ECMWFT'
+    if aux_file.exists():
+        if verbose: log.debug('Read embedded ancillary data (ECMWFT)')
+        ds = _Internal.read_ancillary(ds, aux_file, chunks)
+    else:
+        if verbose: log.debug('No embedded ancillary data found, skip reading of ECMWFT')
+
     # msi_read_geometry
     if verbose: log.debug('Read geometric angles')
     tileangles = xmlgranule['Geometric_Info']['Tile_Angles']
@@ -448,7 +456,49 @@ class _Internal:
             str(names.lon): xr.DataArray(lon, dims=dims).chunk(chunks), 
             str(names.lat): xr.DataArray(lat, dims=dims).chunk(chunks)
         })
-            
+
+    @staticmethod
+    def read_ancillary(ds: xr.Dataset, aux_file: Path, chunks: list) -> xr.Dataset:
+        """Read embedded ancillary data (ECMWFT) and interpolate it to the tile grid.
+        
+        The GRIB file contains meteorological fields on a local lat/lon grid
+        around the tile at the sensing time. Fields are converted to eoread
+        conventions and lazily interpolated to the full-resolution rasters.
+        """
+        
+        # Load the (small) local grid eagerly and close the file: interpolation
+        # to the tile latlon grid stays lazy thanks to the dask-backed targets
+        aux = xr.open_dataset(aux_file, engine='cfgrib').load()
+        aux.close()
+        assert aux.tco3.attrs['units'] == 'kg m**-2'
+        assert aux.msl.attrs['units'] == 'Pa'
+        
+        # Compute derived fields and rename to eoread conventions
+        aux['horizontal_wind'] = (aux.u10**2 + aux.v10**2)**0.5
+        aux['total_column_ozone'] = aux.tco3/2.1415e-5  # convert kg m**-2 to DU
+        aux['sea_level_pressure'] = aux.msl/100  # convert Pa to hPa
+        aux['total_column_water_vapour'] = aux.tcwv
+        aux['relative_humidity'] = aux.r
+        for var, unit in [
+                ('horizontal_wind', 'm s**-1'),
+                ('total_column_ozone', 'DU'),
+                ('sea_level_pressure', 'hPa'),
+                ('total_column_water_vapour', 'kg m**-2'),
+                ('relative_humidity', '%')]:
+            aux[var].attrs = {str(names.unit): unit}
+        
+        # Lazily interpolate fields to the tile latlon grid
+        for var in ['horizontal_wind', 'total_column_ozone', 'sea_level_pressure',
+                    'total_column_water_vapour', 'relative_humidity']:
+            raster = aux[var].interp(
+                latitude=ds[str(names.lat)], 
+                longitude=ds[str(names.lon)]
+            )
+            raster = raster.drop_vars(list(raster.coords), errors='ignore')
+            ds[var] = raster.transpose(str(names.rows), str(names.columns)).chunk(chunks)
+        
+        return ds
+
     @staticmethod
     def read_xml_block(item: dict, dims: tuple) -> xr.DataArray:
         """Parse XML values block into a float32 DataArray."""
@@ -677,7 +727,7 @@ class _Internal:
                 ds[str(name) + "_tie"].compute(scheduler="sync"),
                 tie_rows=Linear(y),
                 tie_columns=Linear(x),
-            ).drop_vars([d['y'], d['x']])
+            ).drop_vars([d['y'], d['x']], errors='ignore')
 
         return ds
     
