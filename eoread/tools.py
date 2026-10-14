@@ -1,4 +1,9 @@
-from core.interpolate import interp, Linear, Nearest
+import dask.array as da
+from dask.base import tokenize
+from dask.highlevelgraph import HighLevelGraph
+import numpy as np
+
+from core.interpolate import Linear, Nearest
 from core.import_utils import import_module
 from core.uncompress import uncompress
 from core.geo.naming import names
@@ -7,7 +12,6 @@ from core import env
 
 from typing import Union, Literal
 from xarray import DataArray, Dataset, open_dataarray
-from dask.array import meshgrid, linspace
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -95,9 +99,187 @@ def filter_metadata(metadata: dict, template: list) -> dict:
         if isinstance(current_meta, dict) and key_list[-1] in current_meta:
             current_result.update({key_list[-1]: current_meta[key_list[-1]]})
         else:
-            raise ValueError(f'Leaf {key_list[-1]} has been found')
+            raise ValueError(f'Leaf {key_list[-1]} not found in metadata (template: {key_list})')
     
     return result
+
+
+def _split_blocks(n: int, chunk: int) -> list[tuple[int, int]]:
+    """
+    Split the range [0, n) into consecutive blocks of at most `chunk` elements.
+
+    Returns a list of (start, size) tuples covering the range exactly once.
+    """
+    assert chunk >= 1, 'chunk must be a positive integer'
+    return [(i, min(chunk, n - i)) for i in range(0, n, chunk)]
+
+
+def _axis_window(indexer, positions: np.ndarray, is_linear: bool) -> tuple:
+    """
+    Locate a block of target positions in the source grid and derive the minimal
+    source window it touches.
+
+    Returns (lo, hi, i_lo, w_lo, i_hi, w_hi) where [lo, hi) is the window in
+    source indices and the index arrays are already shifted to window-local
+    coordinates. For nearest-neighbour selection there is a single index and no
+    weights (i_hi/w_hi are None).
+    """
+    res = indexer(positions)
+    if is_linear:
+        i_lo, w_lo = res[0]
+        i_hi, w_hi = res[1]
+        lo = int(min(i_lo.min(), i_hi.min()))
+        hi = int(max(i_lo.max(), i_hi.max())) + 1
+        return lo, hi, i_lo - lo, w_lo, i_hi - lo, w_hi
+    (i_lo, _), = res
+    lo = int(i_lo.min())
+    hi = int(i_lo.max()) + 1
+    return lo, hi, i_lo - lo, None, None, None
+
+
+def _interp_block(win: np.ndarray, i0a, w0a, i0b, w0b, i1a, w1a, i1b, w1b) -> np.ndarray:
+    """
+    Interpolate one output block from a source window.
+
+    `win` is the 2D numpy source window; per-axis index/weight arrays are 1D and
+    shifted to window-local coordinates (i*_b/w*_b are None for nearest
+    neighbour). The expression mirrors core.interpolate.interp_var term by term,
+    so results are bit-for-bit identical to a full-grid interpolation.
+    """
+    if w0a is None:  # nearest neighbour: single index, unit weight
+        return win[i0a[:, None], i1a[None, :]] * 1
+    r = win[i0a[:, None], i1a[None, :]] * (w0a[:, None] * w1a[None, :])
+    r += win[i0a[:, None], i1b[None, :]] * (w0a[:, None] * w1b[None, :])
+    r += win[i0b[:, None], i1a[None, :]] * (w0b[:, None] * w1a[None, :])
+    r += win[i0b[:, None], i1b[None, :]] * (w0b[:, None] * w1b[None, :])
+    return r
+
+
+def _blockwise_interp(src, src_coords: tuple, targets: tuple, chunks: tuple,
+                      method: Literal['linear', 'nearest'] = 'linear'):
+    """
+    Lazily resample a 2D field onto a target grid spanning the source range.
+
+    Returns a dask array of shape (len(targets[0]), len(targets[1])) whose
+    element [j, i] is `src` interpolated at position targets[0][j] along axis 0
+    and targets[1][i] along axis 1, using the same core.interpolate indexers as
+    interp. The work is split into one dask task per output block; each task
+    only touches the source window its target positions fall in (the target grid
+    spans exactly the source range, so no extrapolation happens).
+
+    Results are bit-for-bit identical to a full-grid core.interpolate.interp
+    evaluation (same indexers, same per-point arithmetic), including the NaN*0
+    propagation of zero-weight neighbour terms.
+
+    Parameters
+    ----------
+    src : dask array or numpy array
+        2D source field.
+    src_coords : tuple of two 1D arrays
+        Source coordinate values for each axis (monotonic).
+    targets : tuple of two 1D arrays
+        Target positions in source-coordinate units, within the source range.
+    chunks : tuple of two ints
+        Output chunk size per axis.
+    method : 'linear' or 'nearest'
+        Interpolation mode ('nearest' corresponds to Nearest / repeat).
+
+    Returns
+    -------
+    dask.array.Array
+        Lazily resampled field, one task per output block.
+    """
+    is_linear = method == 'linear'
+    proxy = Linear if is_linear else Nearest
+    # The indexer only depends on the source coordinates: get_indexer ignores
+    # the variable passed to __init__, so a None placeholder is sufficient.
+    indexers = [proxy(None).get_indexer(DataArray(c)) for c in src_coords]
+
+    row_blocks = _split_blocks(len(targets[0]), chunks[0])
+    col_blocks = _split_blocks(len(targets[1]), chunks[1])
+    win0 = [_axis_window(indexers[0], targets[0][r0:r0 + nr], is_linear) for r0, nr in row_blocks]
+    win1 = [_axis_window(indexers[1], targets[1][c0:c0 + nc], is_linear) for c0, nc in col_blocks]
+
+    # Result dtype: same expressions as _interp_block (weights are float64 for
+    # linear; unit int weights for nearest).
+    probe = np.zeros(1, dtype=src.dtype)
+    dtype = (probe * (np.float64(0.5) * np.float64(0.5))).dtype if is_linear else (probe * 1).dtype
+
+    name = 'eoread-blockwise-interp-' + tokenize(src, src_coords, targets, chunks, method)
+    dsk = {}
+    deps = []  # dask arrays; their layers are merged into the result graph
+    for a, ((r0, nr), w_a) in enumerate(zip(row_blocks, win0)):
+        lo0, hi0, i0a, w0a, i0b, w0b = w_a
+        for b, ((c0, nc), w_b) in enumerate(zip(col_blocks, win1)):
+            lo1, hi1, i1a, w1a, i1b, w1b = w_b
+            if isinstance(src, da.Array):
+                window = src[lo0:hi0, lo1:hi1]
+                if window.numblocks != (1, 1):
+                    window = window.rechunk((hi0 - lo0, hi1 - lo1))
+                # Single-block array: its own layer holds the one output key.
+                (win_key,) = window.__dask_graph__().layers[window.name]
+                deps.append(window)
+            else:
+                win_key = src[lo0:hi0, lo1:hi1]
+            dsk[(name, a, b)] = (_interp_block, win_key, i0a, w0a, i0b, w0b, i1a, w1a, i1b, w1b)
+
+    hlg = HighLevelGraph.from_collections(name, dsk, dependencies=deps)
+    return da.Array(
+        hlg, name,
+        chunks=(tuple(nr for _, nr in row_blocks), tuple(nc for _, nc in col_blocks)),
+        dtype=dtype,
+    )
+
+
+def _upsample(array: DataArray, output_shape: dict, chunks: dict, method: str) -> DataArray:
+    """
+    Lazy over-sampling branch of spatial_resample.
+
+    The target grid is affine (linspace between first and last source
+    coordinates), so every output block maps to a contiguous source window and
+    no pixel data is read at construction time. Results are bit-for-bit
+    identical to the former compute()-based implementation, including its output
+    convention: dims (dims[1], dims[0]), i.e. the correctly placed grid with
+    the axis order reversed (e.g. ('x', 'y') for a ('y', 'x') input) — callers
+    that want the source dim order transpose the result back.
+
+    Parameters
+    ----------
+    array : DataArray
+        2D source field with index coordinates on both dims.
+    output_shape : dict
+        Target size per dim.
+    chunks : dict
+        Output chunk size per dim.
+    method : 'linear' or 'repeat'
+        Interpolation mode.
+
+    Returns
+    -------
+    DataArray
+        Lazily resampled field with the historical (dims[1], dims[0]) layout.
+    """
+    dims = array.dims
+    c0 = np.asarray(array.coords[dims[0]].values)
+    c1 = np.asarray(array.coords[dims[1]].values)
+    # The legacy branch built its target grids with dask.array.linspace, whose
+    # endpoint is (num - 1) * step accumulated in float — not always bit-equal
+    # to np.linspace(stop). Reuse it so the indexer weights at the last
+    # coordinate match exactly. Computing these 1D grids eagerly is cheap and
+    # reads no pixel data.
+    t0 = da.linspace(c0[0], c0[-1], output_shape[dims[0]]).compute(scheduler='sync')
+    t1 = da.linspace(c1[0], c1[-1], output_shape[dims[1]]).compute(scheduler='sync')
+
+    # out[j, i] holds the value at (axis-0 position = t0[j], axis-1 position =
+    # t1[i]) — the correctly placed grid in source dim order. Transposing
+    # yields the historical layout: element [a, b] of dims (dims[1], dims[0])
+    # is f(t0[b], t1[a]).
+    out = _blockwise_interp(
+        array.data, (c0, c1), (t0, t1),
+        (chunks[dims[0]], chunks[dims[1]]),
+        'linear' if method == 'linear' else 'nearest')
+
+    return DataArray(out.T, dims=(dims[1], dims[0]), attrs=array.attrs)
 
 
 def spatial_resample(
@@ -135,24 +317,11 @@ def spatial_resample(
         
     # over-sample
     else:
-        # Interpolator requires numpy-backed data; compute the (small) tie-point array
-        array = array.compute(scheduler='sync')
-        coords = array.coords
-        method = Linear if method == 'linear' else Nearest
-        xy = meshgrid(*[
-            linspace(coords[d].values[0], coords[d].values[-1], output_shape[d]) 
-            for d in dims
-        ])
-        params = {d: method(DataArray(xy[i], dims=('d1','d0'))) for i,d in enumerate(dims)}
-        resampled = interp(array, **params)
-        resampled = resampled.rename(d0=dims[0], d1=dims[1])
-        
-        # new = {d: np.linspace(
-        #     coords[d].values[0], coords[d].values[-1], output_shape[d]
-        # ) for d in dims}
-        # params = {d: method(DataArray(new[d], dims=(d))) for d in dims}
-        # resampled = interp(array, **params)
-    
+        # Lazy blockwise interpolation (see _upsample): no pixel data is read at
+        # construction time, and the result is bit-for-bit identical to the
+        # former compute()-based path, including its (dims[1], dims[0]) layout.
+        resampled = _upsample(array, output_shape, chunks, method)
+
     return resampled
 
 

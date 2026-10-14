@@ -23,7 +23,12 @@ _V1_RENAMES = {
     'MSI': {str(names.ltoa): str(names.rtoa)},
 }
 
-#: Readers whose v1→v2 difference is not a pure rename (documented clean break).
+# MSI L2A band labels: the legacy reader built its band lists with blind pops
+# (`cwvl.pop(7); cwvl.pop(10)`) that mislabeled B11 as 'B10'. v2 builds the
+# band table from the files actually read, so `bands`/`cwav` coordinates are
+# correct. This is a documented deviation (REFACTORING.md decision log), not a
+# CLEAN_BREAKS entry: it lives in coordinate *values*, which this transform
+# deliberately does not touch.
 CLEAN_BREAKS = {}
 
 

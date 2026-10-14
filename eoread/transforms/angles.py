@@ -7,7 +7,8 @@ import numpy as np
 import xarray as xr
 
 from core.geo.naming import names
-from core.interpolate import Linear, interp
+
+from eoread.tools import _blockwise_interp
 
 
 def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, names.vaa),
@@ -20,13 +21,17 @@ def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, nam
     positions of the tie points. Adds the full-grid variable `str(name)`
     (float32, dims (y, x)).
 
-    The tie-point grid is small; it is computed once (scheduler='sync') before
-    interpolation. The output stays dask-backed when `chunks` is given.
+    The interpolation is blockwise-lazy: each output chunk is interpolated from
+    a small window of the tie-point grid (the target grid spans exactly the
+    tie-point range), so no full-grid data is materialized at construction.
+    Results are bit-for-bit identical to a full-grid
+    `core.interpolate.interp` evaluation.
 
     Parameters
     ----------
     ds : Dataset
-        Must carry the full-grid dimensions y/x and the `*_tie` variables.
+        Must carry the full-grid dimensions y/x and the `*_tie` variables with
+        index coordinates on `tie_dims`.
     angles : sequence of registry names
         Angles to interpolate (default: sza, saa, vza, vaa).
     tie_dims : tuple of str
@@ -41,15 +46,18 @@ def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, nam
     ny = ds.sizes[str(names.rows)]
     nx = ds.sizes[str(names.columns)]
     tie_r, tie_c = tie_dims
-    y = xr.DataArray(np.linspace(0, float(ds[tie_r][-1].values), ny),
-                     dims=(str(names.rows),)).chunk(-1)
-    x = xr.DataArray(np.linspace(0, float(ds[tie_c][-1].values), nx),
-                     dims=(str(names.columns),)).chunk(-1)
+    t_rows = np.asarray(ds[tie_r].values)
+    t_cols = np.asarray(ds[tie_c].values)
+    y_pos = np.linspace(0, float(t_rows[-1]), ny)
+    x_pos = np.linspace(0, float(t_cols[-1]), nx)
+    c_rows = chunks[str(names.rows)] if chunks is not None else ny
+    c_cols = chunks[str(names.columns)] if chunks is not None else nx
 
     out = {}
     for name in angles:
         tie = ds[f'{name}_tie']
-        full = interp(tie.compute(scheduler='sync'), **{tie_r: Linear(y), tie_c: Linear(x)})
-        arr = full.astype('float32')
-        out[str(name)] = arr.chunk(chunks) if chunks is not None else arr
+        arr = _blockwise_interp(tie.data, (t_rows, t_cols), (y_pos, x_pos),
+                                (c_rows, c_cols), 'linear')
+        var = xr.DataArray(arr, dims=(str(names.rows), str(names.columns)), attrs=tie.attrs)
+        out[str(name)] = var.astype('float32')
     return ds.assign(out)
