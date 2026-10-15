@@ -50,7 +50,7 @@ def indices(request):
 class Test:
     
     @staticmethod
-    def main(ds, angle_data):
+    def main(ds, angle_data, primary=None):
 
         # test chunks consistency
         ds.chunks
@@ -65,7 +65,7 @@ class Test:
             raise ValueError(f'Strange dimensions, got {list(ds.dims)}')
         
         # Check variables
-        check_vars(ds)
+        check_vars(ds, primary)
         
         # Check band dimensions have correct coordinates
         str_types = [str] + [f'<U{i}' for i in range(1,33)]
@@ -197,18 +197,22 @@ class Test:
         if row[0] > row[-1]:
             raise ValueError('Longitude is oriented to the west. Please flip it')
         
-        # Check that rasters are invariant according to one axis
+        # Check that rasters are invariant according to one axis. The std is
+        # computed in float64: on a bit-uniform float32 row, the float32 mean
+        # carries ~1 ulp of pairwise-summation noise (e.g. 2^-18 ~ 3.8e-6 at
+        # lat 33 deg), which would trip the 1e-7 threshold on perfectly flat
+        # rasters (the registry dtype for lat/lon is float32).
         if flat_proj:
             msg = ''
-            if ds[str(names.lat)].isel({names.rows: 0}).std().values > 1e-7:
+            if ds[str(names.lat)].isel({names.rows: 0}).astype('float64').std().values > 1e-7:
                 msg += 'Latitude raster has strange variation. '
-                if ds[str(names.lat)].isel({names.columns: 0}).std().values < 1e-7:
+                if ds[str(names.lat)].isel({names.columns: 0}).astype('float64').std().values < 1e-7:
                     msg += 'You probably swap dimensions (use transpose)'
                 raise AssertionError(msg)
             
-            if ds[str(names.lon)].isel({names.columns: 0}).std().values > 1e-7:
+            if ds[str(names.lon)].isel({names.columns: 0}).astype('float64').std().values > 1e-7:
                 msg += 'Longitude raster has strange variation. '
-                if ds[str(names.lon)].isel({names.rows: 0}).std().values < 1e-7:
+                if ds[str(names.lon)].isel({names.rows: 0}).astype('float64').std().values < 1e-7:
                     msg += 'You probably swap dimensions (use transpose)'
                 raise AssertionError(msg)
     
@@ -317,18 +321,25 @@ def compare_version(v2, v1):
                             f'got {v2.attrs[key]}')
 
 
-def check_vars(ds):
+def check_vars(ds, primary=None):
     
+    if primary is not None:
+        # Bandless payloads (e.g. ECOSTRESS L2 `LST`) carry no radiance
+        # variable by design; the primary payload plays its role here.
+        spectral = [primary]
+    else:
+        spectral = [str(names.ltoa), str(names.rtoa), str(names.bt)]
+
     # Check that at least one spectral variable is present
-    if str(names.ltoa) not in ds and str(names.rtoa) not in ds and str(names.bt) not in ds: 
+    if not any(name in ds for name in spectral):
         raise ValueError(
             'No acquisitions stored in Dataset. Output Dataset should '
-            f'contain at least {str(names.ltoa)} or {str(names.rtoa)} or {str(names.bt)}'
+            f'contain at least one of {spectral}'
         )
     
     # Check that each variable has a unit attribute
-    for name in [str(names.ltoa), str(names.rtoa), str(names.bt)]:
-        if name not in ds: 
+    for name in spectral:
+        if name not in ds:
             continue
         if not hasattr(ds[name],'unit'):
             raise ValueError(f'{name} does not have a unit field')

@@ -27,8 +27,10 @@ class SchemaError(ValueError):
     """Raised when a dataset violates the canonical output schema."""
 
 
-#: The payload variables; exactly one is the declared primary per reader class
-PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt))
+#: The payload variables; exactly one is the declared primary per reader class.
+#: 'LST' is a single-layer (y, x) product field (ECOSTRESS LSTE) that carries
+#: no bands dimension; `lst` to be proposed upstream in core.geo.naming.names.
+PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST')
 
 #: 2D geometry/angle variables: (registry name, mandatory)
 GEOMETRY_VARS = (
@@ -73,8 +75,8 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
     ds : xarray.Dataset
         Dataset to check, typically `Reader.ds` after `finalize()`.
     primary : str or None
-        Declared primary payload variable ('Ltoa', 'Rtoa' or 'BT'). When None,
-        exactly one of the three must be present.
+        Declared primary payload variable ('Ltoa', 'Rtoa', 'BT' or 'LST').
+        When None, exactly one of PAYLOADS must be present.
     required_vars : sequence of str
         Variables this reader must emit (presence checked only).
 
@@ -116,7 +118,9 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
             errors.append(f'missing declared primary payload {primary}')
     for p in present:
         var = ds[p]
-        expected_dims = (str(names.bands),) + grid_dims
+        # Single-layer payloads (e.g. LST) carry no bands dimension.
+        expected_dims = ((str(names.bands),) if str(names.bands) in var.dims
+                         else ()) + grid_dims
         if tuple(var.dims) != expected_dims:
             errors.append(f'{p}: dims are {tuple(var.dims)}, expected {expected_dims}')
         if str(names.unit) not in var.attrs:

@@ -121,15 +121,22 @@ class Reader:
         """Match product metadata against `VARIANTS`; loud raise on unknown type.
 
         Each variant entry must carry a `detect` mapping with `field` (a key or
-        tuple of nested keys into `header`) and `value`. Returns the variant
-        name; raises `UnsupportedProductType` when none matches.
+        tuple of nested keys into `header`) and `value`. The match is exact by
+        default; with `'prefix': True`, `value` is treated as a prefix of the
+        string form of the field (v002 ECOSTRESS products append a scene
+        suffix to their ShortName). Returns the variant name; raises
+        `UnsupportedProductType` when none matches.
         """
         for vname, spec in self.VARIANTS.items():
             try:
-                if self._lookup(header, spec['detect']['field']) == spec['detect']['value']:
-                    return vname
+                value = self._lookup(header, spec['detect']['field'])
             except KeyError:
                 continue
+            if spec['detect'].get('prefix'):
+                if str(value).startswith(spec['detect']['value']):
+                    return vname
+            elif value == spec['detect']['value']:
+                return vname
         known = ', '.join(self.VARIANTS) or '(none declared)'
         raise UnsupportedProductType(
             f'{self.sensor} {self.level}: unknown product type (known variants: {known})'
