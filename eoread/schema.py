@@ -30,7 +30,7 @@ class SchemaError(ValueError):
 #: The payload variables; exactly one is the declared primary per reader class.
 #: 'LST' is a single-layer (y, x) product field (ECOSTRESS LSTE) that carries
 #: no bands dimension; `lst` to be proposed upstream in core.geo.naming.names.
-PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST')
+PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST', str(names.rho_w))
 
 #: 2D geometry/angle variables: (registry name, mandatory)
 GEOMETRY_VARS = (
@@ -134,6 +134,8 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
             bcoord = ds[str(names.bands)]
             if not _is_string_dtype(bcoord.dtype):
                 errors.append(f'{names.bands}: coordinate should carry band names (string dtype), got {bcoord.dtype}')
+            elif len(set(bcoord.values)) != bcoord.size:
+                errors.append(f'{names.bands}: band labels are not unique')
             if str(names.cwav) not in ds:
                 errors.append(f'missing required variable {names.cwav!s}')
             else:
@@ -142,6 +144,10 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
                     errors.append(f'{names.cwav}: dims are {tuple(cw.dims)}, expected ({names.bands},)')
                 elif not np.issubdtype(cw.dtype, np.floating):
                     errors.append(f'{names.cwav}: dtype is {cw.dtype}, expected a floating point type')
+                else:
+                    vals = cw.values
+                    if not np.all(np.isfinite(vals)) or np.any(vals <= 0):
+                        errors.append(f'{names.cwav}: values must be finite and strictly positive')
             if str(names.bgroup) in ds:
                 bg = ds[str(names.bgroup)]
                 if tuple(bg.dims) != (str(names.bands),):

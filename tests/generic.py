@@ -256,7 +256,7 @@ def plot(
         yincrease: If False (default), origin is at top-left (image convention).
                    If True, origin is at bottom-left (cartographic convention).
     """
-    rasters = [str(names.rtoa), str(names.bt), str(names.ltoa)]
+    rasters = [str(names.rtoa), str(names.bt), str(names.ltoa), str(names.rho_w)]
     toa = next((v for v in rasters if v in l1), None)
     
     variables = [str(names.sza), str(names.vza), str(names.lat), str(names.lon)]
