@@ -54,6 +54,62 @@ def test_spatial_resample_oversample(array):
     arr = spatial_resample(array, dims, chunks)
     assert arr.shape == (10, 10)
 
+@pytest.mark.parametrize('method', ['linear', 'repeat'])
+@pytest.mark.parametrize('dtype', ['float32', 'float64'])
+def test_spatial_resample_oversample_tie_points(method, dtype):
+    """
+    Over-sampling of tie points (eg, OLCI geometry and meteo)
+
+    The output should be lazy, chunked as requested, keep the input dimensions
+    order and float dtype, and be consistent with scipy's
+    RegularGridInterpolator on the full output grid.
+    """
+    from scipy.interpolate import RegularGridInterpolator
+    rng = np.random.default_rng(0)
+    tie = xr.DataArray(
+        rng.random((11, 7)).astype(dtype),
+        dims=('rows', 'columns'),
+        coords={'rows': np.arange(11)*10., 'columns': np.arange(7)*64.},
+    )
+    shape = {'rows': 101, 'columns': 385}
+    chunks = {'rows': 40, 'columns': 100}
+    arr = spatial_resample(tie, shape, chunks, method)
+
+    assert hasattr(arr.data, 'dask')
+    assert arr.dims == tie.dims
+    assert arr.chunks == ((40, 40, 21), (100, 100, 100, 85))
+    assert arr.dtype == tie.dtype
+
+    # reference on the full output grid
+    rgi = RegularGridInterpolator(
+        (tie.rows.values, tie.columns.values), tie.values,
+        method={'linear': 'linear', 'repeat': 'nearest'}[method])
+    r, c = np.meshgrid(np.linspace(0, 100, 101), np.linspace(0, 384, 385), indexing='ij')
+    ref = rgi(np.stack([r, c], axis=-1))
+    if method == 'repeat':
+        # exclude the points located exactly halfway between two tie points,
+        # where nearest neighbour selection is ambiguous
+        ok = ((r % 10) != 5) & ((c % 64) != 32)
+    else:
+        ok = np.ones_like(r, dtype=bool)
+    np.testing.assert_allclose(arr.values[ok], ref[ok], rtol=1e-5, atol=1e-6)
+
+
+def test_spatial_resample_oversample_lazy():
+    """
+    Only the chunks that are used are computed
+    """
+    tie = xr.DataArray(np.ones((5, 5), dtype='float32'), dims=('rows', 'columns'),
+                       coords={'rows': np.arange(5)*100., 'columns': np.arange(5)*100.})
+    arr = spatial_resample(tie, {'rows': 401, 'columns': 401}, {'rows': 50, 'columns': 50})
+    sub = arr.isel(rows=slice(0, 50), columns=slice(0, 50))
+    import dask
+    (opt,) = dask.optimize(sub)
+    # the graph of the subset should not depend on the total number of chunks
+    assert len(dict(opt.__dask_graph__())) < 20
+    assert float(sub.mean()) == 1.
+
+
 def test_format_chunks():
     # int input
     assert format_chunks(5) == {str(names.rows): 5, str(names.columns): 5}

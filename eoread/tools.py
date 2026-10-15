@@ -7,7 +7,7 @@ from core import env
 
 from typing import Union, Literal
 from xarray import DataArray, Dataset, open_dataarray
-from dask.array import meshgrid, linspace
+from dask.array import linspace
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
@@ -135,24 +135,28 @@ def spatial_resample(
         
     # over-sample
     else:
-        # Interpolator requires numpy-backed data; compute the (small) tie-point array
+        # The input array (eg, tie points) is small: load it in memory once,
+        # rather than reading it again for each output chunk
         array = array.compute(scheduler='sync')
         coords = array.coords
         method = Linear if method == 'linear' else Nearest
-        xy = meshgrid(*[
-            linspace(coords[d].values[0], coords[d].values[-1], output_shape[d]) 
+        # Separable and chunked target coordinates: the interpolation is
+        # done lazily for each output chunk (only for the chunks that are
+        # used), instead of over the whole output grid at once.
+        # (temporary dimension names, to avoid conflicts with the input dims)
+        params = {
+            d: method(DataArray(
+                linspace(coords[d].values[0], coords[d].values[-1],
+                         output_shape[d], chunks=chunks[d]),
+                dims=f'_{d}'))
             for d in dims
-        ])
-        params = {d: method(DataArray(xy[i], dims=('d1','d0'))) for i,d in enumerate(dims)}
+        }
         resampled = interp(array, **params)
-        resampled = resampled.rename(d0=dims[0], d1=dims[1])
-        
-        # new = {d: np.linspace(
-        #     coords[d].values[0], coords[d].values[-1], output_shape[d]
-        # ) for d in dims}
-        # params = {d: method(DataArray(new[d], dims=(d))) for d in dims}
-        # resampled = interp(array, **params)
-    
+        resampled = resampled.rename({f'_{d}': d for d in dims}).transpose(*dims)
+        if array.dtype.kind == 'f':
+            # linear interpolation weights are float64: keep the input dtype
+            resampled = resampled.astype(array.dtype)
+
     return resampled
 
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pytest
+from core.geo.naming import names
 from eoread.olci import get_sample, Level1_OLCI, Level2_OLCI
 from . import generic
 
@@ -46,3 +47,19 @@ def test_flag_reader(OLCI_product):
 
 def test_level2(chunks, olci_level2):
     Level2_OLCI(olci_level2, chunks=chunks)
+
+
+def test_l1c_tie_points(OLCI_product):
+    """
+    Variables interpolated from the tie points (geometry and meteo) are float32,
+    chunked like the radiances, and can be computed on a subset
+    """
+    ds = OLCI_product
+    spatial_chunks = ds.Ltoa.chunks[1:]
+    for var in ['sza', 'saa', 'vza', 'vaa', 'horizontal_wind',
+                'sea_level_pressure', 'total_column_ozone']:
+        assert ds[var].dtype == 'float32', var
+        assert ds[var].chunks == spatial_chunks, var
+    sub = ds.isel({str(names.rows): slice(1000, 1010),
+                   str(names.columns): slice(2000, 2010)})
+    assert sub.sza.notnull().all()

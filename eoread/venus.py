@@ -104,7 +104,7 @@ def Level1_VENUS(
     ratio = {str(names.columns): ds.totalwidth, str(names.rows): ds.totalheight} 
     cld = open_raster(dirname/'DATA', '*CLA_ALL.tif', engine='rasterio')
     cld = cld.rename(x=str(names.columns), y=str(names.rows))
-    ds['CLA_ALL'] = spatial_resample(cld, ratio, chunks, 'repeat').T
+    ds['CLA_ALL'] = spatial_resample(cld, ratio, chunks, 'repeat')
     
     if read_masks:
         
