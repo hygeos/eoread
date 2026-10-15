@@ -8,11 +8,15 @@ An alternative is to use open_dataset with pynio engine,
 but it is complex to install.
 """
 
+import operator
+
 import xarray as xr
 import numpy as np
 
 from pyhdf.SD import SD, SDC
-from dask.array import array
+from dask import base
+from dask.array import Array, array
+from dask.highlevelgraph import HighLevelGraph
 
 from core import tools
 
@@ -90,6 +94,26 @@ class HDF4_ArrayLike:
         """
         return self.sds.__getitem__(keys)
 
+def _lazy_array(wrapper: 'HDF4_ArrayLike', filename: str, name: str) -> Array:
+    """
+    Wrap an ``HDF4_ArrayLike`` in a lazy dask array without letting numpy probe it.
+
+    Passing the wrapper to ``dask.array.array`` (i.e. any ``np.asarray`` path)
+    makes numpy iterate over it, which poisons the underlying pyhdf session:
+    every subsequent read on that file then fails, including selecting another
+    dataset. The block graph is therefore built by hand -- one task per block,
+    each a plain rectangular slice evaluated at compute time (the reader
+    rechunks afterwards).
+    """
+    shape = tuple(int(s) for s in wrapper.shape)
+    key_name = 'hdf4-' + base.tokenize(filename, name, shape)
+    key = (key_name,) + (0,) * len(shape)
+    dsk = {key: (operator.getitem, wrapper, tuple(slice(None) for _ in shape))}
+    graph = HighLevelGraph.from_collections(key_name, dsk)
+    return Array(graph, key_name, chunks=tuple((s,) for s in shape),
+                 dtype=wrapper.dtype, shape=shape)
+
+
 def load_hdf4(filename, trim_dims=False, lazy=False):
     """
     Load an HDF4 file as an xarray Dataset with optional lazy loading.
@@ -123,9 +147,13 @@ def load_hdf4(filename, trim_dims=False, lazy=False):
         sds = hdf.select(name)
         dims = val[0]
         data = HDF4_ArrayLike(sds)
-        if not lazy: data = data[:]
-        ds[name] = xr.DataArray(array(data), dims=dims)
-        ds[name].attrs.update(clean_attrs(sds.attributes()))
+        attrs = clean_attrs(sds.attributes())
+        if lazy:
+            arr = _lazy_array(data, str(filename), name)
+        else:
+            arr = array(data[:])
+        ds[name] = xr.DataArray(arr, dims=dims)
+        ds[name].attrs.update(attrs)
 
     ds.attrs.update(clean_attrs(hdf.attributes()))
 

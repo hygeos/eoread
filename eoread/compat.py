@@ -29,7 +29,20 @@ _V1_RENAMES = {
 # correct. This is a documented deviation (REFACTORING.md decision log), not a
 # CLEAN_BREAKS entry: it lives in coordinate *values*, which this transform
 # deliberately does not touch.
-CLEAN_BREAKS = {}
+CLEAN_BREAKS = {
+    # OLI L1TP: v2's Rtoa drops the legacy /cos(sza) division — the USGS C2
+    # reflectance factors already fold in the solar geometry, so dividing
+    # again was a double correction (REFACTORING.md decision log). The pan
+    # band B8 also moved from separate 'rows_pan'/'columns_pan' dims onto the
+    # single bands grid, and the azimuth angles are folded to the unsigned
+    # [0, 180] canonical range instead of the signed file values. v1() cannot
+    # reproduce the legacy values.
+    'OLI': ('v2 Rtoa differs from the legacy values (the /cos(sza) division is '
+            'removed: the USGS C2 reflectance factors already include the solar '
+            'correction), band B8 now shares the single bands grid, and the '
+            'azimuth angles are unsigned [0, 180] instead of the signed file '
+            'values'),
+}
 
 
 def v1(ds):

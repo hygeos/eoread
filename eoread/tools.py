@@ -1,3 +1,5 @@
+import atexit
+
 import dask.array as da
 from dask.base import tokenize
 from dask.highlevelgraph import HighLevelGraph
@@ -102,6 +104,50 @@ def filter_metadata(metadata: dict, template: list) -> dict:
             raise ValueError(f'Leaf {key_list[-1]} not found in metadata (template: {key_list})')
     
     return result
+
+
+# ---------------------------------------------------------------------------
+# Process-exit hygiene (shared by every rasterio-backed reader)
+# ---------------------------------------------------------------------------
+
+_EXIT_CLEANUP_INSTALLED = False
+
+
+def _close_open_file_managers():
+    """Close every still-open xarray CachingFileManager, at process exit.
+
+    xarray's rasterio backend opens each file through a CachingFileManager and
+    leaves it open so lazy windowed reads can happen later (JP2 via rioxarray,
+    GeoTIFF natively). If such a manager survives to interpreter finalization,
+    its ``__del__`` (and the eviction of xarray's global FILE_CACHE) tries to
+    close the dataset after module state has been torn down; the resulting
+    exception inside ``__del__`` is emitted by CPython >= 3.12 as nested 'Error
+    in sys.excepthook' pairs with empty tracebacks — one per open file, after
+    the program already exited cleanly (RC=0). Closing from atexit, while
+    modules are still alive, leaves nothing for finalization to close. This
+    handler must never raise: a failure here would print its own traceback to
+    stderr at exit, recreating the very noise it removes.
+    """
+    try:
+        import gc
+
+        from xarray.backends.file_manager import CachingFileManager
+    except Exception:
+        return
+    for obj in gc.get_objects():
+        if type(obj) is CachingFileManager:
+            try:
+                obj.close(needs_lock=False)
+            except Exception:
+                pass
+
+
+def install_exit_cleanup() -> None:
+    """Register the atexit file-manager close, once per process."""
+    global _EXIT_CLEANUP_INSTALLED
+    if not _EXIT_CLEANUP_INSTALLED:
+        atexit.register(_close_open_file_managers)
+        _EXIT_CLEANUP_INSTALLED = True
 
 
 def _split_blocks(n: int, chunk: int) -> list[tuple[int, int]]:
@@ -289,9 +335,29 @@ def spatial_resample(
         method: Literal['linear','repeat'] = 'linear'
     ) -> DataArray:
     """
-        ratio: list[x_ratio, y_ratio]
-        if ratio is > 1 then downsamples
-        if ratio is < 1 then upscales
+    Lazily resample a 2D DataArray onto a target shape.
+
+    An exact-integer-ratio downsample averages the integer pixel groups; every
+    other case (upsamples and non-integer-ratio downsamples) interpolates onto
+    a target grid spanning the source coordinate range (see `_upsample`). The
+    interpolation branch returns the result with swapped dim labels, so
+    callers must `.transpose(rows, columns)` it.
+
+    Parameters
+    ----------
+    array : DataArray
+        2D input; the coordinates of both dims are the source grid.
+    output_shape : dict {dim: int}
+        Target size per dim (keys must be the input's dims).
+    chunks : dict {dim: int}
+        Output chunk sizes, keyed by dim (must match `output_shape`).
+    method : 'linear' or 'repeat'
+        Interpolation mode of the interpolation branch.
+
+    Returns
+    -------
+    DataArray
+        The resampled field on the target shape and chunks.
     """
     
     # Check inputs compliance
@@ -308,18 +374,19 @@ def spatial_resample(
     if all(v == 1 for v in ratio.values()):
         return array
     
-    # downsample
-    if any(v > 1 for v in ratio.values()):
-        assert all(r == int(r) for r in ratio.values())
+    # Exact-integer-ratio downsample: average the integer pixel groups.
+    if any(v > 1 for v in ratio.values()) and all(r == int(r) for r in ratio.values()):
         params = {d: int(ratio[d]) for d in dims}
         resampled = array.coarsen(**params, boundary="trim")
         resampled = resampled.mean().chunk(chunks)
         
-    # over-sample
+    # Any other case (every upsample, plus non-integer-ratio downsamples):
+    # lazy blockwise interpolation (see _upsample); no pixel data is read at
+    # construction time. The OLI panchromatic -> 30 m resample lands here: the
+    # two grids share the same geographic span and the pan grid is one pixel
+    # short of exactly twice the reflective one, so the affine target positions
+    # fall on exact half-pixel offsets of the source grid.
     else:
-        # Lazy blockwise interpolation (see _upsample): no pixel data is read at
-        # construction time, and the result is bit-for-bit identical to the
-        # former compute()-based path, including its (dims[1], dims[0]) layout.
         resampled = _upsample(array, output_shape, chunks, method)
 
     return resampled
@@ -460,3 +527,62 @@ def crop(
         lonmask = lonmask.compute()
         
     return ds.where(latmask & lonmask, drop=drop)
+
+
+def _unquote(value: str) -> str:
+    """Strip one pair of surrounding double quotes from an HDF-EOS leaf value."""
+    if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    return value
+
+
+def parse_hdf4_metadata(text: str) -> dict:
+    """
+    Parse an HDF-EOS text metadata block into a nested dict.
+
+    Handles both the padded layout (CoreMetadata, ArchiveMetadata:
+    ``KEY<pad>=<pad>VALUE``, with leaf objects split over several lines) and
+    the compact one (StructMetadata). ``GROUP``/``OBJECT`` open a nested dict,
+    closed by ``END_GROUP``/``END_OBJECT``; any other ``KEY = VALUE`` line is a
+    leaf stored as a string, with surrounding double quotes stripped (numeric
+    values and list literals stay bare).
+
+    Parameters
+    ----------
+    text : str
+        Raw metadata text (e.g. the file's ``CoreMetadata.0`` attribute).
+
+    Returns
+    -------
+    dict
+        Nested tree; leaf objects map to their field values, e.g.
+        ``{'RANGEBEGINNINGTIME': {'NUM_VAL': '1', 'VALUE': '17:40:00.000000'}}``.
+    """
+    lines = [line.strip() for line in text.splitlines()]
+
+    def parse_block(i: int):
+        node = {}
+        while i < len(lines):
+            line = lines[i]
+            if not line:
+                i += 1
+                continue
+            key, sep, value = line.partition('=')
+            if not sep:
+                # The text blocks end with a bare 'END' terminator.
+                if line == 'END':
+                    return node, i + 1
+                raise ValueError(f'unparseable metadata line: {line!r}')
+            key, value = key.strip(), value.strip()
+            if key in ('GROUP', 'OBJECT'):
+                child, i = parse_block(i + 1)
+                node[value] = child
+            elif key.startswith('END_'):
+                return node, i + 1
+            else:
+                node[key] = _unquote(value)
+                i += 1
+        return node, i
+
+    tree, _ = parse_block(0)
+    return tree

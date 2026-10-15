@@ -25,7 +25,6 @@ REFACTORING.md decision log):
   one of 10, 20 or 60.
 """
 
-import atexit
 import warnings
 from pathlib import Path
 
@@ -40,7 +39,7 @@ from core.table import read_xml
 
 from eoread.flags import FlagsReaderBase, GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductVersion
-from eoread.tools import filter_metadata, spatial_resample
+from eoread.tools import filter_metadata, install_exit_cleanup, spatial_resample
 from eoread.transforms.angles import tiepoint_angles
 from eoread.transforms.geometry import latlon_utm
 
@@ -77,46 +76,6 @@ def _padded_band(band: str) -> str:
     if band[1:].isdigit():
         return f'B{int(band[1:]):02d}'
     return band
-
-
-_EXIT_CLEANUP_INSTALLED = False
-
-
-def _close_open_file_managers():
-    """Close every still-open xarray CachingFileManager, at process exit.
-
-    rioxarray opens each JP2 through xarray's CachingFileManager and leaves
-    the rasterio dataset open so lazy windowed reads can happen later. If
-    such a manager survives to interpreter finalization, its ``__del__`` (and
-    the eviction of xarray's global FILE_CACHE) tries to close the dataset
-    after module state has been torn down; the resulting exception inside
-    ``__del__`` is emitted by CPython >= 3.12 as nested 'Error in
-    sys.excepthook' pairs with empty tracebacks — one per open band file,
-    after the program already exited cleanly (RC=0). Closing from atexit,
-    while modules are still alive, leaves nothing for finalization to close.
-    This handler must never raise: a failure here would print its own
-    traceback to stderr at exit, recreating the very noise it removes.
-    """
-    try:
-        import gc
-
-        from xarray.backends.file_manager import CachingFileManager
-    except Exception:
-        return
-    for obj in gc.get_objects():
-        if type(obj) is CachingFileManager:
-            try:
-                obj.close(needs_lock=False)
-            except Exception:
-                pass
-
-
-def _install_exit_cleanup():
-    """Register the atexit file-manager close, once per process."""
-    global _EXIT_CLEANUP_INSTALLED
-    if not _EXIT_CLEANUP_INSTALLED:
-        atexit.register(_close_open_file_managers)
-        _EXIT_CLEANUP_INSTALLED = True
 
 
 def _discover_granule(safe: Path) -> Path:
@@ -330,7 +289,7 @@ class _MSIBase(Reader):
             kept.append(i)
 
         assert kept, f'MSI {self.level}: no band data file found under {granule_dir}'
-        _install_exit_cleanup()
+        install_exit_cleanup()
         return arrays, kept
 
     def _read_angles(self, ds: xr.Dataset, sun: dict, grids: list, shape: tuple) -> xr.Dataset:
