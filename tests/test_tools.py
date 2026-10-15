@@ -110,6 +110,18 @@ def test_spatial_resample_oversample_lazy():
     assert float(sub.mean()) == 1.
 
 
+def test_spatial_resample_oversample_coords():
+    """
+    The over-sampled output is aligned by position with the dataset it is
+    assigned to, even if this dataset has other coordinates (eg, projected
+    coordinates, as in VENUS)
+    """
+    tie = xr.DataArray(np.ones((3, 3), dtype='float32'), dims=('y', 'x'))
+    ds = xr.Dataset(coords={'y': 1000. + np.arange(20), 'x': 2000. + np.arange(30)})
+    ds['resampled'] = spatial_resample(tie, {'y': 20, 'x': 30}, {'y': 10, 'x': 10})
+    assert ds.resampled.notnull().all()
+
+
 def test_format_chunks():
     # int input
     assert format_chunks(5) == {str(names.rows): 5, str(names.columns): 5}
