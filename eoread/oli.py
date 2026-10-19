@@ -119,7 +119,7 @@ def Level1_OLI(
     # other attributes
     if verbose: log.debug('add important attributes')
     ds.attrs[str(names.platform)] = metadata['IMAGE_ATTRIBUTES']['SPACECRAFT_ID']
-    ds.attrs[str(names.sensor)] = metadata['IMAGE_ATTRIBUTES']['SENSOR_ID']
+    ds.attrs[str(names.sensor)] = 'OLI'
     ds.attrs[str(names.product_name)] = metadata['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID']
     ds.attrs[str(names.resolution)] = 30
     ds.attrs['user_guide'] = user_guide
