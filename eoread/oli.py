@@ -192,13 +192,13 @@ class FlagsReader_OLI(FlagsReaderBase):
     """
     Flags reader for OLI (Operational Land Imager) data from Landsat-8/9.
     
-    Provides access to quality flags from the QA_PIXEL band for identifying
-    clouds, cloud shadows, snow, and other quality indicators.
+    Provides access to quality flags from the QA_PIXEL band (currently only
+    L1_INVALID, from the fill bit).
     """
     
     def requires(self) -> list[str]:
         """Variables required for flag determination."""
-        return ['QA_PIXEL']  # Use viewing zenith angle as reference
+        return ['QA_PIXEL']
     
     def dims_like(self) -> str:
         """Returns a variable name with the same shape as the output."""
@@ -216,7 +216,8 @@ class FlagsReader_OLI(FlagsReaderBase):
             Standard flag identifier (currently only L1_INVALID supported).
         """
         if flag_name == GenericFlags.L1_INVALID:
-            return ds['QA_PIXEL']
+            # QA_PIXEL bit 0: fill
+            return (ds['QA_PIXEL'].astype('uint16') & 1) != 0
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
