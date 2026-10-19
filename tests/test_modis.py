@@ -11,7 +11,10 @@ Sample (see tests/README.md):
 The legacy v1 reader is kept as the reference implementation
 (eoread/legacy/modis.py); these tests pin the v2 contract instead: schema
 conformance, canonical south-up orientation, lazy loading and flag decoding.
-There is no v1 compatibility mapping for MODIS in eoread.compat.
+MODIS has a documented clean break in eoread.compat (CLEAN_BREAKS): the v2
+radiance formula is scale * (raw - offset) per PUG M1054E where the legacy
+reader used scale * raw + offset, so compat.v1 raises NotImplementedError —
+there is no v1 mapping (pinned by test_l1_v1_clean_break).
 """
 
 import gc
@@ -24,8 +27,9 @@ from core.geo.naming import names
 from . import generic
 from .conftest import require_sample
 
+from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
-from eoread.readers.modis import Level1_MODIS
+from eoread.readers.modis import Level1B_MODIS
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +53,7 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_modisa_myd, chunks):
-    return Level1_MODIS(level1_modisa_myd, chunks=chunks).ds
+    return Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
 
 
 # ===========================================================================
@@ -57,7 +61,7 @@ def l1(level1_modisa_myd, chunks):
 # ===========================================================================
 
 def test_l1_instantiation(level1_modisa_myd, chunks):
-    Level1_MODIS(level1_modisa_myd, chunks=chunks)
+    Level1B_MODIS(level1_modisa_myd, chunks=chunks)
 
 
 def test_l1_main(l1):
@@ -84,19 +88,19 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_subset(level1_modisa_myd, chunks):
-    ds = Level1_MODIS(level1_modisa_myd, chunks=chunks).ds
+    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
     generic.Test.subset(ds)
 
 
 def test_l1_plot(request, level1_modisa_myd):
-    ds = Level1_MODIS(level1_modisa_myd).ds
+    ds = Level1B_MODIS(level1_modisa_myd).ds
     # Band labels are the file-native float values as strings (legacy parity).
     generic.plot(request, ds, '1.0', poi={'x': 1000, 'y': 1000})
 
 
 def test_l1_time(chunks, level1_modisa_myd):
     params = {'path': level1_modisa_myd, 'chunks': chunks}
-    generic.Test.execution_time(Level1_MODIS, params)
+    generic.Test.execution_time(Level1B_MODIS, params)
 
 
 def test_l1_bands(l1):
@@ -196,6 +200,12 @@ def test_l1_gflags(l1):
     assert v.dtype == np.uint8
 
 
+def test_l1_v1_clean_break(level1_modisa_myd):
+    ds = Level1B_MODIS(level1_modisa_myd).ds
+    with pytest.raises(NotImplementedError):
+        v1(ds)
+
+
 def test_l1_pyhdf_fallback(level1_modisa_myd, chunks, monkeypatch):
     """The loud pyhdf fallback must produce a conforming dataset on real data."""
     import eoread.readers.modis as modis_module
@@ -204,13 +214,13 @@ def test_l1_pyhdf_fallback(level1_modisa_myd, chunks, monkeypatch):
         raise OSError('[Errno -128] NetCDF: HDF4 is not supported')
 
     monkeypatch.setattr(modis_module.xr, 'open_dataset', fake_open)
-    ds = Level1_MODIS(level1_modisa_myd, chunks=chunks).ds
+    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
     generic.Test.main(ds, angle_data=False)
 
 
 def test_l1_not_a_modis_product(tmp_path):
     with pytest.raises(ProductError):
-        Level1_MODIS(tmp_path)
+        Level1B_MODIS(tmp_path)
 
 
 def test_l1_rejects_other_shortname():
@@ -218,6 +228,6 @@ def test_l1_rejects_other_shortname():
               {'SHORTNAME': {'NUM_VAL': '1', 'VALUE': 'MCD43A4'}}}}
     # Pure detection logic: no file I/O, so skip __init__ entirely (the
     # method only reads the class-level VARIANTS/sensor/level attributes).
-    reader = Level1_MODIS.__new__(Level1_MODIS)
+    reader = Level1B_MODIS.__new__(Level1B_MODIS)
     with pytest.raises(UnsupportedProductType):
         reader.detect_variant(header)

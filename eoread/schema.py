@@ -30,7 +30,8 @@ class SchemaError(ValueError):
 #: The payload variables; exactly one is the declared primary per reader class.
 #: 'LST' is a single-layer (y, x) product field (ECOSTRESS LSTE) that carries
 #: no bands dimension; `lst` to be proposed upstream in core.geo.naming.names.
-PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST', str(names.rho_w))
+PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST', str(names.rho_w),
+            'rho_surface', 'rho_flat')
 
 #: 2D geometry/angle variables: (registry name, mandatory)
 GEOMETRY_VARS = (

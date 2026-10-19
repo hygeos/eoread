@@ -371,7 +371,7 @@ class _ModisBase(Reader):
         return ds.assign_coords({rows: np.arange(ny), cols: np.arange(nx)})
 
 
-class Level1_MODIS(_ModisBase):
+class Level1B_MODIS(_ModisBase):
     """MODIS L1B swath product (MOD021KM / MYD021KM).
 
     Payload `Ltoa` (TOA radiance, file units W.m-2.um-1.sr-1) on the 38

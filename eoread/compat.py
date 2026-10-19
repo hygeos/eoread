@@ -11,6 +11,35 @@ Rule (locked): compat is supported when the v1→v2 difference of a reader is a
 pure rename/reorganization. When the legacy output carried different *values*
 for a variable, that reader gets a documented clean break instead — record it
 in `CLEAN_BREAKS` with an explanation.
+
+Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
+
+- MSI: rename ``Ltoa`` → ``Rtoa`` (v1 misnamed TOA radiance) + schema_version
+  strip. Documented deviations, NOT breaks: the L2A band labels are corrected
+  where legacy's blind pops mislabeled B11 as 'B10' (coordinate values — this
+  transform never touches coordinates); lat/lon stored float32 per the naming
+  registry; tie-point angles differ from legacy within the documented
+  interpolation tolerance (max |Δ| ~1e-3°, localized to the steepest azimuth
+  gradient pocket).
+- ECOSTRESS: identity + schema_version strip (all payloads kept their v1
+  names). Documented deviation, NOT a break: v2 is south-up where legacy was
+  north-up — v2 row i carries legacy row ny-1-i (pinned by the parity test).
+  The plain-HDF5 L1B/L2 family has no legacy reference at all.
+- OLCI: identity + schema_version strip — no documented clean break.
+- MODIS: clean break (see ``CLEAN_BREAKS``) — radiance formula fix.
+- OLI: clean break (see ``CLEAN_BREAKS``) — Rtoa double solar correction,
+  single bands grid, unsigned azimuths.
+- VENUS: identity + schema_version strip (all payloads kept their v1 names;
+  L1C payload values are bit-identical to legacy). Documented deviations, NOT
+  breaks: south-up flip (v2 row i carries legacy row ny-1-i); new canonical
+  tie-point angles where legacy computed none (raw 2x2 grids kept as ``*_tie``);
+  SOL/VIE kept raw on their native tie grids (VIE is no longer reindexed onto
+  SOL's smaller grid); L2A product nodata (-10000) becomes NaN where legacy
+  kept -10.0 after calibration; L2A ATB calibrated with the MTD quantification
+  factors where legacy kept raw counts; L2A PIX_XS assigned positionally (the
+  legacy int-vs-string band alignment produced an all-NaN variable); lat/lon
+  from a proper per-block UTM transform instead of legacy's flipped corner
+  linear interpolation.
 """
 
 from core.geo.naming import names
@@ -30,6 +59,12 @@ _V1_RENAMES = {
 # CLEAN_BREAKS entry: it lives in coordinate *values*, which this transform
 # deliberately does not touch.
 CLEAN_BREAKS = {
+    # MODIS L1B: v2's Ltoa uses the PUG M1054E formula scale * (raw - offset);
+    # the legacy reader computed scale * raw + offset, so the legacy radiance
+    # values are not reproducible from the v2 output.
+    'MODIS': ('v2 Ltoa differs from the legacy values (the radiance formula is '
+              'scale * (raw - offset) per PUG M1054E; the legacy reader used '
+              'scale * raw + offset)'),
     # OLI L1TP: v2's Rtoa drops the legacy /cos(sza) division — the USGS C2
     # reflectance factors already fold in the solar geometry, so dividing
     # again was a double correction (REFACTORING.md decision log). The pan
