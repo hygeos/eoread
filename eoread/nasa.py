@@ -21,6 +21,7 @@ from core.files.uncompress import uncompress_decorator
 from core.network.download import download_url
 from core.geo.naming import names
 from eoread import eo
+from eoread.flags import FlagsReaderBase, GenericFlags
 
 
 def check_nasa_download(filename):
@@ -216,6 +217,7 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
             - VZA, VAA, SZA, SAA: Viewing and solar geometry
             - lat, lon: Geolocation
             - flags: Quality flags (LAND, L1_INVALID)
+            - l2_flags: l2gen flags (see FlagsReader_NASA)
 
     Notes
     -----
@@ -241,6 +243,7 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
     instrument = ds.attrs.get('instrument', '').lower()
     ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_NASA'
     ds.attrs['_srf_getter_arg'] = f'{platform}_{instrument}'
+    ds.attrs['_flag_reader'] = 'eoread.nasa.FlagsReader_NASA'
 
     sensor_band = xr.open_dataset(filename, group='/sensor_band_parameters', chunks=chunks)
     bands = sensor_band['wavelength'].values[sensor_band.number_of_reflective_bands.values].astype('int32')
@@ -279,21 +282,48 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
 
     eo.init_geometry(ds)
 
+    ds['l2_flags'] = geo_data.l2_flags
     ds[str(names.flags)] = xr.zeros_like(ds[str(names.lat)], dtype=names.flags.dtype)
-    for flag, flag_list, flag_value in [
-        ("LAND", ["LAND"], 1),
-        ("L1_INVALID", ["ATMFAIL", "PRODFAIL"], 4),
+    flags_reader = FlagsReader_NASA()
+    for flag, generic_flag, flag_value in [
+        ("LAND", GenericFlags.LAND, 1),
+        ("L1_INVALID", GenericFlags.L1_INVALID, 4),
     ]:
-        flag_mask = 0
-        for f in flag_list:
-            flag_mask += geo_data.l2_flags.flag_masks[geo_data.l2_flags.flag_meanings.split().index(f)]
-
         eo.raiseflag(
             ds[names.flags],
             flag,
             flag_value,
-            (geo_data.l2_flags & flag_mask != 0),
+            flags_reader.getflag(ds, generic_flag),
         )
 
     ds = eo.merge(ds, dim=str(names.bands))
     return ds
+
+
+class FlagsReader_NASA(FlagsReaderBase):
+    """
+    Flags reader for the NASA L1C products read by `Level1_NASA`
+
+    Reads the l2gen `l2_flags`. L1_INVALID: pixels without measurement, ie
+    without geolocation (NAVFAIL) or deleted on board (VIIRS bow-tie
+    deletion, BOWTIEDEL). Partially saturated pixels (HILT) are not included.
+    """
+    mapping = {
+        GenericFlags.LAND: ["LAND"],
+        GenericFlags.L1_INVALID: ["NAVFAIL", "BOWTIEDEL"],
+    }
+
+    def requires(self) -> list[str]:
+        return ["l2_flags"]
+
+    def dims_like(self) -> str:
+        return "l2_flags"
+
+    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        if flag_name not in self.mapping:
+            raise ValueError(f"Unsupported flag: {flag_name}")
+        flags = ds["l2_flags"]
+        masks = dict(zip(flags.attrs["flag_meanings"].split(),
+                         flags.attrs["flag_masks"]))
+        mask = sum(int(masks[f]) for f in self.mapping[flag_name])
+        return (flags & mask) != 0
