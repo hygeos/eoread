@@ -24,7 +24,7 @@ from core.geo.naming import names
 from core.tools import merge, drop_unused_dims
 
 from eoread.flags import GenericFlags, FlagsReaderBase
-from eoread.tools import filter_metadata, collect_sample, format_chunks
+from eoread.tools import filter_metadata, collect_sample, format_chunks, sun_earth_distance
 
 
 user_guide = 'https://archive.org/details/manualzilla-id-5933919/page/n13/mode/2up'
@@ -116,6 +116,7 @@ def Level1_MERIS(
     ds = _Internal.rename_variables(ds)
     ds = merge(ds, dim=str(names.bands), dtype=str)
     ds = ds.chunk({str(names.bands):1})
+    ds[str(names.ltoa)].attrs.update(units='mW/(m^2*sr*nm)')
     ds = _Internal.standard_meteo(ds)
 
     if verbose: log.debug('read auxilary data')
@@ -138,10 +139,10 @@ def Level1_MERIS(
 
     # Per-detector solar flux (corrected for the sun-earth distance) and wavelength
     F0 = _Internal.read_detector_table(dir_smile/f'sun_spectral_flux_{res}.txt', 'E0', ds)
-    F0 = F0/_Internal.sun_earth_distance(d)**2
+    F0 = F0/sun_earth_distance(d)**2
     ds[str(names.F0)] = _Internal.detector_lookup(F0, ds.detector_index)
     ds[str(names.F0)].attrs.update(
-        unit='mW.m-2.nm-1',
+        units='mW/(m^2*nm)',
         description='Solar flux at the acquisition date (corrected for the sun-earth distance)')
 
     wav = _Internal.read_detector_table(dir_smile/f'central_wavelen_{res}.txt', 'lam', ds)
@@ -280,15 +281,6 @@ class _Internal:
             input_core_dims=[['detectors'], []],
             output_dtypes=[table.dtype],
         )
-
-    @staticmethod
-    def sun_earth_distance(t: datetime) -> float:
-        """
-        Sun-earth distance in AU (two-term Keplerian expansion of Earth's orbit,
-        with the day of year counted from 0)
-        """
-        M = 2*np.pi*(0.9856002831*(t.timetuple().tm_yday - 1) - 3.4532858)/360.
-        return 1.00014 - 0.01671*np.cos(M) - 0.00014*np.cos(2*M)
 
     @staticmethod
     def read_date(dat: str):
