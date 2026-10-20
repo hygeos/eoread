@@ -11,6 +11,7 @@ l1 = Level1_MERIS('MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
+from warnings import warn
 from dask.array import array
 
 import epr
@@ -31,7 +32,7 @@ user_guide = 'https://archive.org/details/manualzilla-id-5933919/page/n13/mode/2
 def Level1_MERIS(
         filepath: str|Path,
         dir_smile: str|Path = None,
-        read_auxdata: bool = False, 
+        read_auxdata: bool | None = None,
         chunks: int|tuple = 500,
         metadata_template: list = None,
         v1_compat: bool = False,
@@ -49,7 +50,8 @@ def Level1_MERIS(
     dir_smile : str or Path, optional
         Relative path to MERIS per-detector characterization. Default is '../auxdata/meris/'.
     read_auxdata : bool, optional
-        If True, read auxiliary data contained in dir_smile. Default is False.
+        Deprecated, ignored: the per-detector solar flux (F0) and wavelength
+        (wav) from dir_smile are always read.
     chunks : int or tuple, optional
         Size of chunks for spatial axis. Default is 500.
     metadata_template : list, optional
@@ -95,13 +97,27 @@ def Level1_MERIS(
         ).chunk(chunks)
         ds[name].attrs['unit'] = band.unit
         ds[name].attrs['description'] = band.description
-        
+
+    # L1_INVALID flag: COSMETIC, SUSPECT or INVALID bits (the bit positions are
+    # resolved by epr from the product data dictionary)
+    if verbose: log.debug('load l1_invalid')
+    raster = epr.create_bitmask_raster(prod.get_scene_width(), prod.get_scene_height())
+    with lock:
+        prod.read_bitmask_raster(
+            'l1_flags.COSMETIC OR l1_flags.SUSPECT OR l1_flags.INVALID', 0, 0, raster)
+    ds['l1_invalid'] = xr.DataArray(
+        raster.data.astype(bool),
+        dims=(str(names.rows), str(names.columns)),
+    ).chunk(chunks)
+    ds['l1_invalid'].attrs.update(description='Invalid pixel (COSMETIC, SUSPECT or INVALID flag set)')
+
     # Rename several variables and compile radiance rasters
     if verbose: log.debug('concatenate ltoa rasters')
     ds = _Internal.rename_variables(ds)
     ds = merge(ds, dim=str(names.bands), dtype=str)
     ds = ds.chunk({str(names.bands):1})
-    
+    ds = _Internal.standard_meteo(ds)
+
     if verbose: log.debug('read auxilary data')
     if dir_smile is None: dir_smile = Path(__file__).parent/'auxdata'/'meris'
     else: dir_smile = Path(dir_smile)
@@ -111,26 +127,26 @@ def Level1_MERIS(
     elif bname.startswith('MER_FR'): res = 'fr'
     else: raise Exception(f'Error, could not identify whether MERIS file is RR or FR ({bname})')
 
-    file_sun_spectral_flux = dir_smile/f'sun_spectral_flux_{res}.txt'
-    file_detector_wavelength = dir_smile/f'central_wavelen_{res}.txt'
-    F0 = pd.read_csv(file_sun_spectral_flux, dtype='float32', delimiter='\t').to_xarray()
-    detector_wavelength = pd.read_csv(file_detector_wavelength, delimiter='\t').to_xarray()
+    if read_auxdata is not None:
+        warn('read_auxdata is deprecated: F0 and wav are always read', DeprecationWarning)
 
-    assert len(F0) == len(ds[str(names.bands)]) + 1
-    assert len(detector_wavelength) == len(ds[str(names.bands)]) + 1
-    
-    if read_auxdata:
-        
-        # Compute solar Flux
-        valid_mask = (ds.detector_index >= 0).load()
-        F0 = F0.sel(index=ds.detector_index.where(valid_mask, 0))
-        F0 = merge(F0, dim=str(names.bands), pattern=r'(.+)_band(\d+)')
-        ds[str(names.F0)] = F0['E0'].where(valid_mask, np.nan)
-        
-        # Compute wavelengths
-        wav = detector_wavelength.sel(index=ds.detector_index.where(valid_mask, 0))
-        wav = merge(wav, dim=str(names.bands), pattern=r'(.+)_band(\d+)')
-        ds[str(names.wav)] = wav['lam'].where(valid_mask, np.nan)
+    # Read date
+    dstart = _Internal.read_date(metadata['SENSING_START'])
+    dstop = _Internal.read_date(metadata['SENSING_STOP'])
+    d = dstart + (dstop - dstart)//2
+    ds.attrs[str(names.datetime)] = d.isoformat()
+
+    # Per-detector solar flux (corrected for the sun-earth distance) and wavelength
+    F0 = _Internal.read_detector_table(dir_smile/f'sun_spectral_flux_{res}.txt', 'E0', ds)
+    F0 = F0/_Internal.sun_earth_distance(d)**2
+    ds[str(names.F0)] = _Internal.detector_lookup(F0, ds.detector_index)
+    ds[str(names.F0)].attrs.update(
+        unit='mW.m-2.nm-1',
+        description='Solar flux at the acquisition date (corrected for the sun-earth distance)')
+
+    wav = _Internal.read_detector_table(dir_smile/f'central_wavelen_{res}.txt', 'lam', ds)
+    ds[str(names.wav)] = _Internal.detector_lookup(wav, ds.detector_index)
+    ds[str(names.wav)].attrs.update(unit='nm')
 
     # Read attributes
     ds.attrs[str(names.platform)] = 'ENVISAT'
@@ -145,13 +161,7 @@ def Level1_MERIS(
     ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_meris'
     ds.attrs['_srf_getter_arg'] = ''
 
-    # Read date
-    dstart = _Internal.read_date(metadata['SENSING_START'])
-    dstop = _Internal.read_date(metadata['SENSING_STOP'])
-    d = dstart + (dstop - dstart)//2
-    ds.attrs[str(names.datetime)] = d.isoformat()
-    
-    # Add band groups 
+    # Add band groups
     ds = drop_unused_dims(ds)
     ds = ds.assign_coords({str(names.bgroup): (str(names.bands), ['bands_vnir']*nb_bands)})
     
@@ -173,25 +183,25 @@ class FlagsReader_MERIS(FlagsReaderBase):
     
     def requires(self) -> list[str]:
         """Variables required for flag determination."""
-        return ['l1_flags']  # Use viewing zenith angle as reference
+        return ['l1_invalid']
     
     def dims_like(self) -> str:
         """Returns a variable name with the same shape as the output."""
-        return 'l1_flags'
-    
+        return 'l1_invalid'
+
     def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
         """
         Retrieve a specific quality flag from the MERIS dataset.
-        
+
         Parameters
         ----------
         ds : xr.Dataset
-            MERIS dataset containing l1_flags variable.
+            MERIS dataset containing the l1_invalid variable.
         flag_name : GenericFlags
             Standard flag identifier (currently only L1_INVALID supported).
         """
         if flag_name == GenericFlags.L1_INVALID:
-            return ds['l1_flags']
+            return ds['l1_invalid']
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
@@ -229,6 +239,56 @@ class _Internal:
         ds.attrs['metadata'] = filter_fn(metadata, template)   
         
         return metadata
+
+    @staticmethod
+    def standard_meteo(ds: xr.Dataset) -> xr.Dataset:
+        """
+        Add the embedded meteo data with standard names and units
+        """
+        ds['horizontal_wind'] = np.sqrt(ds.zonal_wind**2 + ds.merid_wind**2)
+        ds['horizontal_wind'].attrs.update(units='m/s', description='Wind speed')
+        ds['sea_level_pressure'] = ds.atm_press.assign_attrs(units='hPa')
+        ds['total_column_ozone'] = ds.ozone.assign_attrs(units='Dobson')
+        return ds
+
+    @staticmethod
+    def read_detector_table(filename: Path, prefix: str, ds: xr.Dataset) -> xr.DataArray:
+        """
+        Read a per-detector table (columns `{prefix}_band0`... for bands 1...)
+        as a DataArray (bands, detectors)
+        """
+        df = pd.read_csv(filename, delimiter='\t')
+        nbands = len(ds[str(names.bands)])
+        assert len(df.columns) == nbands + 1
+        return xr.DataArray(
+            np.stack([df[f'{prefix}_band{i}'].values for i in range(nbands)]).astype('float32'),
+            dims=(str(names.bands), 'detectors'),
+            coords={str(names.bands): ds[str(names.bands)].values},
+        )
+
+    @staticmethod
+    def detector_lookup(table: xr.DataArray, detector_index: xr.DataArray) -> xr.DataArray:
+        """
+        Broadcast a per-detector table (bands, detectors) to the image grid,
+        using the detector index (NaN where the detector index is invalid)
+        """
+        return xr.apply_ufunc(
+            lambda t, di: np.where(di >= 0, t[:, 0, 0, np.maximum(di, 0)], np.nan).astype(t.dtype),
+            table,
+            detector_index,
+            dask='parallelized',
+            input_core_dims=[['detectors'], []],
+            output_dtypes=[table.dtype],
+        )
+
+    @staticmethod
+    def sun_earth_distance(t: datetime) -> float:
+        """
+        Sun-earth distance in AU (two-term Keplerian expansion of Earth's orbit,
+        with the day of year counted from 0)
+        """
+        M = 2*np.pi*(0.9856002831*(t.timetuple().tm_yday - 1) - 3.4532858)/360.
+        return 1.00014 - 0.01671*np.cos(M) - 0.00014*np.cos(2*M)
 
     @staticmethod
     def read_date(dat: str):
