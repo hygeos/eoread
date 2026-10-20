@@ -13,6 +13,7 @@ How to install SeaDAS OCSSW (see https://seadas.gsfc.nasa.gov/downloads/)
 """
 
 from pathlib import Path
+import numpy as np
 import xarray as xr
 from datetime import datetime
 import subprocess
@@ -255,6 +256,15 @@ def Level1_NASA(filename, chunks=500, normalize_orientation=True):
         reverse = _SENSOR_REVERSE.get(instrument, False)
 
     navi = xr.open_dataset(filename, group='navigation_data', chunks=chunks)
+    if 'pixel_control_points' in navi.dims:
+        # some OCSSW versions store the navigation at control points: only
+        # supported when there is one control point per pixel
+        ncols = xr.open_dataset(filename, group='/geophysical_data').sizes['pixels_per_line']
+        assert (navi.sizes['pixel_control_points'] == ncols) and \
+            (navi.cntl_pt_cols.values == np.arange(1, ncols+1)).all(), \
+            'Navigation data at subsampled control points is not supported'
+        navi = navi.drop_vars(['cntl_pt_cols', 'cntl_pt_rows'], errors='ignore').rename_dims(
+            {'pixel_control_points': 'pixels_per_line'})
     navi = navi.rename_dims({'number_of_lines':str(names.rows), 'pixels_per_line':str(names.columns)})
     if reverse:
         navi = navi.isel({str(names.rows): slice(None, None, -1),
