@@ -159,14 +159,13 @@ def test_l8_rtoa_bt(level1_l8):
     ds = Level1_OLI(level1_l8, resolution=30).ds
     rows, cols = str(names.rows), str(names.columns)
 
-    # A window that is entirely DN=0 in the source file (footprint edge):
-    # those pixels are valid data, so Rtoa must sit exactly at the additive
-    # factor -0.1 — neither masked to NaN nor pushed below it by a legacy
-    # /cos(sza) division.
+    # A window that is entirely DN=0 in the source file (footprint edge, the
+    # GDAL_NODATA value): it must be masked to NaN rather than calibrated to
+    # the additive factor (-0.1), which would look like a plausible but false
+    # negative reflectance.
     zero_win = {rows: slice(1000, 1020), cols: slice(900, 920)}
     r4z = ds[str(names.rtoa)].sel(bands='B4').isel(zero_win).values
-    assert np.isfinite(r4z).all()
-    assert np.abs(r4z + 0.1).max() < 1e-6
+    assert np.isnan(r4z).all()
 
     # A mid-scene window with real signal (DN ~ 10000 -> Rtoa ~ 0.1).
     win = {rows: slice(3990, 4010), cols: slice(3900, 3920)}

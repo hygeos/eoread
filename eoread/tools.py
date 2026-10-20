@@ -82,27 +82,41 @@ def filter_metadata(metadata: dict, template: list) -> dict:
     {'a': 0, 'b': {'c': 1}}
     """  
     
-    # Populate new dictionary with nodes to kept 
-    result = {}    
+    # Populate new dictionary with the selected nodes.  Intermediate nodes are
+    # created once and reused, so several leaves under the same parent are all
+    # kept (e.g. [['b', 'c'], ['b', 'd']] -> {'b': {'c': ..., 'd': ...}}).
+    result = {}
     for key_list in template:
         current_meta = metadata
         current_result = result
-        
+
         # Traverse the nested dictionary using the provided keys
         for key in key_list[:-1]:
-            if isinstance(current_meta, dict) and key in current_meta:
-                current_result[key] = {}
-                current_result = current_result[key]
-                current_meta = current_meta[key]
-            else: 
-                raise ValueError(f'{key} not found')
-            
+            if not isinstance(current_meta, dict):
+                raise ValueError(
+                    f'conflicting template paths at {key!r}: a previous leaf '
+                    f'is used as a group (template: {key_list})')
+            if key not in current_meta:
+                raise ValueError(f'{key} not found (template: {key_list})')
+
+            child = current_result.get(key)
+            if child is None:
+                child = {}
+                current_result[key] = child
+            elif not isinstance(child, dict):
+                raise ValueError(
+                    f'conflicting template paths at {key!r}: a leaf and a '
+                    f'group use the same key (template: {key_list})')
+
+            current_result = child
+            current_meta = current_meta[key]
+
         # If the last key is present, add it to the result
-        if isinstance(current_meta, dict) and key_list[-1] in current_meta:
-            current_result.update({key_list[-1]: current_meta[key_list[-1]]})
-        else:
-            raise ValueError(f'Leaf {key_list[-1]} not found in metadata (template: {key_list})')
-    
+        leaf = key_list[-1]
+        if not isinstance(current_meta, dict) or leaf not in current_meta:
+            raise ValueError(f'Leaf {leaf} not found in metadata (template: {key_list})')
+        current_result[leaf] = current_meta[leaf]
+
     return result
 
 

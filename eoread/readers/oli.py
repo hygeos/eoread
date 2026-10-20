@@ -96,21 +96,33 @@ def _all_nan(dn):
     return dn.copy(data=da.full(dn.shape, np.nan, dtype='float32', chunks=dn.chunks))
 
 
-def _open(path: Path, chunks: dict) -> xr.DataArray:
+def _open(path: Path, chunks: dict, mask_nodata: bool = True) -> xr.DataArray:
     """Open one granule file lazily as a 2D (y, x) DataArray.
 
-    ``mask_and_scale=False`` keeps the native integer dtype: USGS writes
-    GDAL_NODATA=0 on the band rasters, and the backend's default masking
-    would turn every DN==0 pixel (~30% of the footprint corners, which are
-    valid data) into NaN. The reader applies its own calibration from the
-    MTL factors, so no file-side scaling is wanted either. The chunking
-    warning is expected and harmless: the TIFs are stored in 256 px tiles
-    while we read the canonical (larger) output windows.
+    ``mask_and_scale=False`` keeps the native integer dtype: the reader applies
+    its own calibration from the MTL factors, so no file-side scaling is
+    wanted.  The file's GDAL nodata value is nevertheless honoured: the band
+    rasters carry ``GDAL_NODATA=0`` and the rotated-scene corners (~30% of the
+    raster on a typical L1TP granule) are exactly those fill pixels.  Masking
+    them to NaN before calibration is what prevents the fill value from being
+    turned into a plausible-looking negative reflectance.  Set
+    ``mask_nodata=False`` for integer bit-fields such as QA_PIXEL, where the
+    bit pattern must be preserved verbatim.
+
+    The chunking warning is expected and harmless: the TIFs are stored in
+    256 px tiles while we read the canonical (larger) output windows.
     """
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', message='The specified chunks separate')
-        return open_dataarray(path, engine='rasterio', mask_and_scale=False,
-                              chunks=chunks).squeeze()
+        arr = open_dataarray(path, engine='rasterio', mask_and_scale=False,
+                             chunks=chunks).squeeze()
+
+    if mask_nodata:
+        nodata = arr.rio.nodata
+        if nodata is not None:
+            arr = arr.where(arr != nodata)
+
+    return arr
 
 
 class _OliBase(Reader):
@@ -263,7 +275,8 @@ class _OliBase(Reader):
 
         # QA_PIXEL kept raw uint16 on the pixel grid (decoded on demand by
         # FlagsReader_OLI); nearest-neighbour so the bit patterns survive.
-        qa = _open(_only_file(dirname, 'LC*_QA_PIXEL.TIF'), self.chunks)
+        qa = _open(_only_file(dirname, 'LC*_QA_PIXEL.TIF'), self.chunks,
+                   mask_nodata=False)
         qa = qa.rename(x=cols, y=rows)
         qa = qa.assign_coords({rows: np.arange(qa.sizes[rows]), cols: np.arange(qa.sizes[cols])})
         ds['QA_PIXEL'] = spatial_resample(qa, shape, self.chunks, 'repeat').transpose(rows, cols)

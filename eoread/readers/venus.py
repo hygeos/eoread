@@ -31,6 +31,7 @@ REFACTORING.md decision log):
 """
 
 import warnings
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -45,7 +46,7 @@ from core.table import read_xml
 
 from eoread.flags import FlagsReaderBase, GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
-from eoread.tools import (filter_metadata, install_exit_cleanup, open_raster,
+from eoread.tools import (filter_metadata, install_exit_cleanup,
                           spatial_resample)
 from eoread.transforms.angles import tiepoint_angles
 from eoread.transforms.geometry import latlon_utm
@@ -158,6 +159,22 @@ def _grid_node(node):
 def _grid64(node) -> np.ndarray:
     """Parse a tie-point `Values_List` block into a float64 2D array."""
     return np.array([row.split() for row in node['Values_List']['VALUES']], dtype='float64')
+
+
+def _zip_raster_path(path: Path) -> str:
+    """Return the GDAL ``/vsizip`` path of the single raster in a zip archive.
+
+    Keeping GDAL on the archive member makes the mask reads lazy: no temporary
+    extraction is needed, so the data source outlives the reader call and dask
+    can fetch each window when it is actually computed.
+    """
+    path = Path(path).resolve()
+    with zipfile.ZipFile(path) as archive:
+        members = [name for name in archive.namelist() if not name.endswith('/')]
+    if len(members) != 1:
+        raise ProductError(
+            f'expected exactly one raster in {path.name}, found {len(members)}: {members}')
+    return f'/vsizip/{path}/{members[0]}'
 
 
 class _VENUSBase(Reader):
@@ -281,18 +298,32 @@ class _VENUSBase(Reader):
         """Read the level-specific payload and masks onto `ds`. Hook."""
         raise NotImplementedError
 
-    def _lazy_open(self, path: Path) -> xr.DataArray:
-        """Open a raster lazily with the reader chunk spec; drop the CRS coord."""
+    def _lazy_open(self, path: Path | str) -> xr.DataArray:
+        """Open a raster lazily with the reader chunk spec; drop the CRS coord.
+
+        ``path`` may be a regular file or a GDAL ``/vsizip`` pseudo-path (see
+        `_zip_raster_path`).  xarray's rasterio backend rejects pseudo-paths
+        because it checks for a real file first, so the archive branch goes
+        through rioxarray, which passes the path straight to GDAL.
+        """
+        path = str(path)
+        chunks = {'y': self.chunks[str(names.rows)],
+                  'x': self.chunks[str(names.columns)]}
         with warnings.catch_warnings():
             # xarray's chunk normalizer warns when our chunk boundaries fall
             # inside the file's stored tiles (one-shot windowed read; the
             # user-facing chunk spec takes precedence, so the hint is noise).
             warnings.filterwarnings('ignore', category=UserWarning,
                                     message='The specified chunks separate the stored chunks')
-            arr = open_dataarray(
-                str(path), engine='rasterio',
-                chunks={'y': self.chunks[str(names.rows)], 'x': self.chunks[str(names.columns)]},
-            )
+            if path.startswith('/vsizip/'):
+                import rioxarray
+                arr = rioxarray.open_rasterio(
+                    path, chunks=chunks, masked=True, mask_and_scale=True,
+                ).squeeze()
+            else:
+                arr = open_dataarray(
+                    path, engine='rasterio', chunks=chunks,
+                ).squeeze()
         if 'spatial_ref' in arr.coords:
             arr = arr.drop_vars('spatial_ref')
         return arr
@@ -386,17 +417,18 @@ class Level1C_VENUS(_VENUSBase):
         ds[self.payload_var].attrs['unit'] = None
 
         # Classification map: coarse native grid, resampled onto the pixel grid
-        cld = open_raster(dirname / 'DATA', '*CLA_ALL.tif', engine='rasterio')
+        cld = self._lazy_open(_find_file(dirname / 'DATA', '*CLA_ALL.tif'))
         cld = spatial_resample(cld, {str(names.rows): ny, str(names.columns): nx},
                                self.chunks, 'repeat')
         cld = cld.transpose(str(names.rows), str(names.columns))
         ds['CLA_ALL'] = (cld.dims, cld.data)
 
-        # Full-grid quality masks. The zips extract to a temporary directory
-        # that dies with open_raster's context, so read eagerly and re-chunk.
+        # Full-grid quality masks. The zipped rasters are opened through GDAL's
+        # /vsizip path: no temporary extraction, no eager materialization, and
+        # the archive stays readable for every lazily computed window.
         for var in ('CLD_XS', 'USI_XS'):
-            arr = open_raster(dirname / 'MASKS', f'*{var}.zip', compress_ext='.zip',
-                              engine='rasterio').chunk(self.chunks)
+            path = _find_file(dirname / 'MASKS', f'*{var}.zip')
+            arr = self._lazy_open(_zip_raster_path(path))
             assert tuple(arr.shape) == (ny, nx), \
                 f'Venus L1C {var} shape {tuple(arr.shape)} does not match the MTD grid ({ny}, {nx})'
             ds[var] = ((str(names.rows), str(names.columns)), arr.data)
@@ -405,8 +437,8 @@ class Level1C_VENUS(_VENUSBase):
         for name, var in (('PIX', 'PIX_XS'), ('SAT', 'SAT_XS')):
             arrays = []
             for band in bands:
-                arr = open_raster(dirname / 'MASKS', f'*{name}_{band}.zip', compress_ext='.zip',
-                                  engine='rasterio').chunk(self.chunks)
+                path = _find_file(dirname / 'MASKS', f'*{name}_{band}.zip')
+                arr = self._lazy_open(_zip_raster_path(path))
                 assert tuple(arr.shape) == (ny, nx), \
                     f'Venus L1C {name}_{band} shape {tuple(arr.shape)} does not match the MTD grid ({ny}, {nx})'
                 arrays.append(arr.data)

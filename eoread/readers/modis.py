@@ -154,7 +154,7 @@ class _ModisBase(Reader):
             log.warning(
                 f'{self.sensor} {self.level}: the netCDF4 stack lacks HDF4 '
                 f'support; falling back to pyhdf (eoread.hdf4.load_hdf4)')
-            return load_hdf4(filepath, lazy=True)
+            return load_hdf4(filepath, lazy=True, chunks=self.chunks_default)
 
     # ------------------------------------------------------------- metadata
 

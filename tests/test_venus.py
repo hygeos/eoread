@@ -245,6 +245,25 @@ def test_l1_lazy_load(l1):
     generic.Test.lazy_load(l1)
 
 
+def test_l1_masks_lazy(l1):
+    """The zipped masks must be windowed reads, not eager full-array loads.
+
+    `generic.Test.lazy_load` only checks that a dask array is present; a
+    `.chunk()` call on an already-materialized numpy array also passes that
+    check.  This inspects the graph itself: no full-size numpy array may be
+    embedded in it, and the source must stay a lazy raster reader.
+    """
+    ny = l1.sizes[str(names.rows)]
+    nx = l1.sizes[str(names.columns)]
+    for var in ('CLD_XS', 'USI_XS', 'PIX_XS', 'SAT_XS'):
+        arr = l1[var]
+        assert arr.chunks is not None, f'{var} is not lazy'
+        for value in arr.data.__dask_graph__().values():
+            if isinstance(value, np.ndarray):
+                assert value.size < ny * nx, \
+                    f'{var} embeds a full-grid numpy array in its graph'
+
+
 def test_l1_flagreader(l1):
     generic.Test.flagreader(l1)
 

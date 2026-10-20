@@ -9,6 +9,7 @@ but it is complex to install.
 """
 
 import operator
+from threading import Lock
 
 import xarray as xr
 import numpy as np
@@ -46,6 +47,30 @@ def clean_attrs(A):
     return {k: clean(v) for k, v in A.items()}
 
 
+class _HDF4File:
+    """Own one pyhdf ``SD`` handle and the lock shared by all its datasets.
+
+    pyhdf's C API is not thread-safe, so every block read goes through the same
+    lock.  The handle is closed when the last array referencing it is garbage
+    collected (dask tasks keep the wrapper, which keeps this object alive).
+    """
+
+    def __init__(self, hdf):
+        self.hdf = hdf
+        self.lock = Lock()
+
+    def close(self) -> None:
+        hdf, self.hdf = getattr(self, 'hdf', None), None
+        if hdf is not None:
+            try:
+                hdf.close()
+            except Exception:
+                pass
+
+    def __del__(self):
+        self.close()
+
+
 class HDF4_ArrayLike:
     """
     Array-like wrapper for HDF4 Scientific Dataset (SDS) objects.
@@ -59,8 +84,9 @@ class HDF4_ArrayLike:
         shape: Tuple describing array dimensions
         ndim: Number of dimensions
     """
-    def __init__(self, sds):
+    def __init__(self, sds, handle: _HDF4File):
         self.sds = sds
+        self.handle = handle
         self.dtype = {
             SDC.FLOAT32: np.dtype('float32'),
             SDC.FLOAT64: np.dtype('float64'),
@@ -92,29 +118,72 @@ class HDF4_ArrayLike:
         np.ndarray
             NumPy array with requested data.
         """
-        return self.sds.__getitem__(keys)
+        with self.handle.lock:
+            return self.sds.__getitem__(keys)
 
-def _lazy_array(wrapper: 'HDF4_ArrayLike', filename: str, name: str) -> Array:
+
+def _chunks_for(shape: tuple[int, ...], chunks) -> tuple[tuple[int, ...], ...]:
+    """Normalize a chunk size spec to dask's per-dimension chunk tuples."""
+    if chunks is None:
+        chunks = 500
+    if isinstance(chunks, (int, np.integer)):
+        chunks = (int(chunks),) * len(shape)
+    if len(chunks) != len(shape):
+        raise ValueError(
+            f'chunks {chunks!r} do not match the array shape {shape}')
+    out = []
+    for size, chunk in zip(shape, chunks):
+        chunk = int(chunk)
+        if chunk == -1:  # dask convention: one chunk for this dimension
+            chunk = int(size)
+        chunk = max(1, min(chunk, int(size)))
+        out.append(tuple(min(chunk, size - i) for i in range(0, size, chunk)))
+    return tuple(out)
+
+
+def _lazy_array(wrapper: 'HDF4_ArrayLike', filename: str, name: str,
+                chunks=None) -> Array:
     """
-    Wrap an ``HDF4_ArrayLike`` in a lazy dask array without letting numpy probe it.
+    Wrap an ``HDF4_ArrayLike`` in a lazy, windowed dask array.
 
     Passing the wrapper to ``dask.array.array`` (i.e. any ``np.asarray`` path)
     makes numpy iterate over it, which poisons the underlying pyhdf session:
     every subsequent read on that file then fails, including selecting another
-    dataset. The block graph is therefore built by hand -- one task per block,
-    each a plain rectangular slice evaluated at compute time (the reader
-    rechunks afterwards).
+    dataset.  The block graph is therefore built by hand -- one task per
+    rectangular block, each performing a plain slice read at compute time.
+    This is what keeps the pyhdf fallback genuinely lazy: the previous
+    single-block graph read the full SDS before any rechunking.
     """
     shape = tuple(int(s) for s in wrapper.shape)
-    key_name = 'hdf4-' + base.tokenize(filename, name, shape)
-    key = (key_name,) + (0,) * len(shape)
-    dsk = {key: (operator.getitem, wrapper, tuple(slice(None) for _ in shape))}
+    out_chunks = _chunks_for(shape, chunks)
+    key_name = 'hdf4-' + base.tokenize(filename, name, shape, out_chunks)
+
+    dsk = {}
+    for key, slices in _block_keys(key_name, out_chunks):
+        dsk[key] = (operator.getitem, wrapper, slices)
+
     graph = HighLevelGraph.from_collections(key_name, dsk)
-    return Array(graph, key_name, chunks=tuple((s,) for s in shape),
+    return Array(graph, key_name, chunks=out_chunks,
                  dtype=wrapper.dtype, shape=shape)
 
 
-def load_hdf4(filename, trim_dims=False, lazy=False):
+def _block_keys(name: str, chunks: tuple[tuple[int, ...], ...]):
+    """Yield (task key, slice tuple) for every block of the chunk grid."""
+    starts = []
+    for dim_chunks in chunks:
+        dim_starts, offset = [], 0
+        for size in dim_chunks:
+            dim_starts.append(offset)
+            offset += size
+        starts.append(dim_starts)
+
+    for index in np.ndindex(*(len(s) for s in starts)):
+        slices = tuple(slice(starts[axis][i], starts[axis][i] + chunks[axis][i])
+                       for axis, i in enumerate(index))
+        yield (name, *index), slices
+
+
+def load_hdf4(filename, trim_dims=False, lazy=False, chunks=None):
     """
     Load an HDF4 file as an xarray Dataset with optional lazy loading.
     
@@ -129,6 +198,10 @@ def load_hdf4(filename, trim_dims=False, lazy=False):
         If True, removes unused dimensions from the dataset. Default is False.
     lazy : bool, optional
         If True, uses lazy loading (Dask arrays). If False, loads data immediately. Default is False.
+    chunks : int or tuple of int, optional
+        Block size per dimension for the lazy arrays (default: 500). Only used
+        when ``lazy=True``. Each dask task reads one block from the HDF4 file,
+        so this controls both the read window size and the output chunking.
         
     Returns
     -------
@@ -142,14 +215,17 @@ def load_hdf4(filename, trim_dims=False, lazy=False):
     >>> ds = load_hdf4('ancillary_data.hdf', trim_dims=True)
     """
     hdf = SD(str(filename))
+    # One handle per file: it owns the SD session, the shared pyhdf lock and
+    # the lifetime of the session (closed when the last lazy array is freed).
+    handle = _HDF4File(hdf)
     ds = xr.Dataset()
     for name, val in hdf.datasets().items():
         sds = hdf.select(name)
         dims = val[0]
-        data = HDF4_ArrayLike(sds)
+        data = HDF4_ArrayLike(sds, handle)
         attrs = clean_attrs(sds.attributes())
         if lazy:
-            arr = _lazy_array(data, str(filename), name)
+            arr = _lazy_array(data, str(filename), name, chunks=chunks)
         else:
             arr = array(data[:])
         ds[name] = xr.DataArray(arr, dims=dims)
