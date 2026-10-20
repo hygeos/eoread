@@ -29,6 +29,15 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
 - MODIS: clean break (see ``CLEAN_BREAKS``) — radiance formula fix.
 - OLI: clean break (see ``CLEAN_BREAKS``) — Rtoa double solar correction,
   single bands grid, unsigned azimuths.
+- MERIS: identity + schema_version strip (all payloads kept their v1 names;
+  Ltoa and every full-grid field are bit-identical to legacy at mirrored rows).
+  Documented deviations, NOT breaks: south-up flip (v2 row i carries legacy
+  row ny-1-i); ``F0``/``wav`` are always emitted where legacy gated them behind
+  ``read_auxdata=False`` — a superset of the default legacy output; resolution
+  comes from the SPH COLUMN_SPACING field instead of legacy's hardcoded 300 m;
+  ``shortname`` and ``crs`` attributes were added; azimuth angles keep the
+  product's absolute [0, 360) convention (registry declares [0, 180] — a
+  documented registry inconsistency, see the OLCI/MSI entries below).
 - VENUS: identity + schema_version strip (all payloads kept their v1 names;
   L1C payload values are bit-identical to legacy). Documented deviations, NOT
   breaks: south-up flip (v2 row i carries legacy row ny-1-i); new canonical
