@@ -107,8 +107,8 @@ def Level1_SGLI(
     ds.attrs['_flag_reader'] = 'eoread.sgli.FlagsReader_SGLI'
 
     # SRF getter
-    ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_eumetsat'
-    ds.attrs['_srf_getter_arg'] = 'gcom-c_1_sgli'
+    ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_sgli'
+    ds.attrs['_srf_getter_arg'] = 'VN'
     
     if add_ancillary_data: 
         if verbose: log.info('Read ancillary data')
@@ -149,9 +149,11 @@ class FlagsReader_SGLI(FlagsReaderBase):
             Standard flag identifier (L1_INVALID or LAND).
         """
         if flag_name == GenericFlags.L1_INVALID:
-            return ds['quality_flag']
+            # QA_flag bit 0 is the channel integrity (1: integrity)
+            return (ds['quality_flag'] & 1) == 0
         if flag_name == GenericFlags.LAND:
-            return ~ds['water']
+            # Land_water_flag is the rate of land (0: water, 100: land, 255: error)
+            return ds['water'] > 50
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
@@ -171,7 +173,9 @@ class _Internal:
         for band in ds.bands.values:
             Rtoa = imdata[f'Lt_{band[:4]}'].chunk(chunks)
             attrs = Rtoa.attrs
-            Rtoa = (Rtoa & attrs['Mask']) * attrs['Slope_reflectance']
+            DN = Rtoa & attrs['Mask']
+            # DN 16383: missing value, 16382: saturation value
+            Rtoa = (DN * attrs['Slope_reflectance']).where(DN < attrs['Mask'] - 1)
             Rtoa = (Rtoa + attrs['Offset_reflectance'])/mus
             Rtoa.attrs = attrs
             ds[str(names.rtoa)+f'_{band}'] = Rtoa
@@ -211,8 +215,9 @@ class _Internal:
         delta = 10
         for x in [x for x in ds if x.endswith('_tie')]:
             assert ds[x].Resampling_interval == delta
-            assert ds[x].Offset == 0.
-            ds[x] = (1 + ds[x].Slope) * ds[x]
+            attrs = ds[x].attrs
+            ds[x] = (ds[x] * attrs['Slope'] + attrs['Offset']).astype('float32')
+            ds[x].attrs = attrs
 
         # assign tiepoint coordinates
         mapping = {str(names.rows)+'_tie': str(names.rows), str(names.columns)+'_tie': str(names.columns)}
