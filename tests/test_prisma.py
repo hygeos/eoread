@@ -82,9 +82,11 @@ def _write_fake_product(directory):
     with h5py.File(l1, 'w') as f:
         f.attrs['Product_StartTime'] = b'2022-01-01T00:00:00.000000'
         f.attrs['List_Cw_Vnir'] = np.array([500.0, 400.0, 0.0])
+        f.attrs['List_Fwhm_Vnir'] = np.array([10.0, 10.0, 0.0])
         f.attrs['ScaleFactor_Vnir'] = 100.0
         f.attrs['Offset_Vnir'] = 0.0
         f.attrs['List_Cw_Swir'] = np.array([1500.0, 1400.0])
+        f.attrs['List_Fwhm_Swir'] = np.array([10.0, 10.0])
         f.attrs['ScaleFactor_Swir'] = 100.0
         f.attrs['Offset_Swir'] = 0.0
         data = f.create_group('HDFEOS/SWATHS/PRS_L1_HCO/Data Fields')
@@ -128,3 +130,11 @@ def test_raw_invalid_masking(tmp_path):
     flags = FlagsReader_PRISMA().getflag(ds, GenericFlags.L1_INVALID).compute()
     assert int(flags.sum()) == 1
     assert bool(flags.isel(y=3, x=4))
+
+
+
+def test_fwhm(tmp_path):
+    """The band widths are provided, with the central wavelengths"""
+    ds = Level1_PRISMA(_write_fake_product(tmp_path), verbose=False)
+    assert list(ds.fwhm.values) == [10., 10., 10., 10.]
+    assert ds.fwhm.dims == ds.cwav.dims == ('bands',)

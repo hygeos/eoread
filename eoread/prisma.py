@@ -185,17 +185,19 @@ def Level1_PRISMA(
     ds.attrs['_flag_reader'] = 'eoread.prisma.FlagsReader_PRISMA'
 
     if verbose: log.debug('Read radiance cubes')
-    ltoa_list, sat_list, bnames, cwls, bgroups = [], [], [], [], []
+    ltoa_list, sat_list, bnames, cwls, fwhms, bgroups = [], [], [], [], [], []
     for key in ['vnir', 'swir']:
         Key = key.upper()
         # As stored in the product: descending wavelength, 0 = invalid band
         cw = np.asarray(h1.attrs[f'List_Cw_{key.title()}'])
+        fwhm = np.asarray(h1.attrs[f'List_Fwhm_{key.title()}'])
         scale = _h5float(h1.attrs[f'ScaleFactor_{key.title()}'])
         offset = _h5float(h1.attrs[f'Offset_{key.title()}'])
 
         # Output bands in ascending wavelength order, dropping the invalid ones
         idx = np.where(cw > 0)[0][::-1]
         cwls.append(cw[idx].astype('float32'))
+        fwhms.append(fwhm[idx].astype('float32'))
         bnames += [str(int(c)) for c in cw[idx]]
         bgroups += [f'bands_{key}']*len(idx)
 
@@ -211,7 +213,7 @@ def Level1_PRISMA(
         sat_list.append(xr.DataArray(sat[:, idx, :].transpose((1, 0, 2)), dims=dims3))
 
     ds[str(names.ltoa)] = xr.concat(ltoa_list, dim=str(names.bands))
-    ds[str(names.ltoa)].attrs.update(unit='W/m^2/nm/sr')
+    ds[str(names.ltoa)].attrs.update(units='W/m^2/um/sr')
     ds['PIXEL_SAT_ERR_MATRIX'] = xr.concat(sat_list, dim=str(names.bands))
 
     if verbose: log.debug('Read geolocation')
@@ -242,6 +244,8 @@ def Level1_PRISMA(
     ds = ds.assign_coords({str(names.bands): np.array(bnames)})
     ds[str(names.cwav)] = xr.DataArray(np.concatenate(cwls, axis=0), dims=(str(names.bands),))
     ds[str(names.cwav)].attrs.update(unit='nm')
+    ds['fwhm'] = xr.DataArray(np.concatenate(fwhms, axis=0), dims=(str(names.bands),))
+    ds['fwhm'].attrs.update(units='nm', description='Full width at half maximum')
 
     ds = drop_unused_dims(ds)
     ds = ds.set_coords(str(names.bgroup))
