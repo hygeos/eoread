@@ -39,8 +39,10 @@ def Level1B_PACE_OCI(
         "sensor_zenith": str(names.vza),
         "solar_azimuth": str(names.saa),
         "solar_zenith": str(names.sza),
-        "watermask": "water"
+        "watermask": "water",
+        "height": "altitude",
     })
+    ds["altitude"].attrs.update(units="m")
 
     # TOA reflectance
     ds[str(names.rtoa)] = xr.concat(
@@ -93,7 +95,7 @@ def Level1B_PACE_OCI(
         i for i, w in sorted([
             (i, w) for i, w in enumerate(ds.bands.values)
             if w not in seen and not seen.add(w)
-        ], key=lambda x: x[1])
+        ], key=lambda x: int(x[1]))  # numeric (not lexicographic) order
     ]})
 
     return ds
@@ -149,7 +151,7 @@ class FlagsReader_PACE(FlagsReaderBase):
         if flag_name == GenericFlags.L1_INVALID:
             return ds['quality_flag']
         if flag_name == GenericFlags.LAND:
-            return ~ds['water']
+            return ds['water'] == 0  # water may be decoded as float
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
