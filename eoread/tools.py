@@ -144,10 +144,14 @@ def spatial_resample(
         # done lazily for each output chunk (only for the chunks that are
         # used), instead of over the whole output grid at once.
         # (temporary dimension names, to avoid conflicts with the input dims)
+        # (the target coordinates are clipped to the input range, because
+        # of the rounding errors of the chunked linspace)
         params = {
             d: method(DataArray(
                 linspace(coords[d].values[0], coords[d].values[-1],
-                         output_shape[d], chunks=chunks[d]),
+                         output_shape[d], chunks=chunks[d]).clip(
+                    min(coords[d].values[0], coords[d].values[-1]),
+                    max(coords[d].values[0], coords[d].values[-1])),
                 dims=f'_{d}'))
             for d in dims
         }
