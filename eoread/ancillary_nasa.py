@@ -24,13 +24,19 @@ warnings.warn("This module will be deprecated. Please use SAND instead.")
 
 # resources are a list of functions taking the date, and returning the list
 # of file patterns and dates
-forecast_resources = [
-    lambda date: [("GMAO_FP.%Y%m%dT%H0000.MET.NRT.nc", d) for d in round_date(date, 3)],
-]
+# (module-level functions rather than lambdas, so that Ancillary_NASA can be
+# pickled, e.g. for multiprocessing)
+def resource_gmao_fp(date):
+    return [("GMAO_FP.%Y%m%dT%H0000.MET.NRT.nc", d) for d in round_date(date, 3)]
 
-default_resources = [
-    lambda date: [("GMAO_MERRA2.%Y%m%dT%H0000.MET.nc", d) for d in round_date(date, 1)],
-]
+
+def resource_gmao_merra2(date):
+    return [("GMAO_MERRA2.%Y%m%dT%H0000.MET.nc", d) for d in round_date(date, 1)]
+
+
+forecast_resources = [resource_gmao_fp]
+
+default_resources = [resource_gmao_merra2]
 
 
 def wrap_lon(da, dim='longitude'):
@@ -105,7 +111,8 @@ class Ancillary_NASA:
         else:
             self.directory = Path(directory)
 
-        self.resources = default_resources
+        # copy, to avoid extending the module-level list
+        self.resources = list(default_resources)
         if allow_forecast:
             self.resources += forecast_resources
         self.offline = offline
