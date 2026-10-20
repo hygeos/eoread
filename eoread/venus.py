@@ -15,6 +15,7 @@ from core.table import read_xml
 from core.geo.naming import names
 from core.tools import merge, drop_unused_dims
 from core import env, log
+from core.interpolate import interp, Linear
 
 from eoread.flags import GenericFlags, FlagsReaderBase
 from eoread.tools import (
@@ -98,6 +99,7 @@ def Level1_VENUS(
     if verbose: log.debug('Compute LatLon raster')
     geocoding = metadata_granule['Geoposition_Informations']
     ds = _Internal.supplement_latlon(ds, chunks, geocoding)
+    ds = _Internal.read_angles(ds, metadata_granule, chunks)
     
     # read cloud altitude
     if verbose: log.debug('Open masks')
@@ -193,6 +195,7 @@ def Level2_VENUS(
     log.debug('Compute LatLon raster')
     geocoding = metadata_granule['Geoposition_Informations']
     ds = _Internal.supplement_latlon(ds, chunks, geocoding)
+    ds = _Internal.read_angles(ds, metadata_granule, chunks)
 
     # read geaometry
     log.debug('Read and compute geometric angles')
@@ -359,11 +362,11 @@ class FlagsReader_VENUS(FlagsReaderBase):
     
     def requires(self) -> list[str]:
         """Variables required for flag determination."""
-        return ['CLA_ALL', 'CLD_XS']  # Use viewing zenith angle as reference
-    
+        return [str(names.rtoa), 'USI_XS', 'CLD_XS']
+
     def dims_like(self) -> str:
         """Returns a variable name with the same shape as the output."""
-        return 'CLA_ALL'
+        return 'USI_XS'
     
     def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
         """
@@ -372,23 +375,16 @@ class FlagsReader_VENUS(FlagsReaderBase):
         Parameters
         ----------
         ds : xr.Dataset
-            VENµS dataset containing CLA_ALL and CLD_XS variables.
+            VENµS dataset containing Rtoa, USI_XS and CLD_XS variables.
         flag_name : GenericFlags
             Standard flag identifier (L1_INVALID or CLOUD).
         """
         if flag_name == GenericFlags.L1_INVALID:
-            # L1_INVALID is True where vza is NaN (invalid data)
-            return xr.DataArray(
-                ds['CLA_ALL'].isnull(),
-                dims=ds['CLA_ALL'].dims,
-                coords=ds['CLA_ALL'].coords
-            )
+            # outside of the useful image, or aberrant pixel in any band
+            # (the reflectance is NaN)
+            return (ds['USI_XS'] == 0) | ds[str(names.rtoa)].isnull().any(str(names.bands))
         elif flag_name == GenericFlags.CLOUD:
-            return xr.DataArray(
-                ds['CLD_XS'],
-                dims=ds['CLD_XS'].dims,
-                coords=ds['CLD_XS'].coords
-            )
+            return ds['CLD_XS'] != 0
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
@@ -529,6 +525,55 @@ class _Internal:
 
         return ds
     
+    @staticmethod
+    def read_angles(ds: xr.Dataset, xmlgranule: dict, chunks: dict) -> xr.Dataset:
+        """
+        Interpolate the sun and viewing angles on the full grid, from the
+        angles grids of the metadata (the viewing angles of the first
+        detector are used for all bands)
+        """
+        grids = xmlgranule['Geometric_Informations']['Angles_Grids_List']
+        geopos = xmlgranule['Geoposition_Informations']['Geopositioning']
+        geopos = geopos['Group_Geopositioning_List']['Group_Geopositioning']
+        dy, dx = abs(float(geopos['YDIM'])), abs(float(geopos['XDIM']))
+
+        vie = grids['Viewing_Incidence_Angles_Grids_List']
+        vie = vie['Band_Viewing_Incidence_Angles_Grids_List']['Viewing_Incidence_Angles_Grids']
+        if isinstance(vie, list):
+            vie = sorted(vie, key=lambda e: e['attributes']['detector_id'])[0]
+
+        for name, item in [
+            (names.sza, grids['Sun_Angles_Grids']['Zenith']),
+            (names.saa, grids['Sun_Angles_Grids']['Azimuth']),
+            (names.vza, vie['Zenith']),
+            (names.vaa, vie['Azimuth']),
+        ]:
+            values = item['Values_List']['VALUES']
+            if isinstance(values, str):
+                values = [values]
+            tie = np.array([[float(v) for v in row.split()] for row in values], dtype='float32')
+            tie = xr.DataArray(
+                tie,
+                dims=('tie_rows', 'tie_columns'),
+                coords={'tie_rows': np.arange(tie.shape[0]),
+                        'tie_columns': np.arange(tie.shape[1])},
+            )
+            # position of the pixel centers in the angles grid (the grid starts
+            # at the corner of the image, with steps ROW_STEP/COL_STEP in m)
+            y = (np.arange(ds.totalheight) + 0.5)*dy/float(item['ROW_STEP'])
+            x = (np.arange(ds.totalwidth) + 0.5)*dx/float(item['COL_STEP'])
+            y = xr.DataArray(y, dims=str(names.rows)).chunk(chunks[str(names.rows)])
+            x = xr.DataArray(x, dims=str(names.columns)).chunk(chunks[str(names.columns)])
+            ds[str(name)] = interp(
+                tie,
+                tie_rows=Linear(y, bounds='clip'),
+                tie_columns=Linear(x, bounds='clip'),
+            ).drop_vars(
+                [str(names.rows), str(names.columns)], errors='ignore'
+            ).transpose(str(names.rows), str(names.columns)).astype('float32')
+
+        return ds
+
     @staticmethod
     def read_geometry(ds: xr.Dataset, dirname: Path, chunks: list) -> xr.Dataset:
         """Read solar and viewing angle grids from TIFF files."""
