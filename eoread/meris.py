@@ -5,6 +5,7 @@
 MERIS level1 reader
 
 l1 = Level1_MERIS('MER_FRS_1PNPDE20060822_092058_000001972050_00308_23408_0077.N1')
+l1 = Level1_MERIS('ENV_ME_1_RRG____20071102T084033_..._DSI_R_NT____.SEN3')  # 4th reprocessing
 """
 
 
@@ -24,6 +25,7 @@ from core.geo.naming import names
 from core.tools import merge, drop_unused_dims
 
 from eoread.flags import GenericFlags, FlagsReaderBase
+from eoread.olci import read_level1_safe
 from eoread.tools import filter_metadata, collect_sample, format_chunks, sun_earth_distance
 
 
@@ -40,6 +42,45 @@ def Level1_MERIS(
     ) -> xr.Dataset:
     """
     Read an MERIS Level1 product as an xarray.Dataset.
+
+    Envisat N1 files are read with Level1_MERIS_ENVISAT, products of the
+    4th reprocessing (SAFE format, .SEN3 directory) with Level1_MERIS_SAFE.
+
+    See these two readers for the other parameters.
+    """
+    
+    filepath = Path(filepath)
+    assert filepath.exists(), 'File does not exists'
+    if filepath.is_dir():
+        assert not v1_compat, 'v1_compat is not supported for the SAFE format'
+        return Level1_MERIS_SAFE(
+            filepath,
+            chunks=chunks,
+            metadata_template=metadata_template,
+            verbose=verbose,
+        )
+    return Level1_MERIS_ENVISAT(
+        filepath,
+        dir_smile=dir_smile,
+        read_auxdata=read_auxdata,
+        chunks=chunks,
+        metadata_template=metadata_template,
+        v1_compat=v1_compat,
+        verbose=verbose,
+    )
+
+
+def Level1_MERIS_ENVISAT(
+        filepath: str|Path,
+        dir_smile: str|Path = None,
+        read_auxdata: bool | None = None,
+        chunks: int|tuple = 500,
+        metadata_template: list = None,
+        v1_compat: bool = False,
+        verbose: bool = True
+    ) -> xr.Dataset:
+    """
+    Read a MERIS Level1 product of the Envisat N1 format as an xarray.Dataset.
     Formats the Dataset so that it contains the TOA radiances,
     the angles on the full grid, etc.
 
@@ -62,9 +103,8 @@ def Level1_MERIS(
         If True, print debug information. Default is True.
     """
     
-    ds = xr.Dataset()
     filepath = Path(filepath)
-    assert filepath.exists(), 'File does not exists'
+    ds = xr.Dataset()
     bname = filepath.name
     
     # Format chunks
@@ -167,6 +207,61 @@ def Level1_MERIS(
     ds = ds.assign_coords({str(names.bgroup): (str(names.bands), ['bands_vnir']*nb_bands)})
     
     if v1_compat: return _v1_compat(ds, prod, lock, chunks)
+    return ds.unify_chunks()
+
+
+def Level1_MERIS_SAFE(
+        dirname: str|Path,
+        chunks: int|tuple = 500,
+        interp_angles: str = 'linear',
+        metadata_template: list = None,
+        engine: str | None = None,
+        verbose: bool = True
+    ) -> xr.Dataset:
+    """
+    Read a MERIS Level1 product of the 4th reprocessing (SAFE format, as
+    OLCI) as an xarray.Dataset.
+
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the .SEN3 directory
+        (ex: 'ENV_ME_1_RRG____20071102T084033_..._DSI_R_NT____.SEN3').
+
+    See eoread.olci.Level1_OLCI for the other parameters.
+    """
+    dirname = Path(dirname)
+    ds = read_level1_safe(
+        dirname,
+        'merisProductInformation',
+        chunks=chunks,
+        interp_angles=interp_angles,
+        metadata_template=metadata_template,
+        engine=engine,
+        verbose=verbose,
+    )
+    ds[str(names.ltoa)].attrs = {'units': 'mW/(m^2*sr*nm)'}
+
+    # Per-detector wavelength and solar flux (the solar flux of the product
+    # is already corrected for the sun-earth distance)
+    ds[str(names.wav)] = _Internal.detector_lookup(ds.lambda0, ds.detector_index)
+    ds[str(names.wav)].attrs.update(units='nm')
+    ds[str(names.F0)] = _Internal.detector_lookup(ds.solar_flux, ds.detector_index)
+    ds[str(names.F0)].attrs.update(
+        units='mW/(m^2*nm)',
+        description='Solar flux at the acquisition date (corrected for the sun-earth distance)')
+
+    # Attributes
+    ds.attrs[str(names.platform)] = 'ENVISAT'
+    ds.attrs[str(names.resolution)] = 1200 if '_RR' in ds.attrs[str(names.product_name)] else 300
+    ds.attrs['user_guide'] = user_guide
+    # same quality flags as OLCI
+    ds.attrs['_flag_reader'] = 'eoread.olci.FlagsReader_OLCI'
+
+    # SRF getter
+    ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_meris'
+    ds.attrs['_srf_getter_arg'] = ''
+
     return ds.unify_chunks()
 
 

@@ -309,11 +309,11 @@ def check_vars(ds):
             f'contain at least {str(names.ltoa)} or {str(names.rtoa)} or {str(names.bt)}'
         )
     
-    # Check that each variable has a unit attribute
+    # Check that each variable has a unit attribute ('units' (CF) or 'unit')
     for name in [str(names.ltoa), str(names.rtoa), str(names.bt)]:
-        if name not in ds: 
+        if name not in ds:
             continue
-        if not hasattr(ds[name],'unit'):
+        if not any(k in ds[name].attrs for k in ['units', 'unit']):
             raise ValueError(f'{name} does not have a unit field')
     
     # Check spectral variables values

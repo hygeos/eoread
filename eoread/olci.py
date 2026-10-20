@@ -69,22 +69,72 @@ def Level1_OLCI(
     --------
     >>> ds = Level1_OLCI('S3A_OL_1_EFR____*.SEN3/', chunks=1000)
     """
+    ds = read_level1_safe(
+        dirname,
+        'olciProductInformation',
+        chunks=chunks,
+        interp_angles=interp_angles,
+        metadata_template=metadata_template,
+        engine=engine,
+        verbose=verbose,
+    )
+    ds.attrs['_flag_reader'] = 'eoread.olci.FlagsReader_OLCI'
+
+    # SRF getter
+    ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_olci'
+    ds.attrs['_srf_getter_arg'] = {
+        'Sentinel-3A': 'sentinel3_1_olci',
+        'Sentinel-3B': 'sentinel3_2_olci',
+    }[ds.attrs[str(names.platform)]]
+    
+    if verbose: log.debug('compute reflectances')
+    ds = _Internal.olci_init_spectral(ds)
+    ds = _Internal.extract_rtoa(ds)
+
+    if v1_compat: return _v1_compat(ds)
+    return ds.unify_chunks()
+
+
+def read_level1_safe(
+        dirname: Union[str, Path],
+        product_information: str,
+        chunks: Union[int, tuple] = 500,
+        interp_angles: Literal['atan2', 'linear', 'legacy'] = 'linear',
+        metadata_template: Union[list, None] = None,
+        engine: str | None = None,
+        verbose: bool = True
+    ) -> xr.Dataset:
+    """
+    Read the content of a Level1 product in the Sentinel-3 SAFE format
+    (OLCI, and MERIS 4th reprocessing): radiances, geolocation, tie point
+    geometry and meteo on the full grid, instrument data and quality flags.
+
+    Parameters
+    ----------
+    dirname : str or Path
+        Path to the .SEN3 directory.
+    product_information : str
+        ID of the manifest metadata object containing the band descriptions
+        (ex: 'olciProductInformation', 'merisProductInformation').
+
+    See Level1_OLCI for the other parameters.
+    """
     ds = xr.Dataset()
     dirname = Path(dirname)
     assert dirname.exists(), 'Folder does not exist'
-    if (dirname/dirname.name).exists(): 
+    if (dirname/dirname.name).exists():
         dirname = (dirname/dirname.name)
-    
+
     # Format chunks
     chunks = format_chunks(chunks)
     chunks = {'rows': chunks[str(names.rows)], 'columns': chunks[str(names.columns)]}
-    
+
     # read manifest file for file names and footprint
     if verbose: log.debug('Read metadata')
     filter_fn = (lambda x,y: x) if metadata_template is None else filter_metadata
     manifest = read_xml(dirname/'xfdumanifest.xml')
     ds.attrs['metadata'] = filter_fn(manifest, metadata_template)
-    
+
     # Add latlon footprint
     objs = manifest['metadataSection']['metadataObject']
     frameSet_obj = next(o for o in objs if o['attributes']['ID'] == 'measurementFrameSet')
@@ -94,11 +144,11 @@ def Level1_OLCI(
     lat,lon = zip(*footprint)
     ds.attrs['footprint_lat'] = lat
     ds.attrs['footprint_lon'] = lon
-    
+
     # Get band informations
     bandnames, cwvl = [], []
-    olciInfo_obj = next(o for o in objs if o['attributes']['ID'] == 'olciProductInformation')
-    info = olciInfo_obj['metadataWrap']['xmlData']['olciProductInformation']
+    info_obj = next(o for o in objs if o['attributes']['ID'] == product_information)
+    info = info_obj['metadataWrap']['xmlData'][product_information]
     for bn, data in info['bandDescriptions'].items():
         if bn == 'attributes': continue
         bandnames.append(bn)
@@ -106,7 +156,7 @@ def Level1_OLCI(
     ds = ds.assign_coords({str(names.bands): bandnames})
     ds = ds.assign({str(names.cwav): ((str(names.bands)),cwvl)})
     ds = ds.assign_coords({str(names.bgroup): (str(names.bands), ['bands_vnir']*len(cwvl))})
-    
+
     # Check if product level is 1
     text = manifest['informationPackageMap']['contentUnit']['attributes']
     levels = findall(r'Level .', text['textInfo'])
@@ -122,7 +172,7 @@ def Level1_OLCI(
     # Geo coordinates
     geo_coords_file = dirname/'geo_coordinates.nc'
     geo = xr.open_dataset(geo_coords_file, engine=engine, chunks=chunks)
-    for k in geo.variables: 
+    for k in geo.variables:
         ds[k] = geo[k].astype('float32')
         ds[k].attrs.update(geo.attrs)
 
@@ -148,31 +198,18 @@ def Level1_OLCI(
     # quality flags
     if verbose: log.debug('read quality masks')
     qf = xr.open_dataset(dirname/'qualityFlags.nc', engine=engine, chunks=chunks)
-    for var in qf.variables: 
+    for var in qf.variables:
         ds[var] = qf[var]
 
     # dimensions
     ds = ds.rename({'rows':str(names.rows), 'columns':str(names.columns)})
     ds = ds.chunk(dict(detectors=-1))   # FIXME: do this upstream
-    
+
     # attributes
     if verbose: log.debug('add important attributes')
     _Internal.add_attributes(ds, manifest, dirname)
-    ds.attrs['_flag_reader'] = 'eoread.olci.FlagsReader_OLCI'
 
-    # SRF getter
-    ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_olci'
-    ds.attrs['_srf_getter_arg'] = {
-        'Sentinel-3A': 'sentinel3_1_olci',
-        'Sentinel-3B': 'sentinel3_2_olci',
-    }[ds.attrs[str(names.platform)]]
-    
-    if verbose: log.debug('compute reflectances')
-    ds = _Internal.olci_init_spectral(ds)
-    ds = _Internal.extract_rtoa(ds)
-
-    if v1_compat: return _v1_compat(ds)
-    return ds.unify_chunks()
+    return ds
 
 
 def Level2_OLCI(
@@ -365,7 +402,8 @@ class _Internal:
     def read_ltao(dirname: Path, band: str, chunks: dict, collec: dict, engine: str | None = None) -> None:
         """Read Level1 radiance data for a single band."""
         filename = dirname/f'{band}_radiance.nc'
-        da = xr.open_dataarray(filename, engine=engine, chunks=chunks)
+        # MERIS files also contain the radiance error ({band}_radiance_err)
+        da = xr.open_dataset(filename, engine=engine, chunks=chunks)[f'{band}_radiance']
         collec['ltoa'].append(da)
     
     @staticmethod
@@ -536,6 +574,9 @@ class _Internal:
             ('total_columnar_water_vapour', 'total_columnar_water_vapour'),
             ('total_ozone', 'total_column_ozone')
             ]:
+            if tie[var_from].dims != ('tie_rows', 'tie_columns'):
+                # MERIS humidity is provided on pressure levels
+                continue
             raster = spatial_resample(tie[var_from], shape, tie_chunks, 'linear')
             ds[var_to] = raster.rename(mapping).transpose('rows', 'columns')
             ds[var_to].attrs = tie[var_from].attrs
@@ -553,7 +594,8 @@ class _Internal:
         
         plat_obj = next(o for o in meta if o['attributes']['ID'] == 'platform')
         platform = plat_obj['metadataWrap']['xmlData']['platform']
-        ds.attrs[str(names.platform)] = platform['familyName'] + platform['number']
+        # number is read as an int for MERIS (Envisat 1)
+        ds.attrs[str(names.platform)] = platform['familyName'] + str(platform['number'])
         ds.attrs[str(names.resolution)] = 500
         ds.attrs[str(names.sensor)] = platform['instrument']['familyName']['attributes']['abbreviation']
         ds.attrs[str(names.product_name)] = dirname.name
