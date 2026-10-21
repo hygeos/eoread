@@ -74,7 +74,7 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
     Parameters
     ----------
     ds : xarray.Dataset
-        Dataset to check, typically `Reader.ds` after `finalize()`.
+        Dataset to check, typically the dataset returned by a reader call.
     primary : str or None
         Declared primary payload variable ('Ltoa', 'Rtoa', 'BT' or 'LST').
         When None, exactly one of PAYLOADS must be present.

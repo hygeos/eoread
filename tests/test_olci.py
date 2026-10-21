@@ -82,17 +82,17 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_olci, chunks):
-    return Level1_OLCI(level1_olci, chunks=chunks).ds
+    return Level1_OLCI(level1_olci, chunks=chunks)
 
 
 @pytest.fixture
 def l2(level2_olci, chunks):
-    return Level2_OLCI(level2_olci, chunks=chunks).ds
+    return Level2_OLCI(level2_olci, chunks=chunks)
 
 
 @pytest.fixture
 def l2_wrr(level2_olci_wrr, chunks):
-    return Level2_OLCI(level2_olci_wrr, chunks=chunks).ds
+    return Level2_OLCI(level2_olci_wrr, chunks=chunks)
 
 
 # ===========================================================================
@@ -129,12 +129,12 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_subset(level1_olci, chunks):
-    ds = Level1_OLCI(level1_olci, chunks=chunks).ds
+    ds = Level1_OLCI(level1_olci, chunks=chunks)
     generic.Test.subset(ds)
 
 
 def test_l1_plot(request, level1_olci):
-    ds = Level1_OLCI(level1_olci).ds
+    ds = Level1_OLCI(level1_olci)
     generic.plot(request, ds, 'Oa09', poi={'x': 1000, 'y': 3000})
 
 
@@ -243,12 +243,12 @@ def test_l2_lazy_load(l2):
 
 
 def test_l2_subset(level2_olci, chunks):
-    ds = Level2_OLCI(level2_olci, chunks=chunks).ds
+    ds = Level2_OLCI(level2_olci, chunks=chunks)
     generic.Test.subset(ds)
 
 
 def test_l2_plot(request, level2_olci):
-    ds = Level2_OLCI(level2_olci).ds
+    ds = Level2_OLCI(level2_olci)
     generic.plot(request, ds, 'Oa11', poi={'x': 1000, 'y': 3000})
 
 

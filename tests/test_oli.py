@@ -65,12 +65,12 @@ def resolution(request):
 
 @pytest.fixture
 def l8(level1_l8, chunks, resolution):
-    return Level1_OLI(level1_l8, chunks=chunks, resolution=resolution).ds
+    return Level1_OLI(level1_l8, chunks=chunks, resolution=resolution)
 
 
 @pytest.fixture
 def l9(level1_l9, chunks, resolution):
-    return Level1_OLI(level1_l9, chunks=chunks, resolution=resolution).ds
+    return Level1_OLI(level1_l9, chunks=chunks, resolution=resolution)
 
 
 ################################################################################
@@ -106,13 +106,13 @@ def test_l8_flagreader(l8):
 
 
 def test_l8_subset(level1_l8, chunks):
-    ds = Level1_OLI(level1_l8, chunks=chunks, metadata_template=[]).ds
+    ds = Level1_OLI(level1_l8, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l8_plot(request, level1_l8):
     # Full-grid compute; keep it on the 30 m grid.
-    ds = Level1_OLI(level1_l8, resolution=30).ds
+    ds = Level1_OLI(level1_l8, resolution=30)
     generic.plot(request, ds, 'B4', poi={'x': 3000, 'y': 3000})
 
 
@@ -156,7 +156,7 @@ def test_l8_orientation(l8):
 
 def test_l8_rtoa_bt(level1_l8):
     """Pin the USGS C2 calibration (no /cos(sza) division) on small windows."""
-    ds = Level1_OLI(level1_l8, resolution=30).ds
+    ds = Level1_OLI(level1_l8, resolution=30)
     rows, cols = str(names.rows), str(names.columns)
 
     # A window that is entirely DN=0 in the source file (footprint edge, the
@@ -192,7 +192,7 @@ def test_l8_qa_pixel(l8):
 
 
 def test_l8_v1_clean_break(level1_l8):
-    ds = Level1_OLI(level1_l8, resolution=30).ds
+    ds = Level1_OLI(level1_l8, resolution=30)
     with pytest.raises(NotImplementedError):
         v1(ds)
 
@@ -209,8 +209,8 @@ def test_l8_exit_clean_stderr(level1_l8, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         "from eoread.readers.oli import Level1_OLI\n"
-        f"reader = Level1_OLI({str(level1_l8)!r}, resolution=15)\n"
-        "assert reader.ds is not None\n"
+        f"ds = Level1_OLI({str(level1_l8)!r}, resolution=15)\n"
+        "assert ds is not None\n"
         "print('READER_BUILT')\n",
     )
     repo_root = Path(__file__).resolve().parents[1]

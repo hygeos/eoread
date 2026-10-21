@@ -56,12 +56,12 @@ def resolution(request):
 
 @pytest.fixture
 def l1(level1_msi, chunks, resolution):
-    return Level1C_MSI(level1_msi, chunks=chunks, resolution=resolution).ds
+    return Level1C_MSI(level1_msi, chunks=chunks, resolution=resolution)
 
 
 @pytest.fixture
 def l2(level2_msi, chunks, resolution):
-    return Level2A_MSI(level2_msi, chunks=chunks, resolution=resolution).ds
+    return Level2A_MSI(level2_msi, chunks=chunks, resolution=resolution)
 
 
 ################################################################################
@@ -100,7 +100,7 @@ def test_l1_lazy_bands_r10(level1_msi):
     Named with the r10 suffix so the staged runner (-k "l1 and 10") runs it
     in the res-10 stage, where a full-resolution regression would be largest.
     """
-    ds = Level1C_MSI(level1_msi, resolution=10).ds
+    ds = Level1C_MSI(level1_msi, resolution=10)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds[str(names.ltoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -125,8 +125,8 @@ def test_l1_exit_clean_stderr_r10(level1_msi, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         "from eoread.readers.msi import Level1C_MSI\n"
-        f"reader = Level1C_MSI({str(level1_msi)!r}, resolution=10)\n"
-        "assert reader.ds is not None\n"
+        f"ds = Level1C_MSI({str(level1_msi)!r}, resolution=10)\n"
+        "assert ds is not None\n"
         "print('READER_BUILT')\n",
     )
     repo_root = Path(__file__).resolve().parents[1]
@@ -145,12 +145,12 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_subset(level1_msi, chunks):
-    ds = Level1C_MSI(level1_msi, chunks=chunks, metadata_template=[]).ds
+    ds = Level1C_MSI(level1_msi, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l1_plot(request, level1_msi):
-    ds = Level1C_MSI(level1_msi, resolution=60).ds
+    ds = Level1C_MSI(level1_msi, resolution=60)
     generic.plot(request, ds, 'B4', poi={'x': 1000, 'y': 1000})
 
 
@@ -160,7 +160,7 @@ def test_l1_time(level1_msi, chunks):
 
 
 def test_l1_v1_compat(level1_msi):
-    ds = Level1C_MSI(level1_msi, resolution=60).ds
+    ds = Level1C_MSI(level1_msi, resolution=60)
     old = v1(ds)
     assert 'Ltoa' not in old and 'Rtoa' in old
     assert 'schema_version' not in old.attrs

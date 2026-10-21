@@ -20,7 +20,7 @@ zero materialized data at build time; B eagerly decodes the whole raster into
 RAM before any compute (the regression the chunked open avoids).
 
 Usage:
-    pixi run python scripts/check_chunk_open.py              # L1C sample (LEVEL1_MSI)
+    pixi run python scripts/check_chunk_open.py              # registered MSI_L1C sample
     pixi run python scripts/check_chunk_open.py <product>    # any .SAFE path
 """
 import gc
@@ -33,8 +33,6 @@ from pathlib import Path
 import numpy as np
 import rasterio
 from xarray import open_dataarray
-
-from core.env import getdir
 
 
 def rss_mb() -> float:
@@ -76,10 +74,12 @@ def main() -> int:
     if len(sys.argv) > 1:
         root = Path(sys.argv[1])
     else:
+        from eoread.readers.msi import Level1C_MSI
+
         try:
-            root = Path(getdir('LEVEL1_MSI'))
-        except Exception:
-            print('SKIP — no LEVEL1_MSI sample configured; '
+            root = Level1C_MSI.get_sample()
+        except FileNotFoundError as exc:
+            print(f'SKIP — no MSI_L1C sample available ({exc}); '
                   'pass a .SAFE path as an argument')
             return 0
 

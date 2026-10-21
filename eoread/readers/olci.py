@@ -5,8 +5,7 @@ Sentinel-3 OLCI (Ocean and Land Colour Instrument) readers, levels 1 and 2.
 One class per level over a shared sensor base (REFACTORING.md, §4):
 
     >>> from eoread.readers.olci import Level1_OLCI        # doctest: +SKIP
-    >>> reader = Level1_OLCI('S3A_OL_1_EFR____....SEN3')   # doctest: +SKIP
-    >>> ds = reader.ds                                     # doctest: +SKIP
+    >>> ds = Level1_OLCI('S3A_OL_1_EFR____....SEN3')    # doctest: +SKIP
 
 Level 1 (EFR) carries TOA radiance for the 21 acquisition bands; `Rtoa` is a
 declared extra computed lazily from the payload, the tie-point solar zenith

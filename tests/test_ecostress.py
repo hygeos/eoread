@@ -86,22 +86,22 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_ecostress, chunks):
-    return Level1C_Ecostress(level1_ecostress, chunks=chunks).ds
+    return Level1C_Ecostress(level1_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l1b(level1b_ecostress, chunks):
-    return Level1B_Ecostress(level1b_ecostress, chunks=chunks).ds
+    return Level1B_Ecostress(level1b_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l2(level2_ecostress, chunks):
-    return Level2_Ecostress(level2_ecostress, chunks=chunks).ds
+    return Level2_Ecostress(level2_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l2_v002(level2_ecostress_v002, chunks):
-    return Level2_Ecostress(level2_ecostress_v002, chunks=chunks).ds
+    return Level2_Ecostress(level2_ecostress_v002, chunks=chunks)
 
 
 def _window(ds, rows=slice(200, 400), cols=slice(500, 700)):
@@ -114,8 +114,8 @@ def _exit_probe(cls, sample, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         f"from eoread.readers.ecostress import {cls.__name__}\n"
-        f"reader = {cls.__name__}({str(sample)!r})\n"
-        f"assert reader.ds is not None\n"
+        f"ds = {cls.__name__}({str(sample)!r})\n"
+        f"assert ds is not None\n"
         f"print('READER_BUILT')\n",
     )
     repo_root = Path(__file__).resolve().parents[1]
@@ -160,7 +160,7 @@ def test_l1c_lazy_payload(level1_ecostress):
     graph must be strictly smaller than one full grid (the only ndarrays the
     reader embeds are the 5-element calibration tables).
     """
-    ds = Level1C_Ecostress(level1_ecostress).ds
+    ds = Level1C_Ecostress(level1_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds[str(names.ltoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -183,12 +183,12 @@ def test_l1c_flagreader(l1):
 
 
 def test_l1c_subset(level1_ecostress, chunks):
-    ds = Level1C_Ecostress(level1_ecostress, chunks=chunks, metadata_template=[]).ds
+    ds = Level1C_Ecostress(level1_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l1c_plot(request, level1_ecostress):
-    ds = Level1C_Ecostress(level1_ecostress).ds
+    ds = Level1C_Ecostress(level1_ecostress)
     generic.plot(request, ds, '4', poi={'x': 1000, 'y': 3000})
 
 
@@ -198,7 +198,7 @@ def test_l1c_time(level1_ecostress, chunks):
 
 
 def test_l1c_v1_compat(level1_ecostress):
-    ds = Level1C_Ecostress(level1_ecostress).ds
+    ds = Level1C_Ecostress(level1_ecostress)
     old = v1(ds)
     # No variable renames for ECOSTRESS: the payload keeps its canonical name
     assert 'Ltoa' in old
@@ -225,7 +225,7 @@ def test_l1c_parity_legacy(level1_ecostress):
     """
     from eoread.legacy.ecostress import Level1C_ECOSTRESS
 
-    v2 = Level1C_Ecostress(level1_ecostress, chunks=500).ds
+    v2 = Level1C_Ecostress(level1_ecostress, chunks=500)
     legacy = Level1C_ECOSTRESS(level1_ecostress, chunks=500, verbose=False)
 
     ny, nx = v2.sizes[str(names.rows)], v2.sizes[str(names.columns)]
@@ -291,7 +291,7 @@ def test_l1b_lazy_payload(level1b_ecostress):
     graph must be strictly smaller than one full grid (the only ndarrays the
     reader embeds are the 5-element wavelength table).
     """
-    ds = Level1B_Ecostress(level1b_ecostress).ds
+    ds = Level1B_Ecostress(level1b_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds[str(names.ltoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -311,7 +311,7 @@ def test_l1b_flagreader(l1b):
 
 
 def test_l1b_subset(level1b_ecostress, chunks):
-    ds = Level1B_Ecostress(level1b_ecostress, chunks=chunks, metadata_template=[]).ds
+    ds = Level1B_Ecostress(level1b_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
@@ -321,7 +321,7 @@ def test_l1b_time(level1b_ecostress, chunks):
 
 
 def test_l1b_v1_compat(level1b_ecostress):
-    ds = Level1B_Ecostress(level1b_ecostress).ds
+    ds = Level1B_Ecostress(level1b_ecostress)
     old = v1(ds)
     # No variable renames for ECOSTRESS: the payload keeps its canonical name.
     assert 'Ltoa' in old
@@ -377,7 +377,7 @@ def test_l2_lazy_load(l2):
 
 def test_l2_lazy_payload(level2_ecostress):
     """Construction must not materialize full-resolution rasters."""
-    ds = Level2_Ecostress(level2_ecostress).ds
+    ds = Level2_Ecostress(level2_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds['LST'].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -396,7 +396,7 @@ def test_l2_flagreader(l2):
 
 
 def test_l2_subset(level2_ecostress, chunks):
-    ds = Level2_Ecostress(level2_ecostress, chunks=chunks, metadata_template=[]).ds
+    ds = Level2_Ecostress(level2_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
@@ -406,7 +406,7 @@ def test_l2_time(level2_ecostress, chunks):
 
 
 def test_l2_v1_compat(level2_ecostress):
-    ds = Level2_Ecostress(level2_ecostress).ds
+    ds = Level2_Ecostress(level2_ecostress)
     old = v1(ds)
     assert 'LST' in old
     assert 'schema_version' not in old.attrs

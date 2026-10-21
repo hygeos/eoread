@@ -5,8 +5,7 @@ Sentinel-2 MSI (MultiSpectral Instrument) readers, levels 1C and 2A.
 One class per level (REFACTORING.md, §4), sharing a sensor base:
 
     >>> from eoread.readers.msi import Level1C_MSI        # doctest: +SKIP
-    >>> reader = Level1C_MSI('S2A_MSIL1C_...SAFE')        # doctest: +SKIP
-    >>> ds = reader.ds                                    # doctest: +SKIP
+    >>> ds = Level1C_MSI('S2A_MSIL1C_...SAFE')            # doctest: +SKIP
 
 Differences from the legacy v1 readers (documented clean breaks, see the
 REFACTORING.md decision log):

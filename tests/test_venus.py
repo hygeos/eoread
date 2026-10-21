@@ -76,12 +76,12 @@ def l2_dir():
 
 @pytest.fixture(scope='session')
 def l1(l1_dir):
-    return Level1C_VENUS(l1_dir, chunks=500).ds
+    return Level1C_VENUS(l1_dir, chunks=500)
 
 
 @pytest.fixture(scope='session')
 def l2(l2_dir):
-    return Level2A_VENUS(l2_dir, chunks=500).ds
+    return Level2A_VENUS(l2_dir, chunks=500)
 
 
 @pytest.fixture(scope='session')
@@ -278,7 +278,7 @@ def test_l1_flag_values(l1):
 
 
 def test_l1_subset(l1_dir):
-    ds = Level1C_VENUS(l1_dir, metadata_template=[]).ds
+    ds = Level1C_VENUS(l1_dir, metadata_template=[])
     generic.Test.subset(ds)
 
 
@@ -365,8 +365,8 @@ def test_l1_exit_probe(l1_dir, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         "from eoread.readers.venus import Level1C_VENUS\n"
-        f"reader = Level1C_VENUS({str(l1_dir)!r})\n"
-        "assert reader.ds is not None\n"
+        f"ds = Level1C_VENUS({str(l1_dir)!r})\n"
+        "assert ds is not None\n"
         "print('READER_BUILT')\n",
     )
     repo_root = Path(__file__).resolve().parents[1]
@@ -433,7 +433,7 @@ def test_l2_flag_values(l2):
 
 
 def test_l2_subset(l2_dir, chunks):
-    ds = Level2A_VENUS(l2_dir, chunks=chunks, metadata_template=[]).ds
+    ds = Level2A_VENUS(l2_dir, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
@@ -523,8 +523,8 @@ def test_l2_exit_probe(l2_dir, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         "from eoread.readers.venus import Level2A_VENUS\n"
-        f"reader = Level2A_VENUS({str(l2_dir)!r})\n"
-        "assert reader.ds is not None\n"
+        f"ds = Level2A_VENUS({str(l2_dir)!r})\n"
+        "assert ds is not None\n"
         "print('READER_BUILT')\n",
     )
     repo_root = Path(__file__).resolve().parents[1]

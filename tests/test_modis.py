@@ -53,7 +53,7 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_modisa_myd, chunks):
-    return Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
+    return Level1B_MODIS(level1_modisa_myd, chunks=chunks)
 
 
 # ===========================================================================
@@ -88,12 +88,12 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_subset(level1_modisa_myd, chunks):
-    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
+    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks)
     generic.Test.subset(ds)
 
 
 def test_l1_plot(request, level1_modisa_myd):
-    ds = Level1B_MODIS(level1_modisa_myd).ds
+    ds = Level1B_MODIS(level1_modisa_myd)
     # Band labels are the file-native float values as strings (legacy parity).
     generic.plot(request, ds, '1.0', poi={'x': 1000, 'y': 1000})
 
@@ -201,7 +201,7 @@ def test_l1_gflags(l1):
 
 
 def test_l1_v1_clean_break(level1_modisa_myd):
-    ds = Level1B_MODIS(level1_modisa_myd).ds
+    ds = Level1B_MODIS(level1_modisa_myd)
     with pytest.raises(NotImplementedError):
         v1(ds)
 
@@ -214,7 +214,7 @@ def test_l1_pyhdf_fallback(level1_modisa_myd, chunks, monkeypatch):
         raise OSError('[Errno -128] NetCDF: HDF4 is not supported')
 
     monkeypatch.setattr(modis_module.xr, 'open_dataset', fake_open)
-    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks).ds
+    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks)
     generic.Test.main(ds, angle_data=False)
 
 

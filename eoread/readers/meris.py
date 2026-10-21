@@ -3,8 +3,7 @@
 MERIS (Medium Resolution Imaging Spectrometer) reader, level L1 (N1 products).
 
     >>> from eoread.readers.meris import Level1_MERIS       # doctest: +SKIP
-    >>> reader = Level1_MERIS('MER_RR__1PRACR...N1')        # doctest: +SKIP
-    >>> ds = reader.ds                                      # doctest: +SKIP
+    >>> ds = Level1_MERIS('MER_RR__1PRACR...N1')            # doctest: +SKIP
 
 Differences from the legacy v1 reader (documented deviations, see the
 REFACTORING.md decision log):

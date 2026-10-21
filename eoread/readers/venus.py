@@ -5,8 +5,7 @@ VENµS (visible and near-infrared camera) readers, levels L1C and L2A.
 One class per level (REFACTORING.md, §4), sharing a sensor base:
 
     >>> from eoread.readers.venus import Level1C_VENUS       # doctest: +SKIP
-    >>> reader = Level1C_VENUS('VENUS-XS_..._L1C_...')       # doctest: +SKIP
-    >>> ds = reader.ds                                       # doctest: +SKIP
+    >>> ds = Level1C_VENUS('VENUS-XS_..._L1C_...')    # doctest: +SKIP
 
 Differences from the legacy v1 readers (documented deviations, see the
 REFACTORING.md decision log):

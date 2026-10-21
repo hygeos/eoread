@@ -68,7 +68,7 @@ def l1_dir():
 
 @pytest.fixture(scope='session')
 def l1(l1_dir):
-    return Level1_MERIS(l1_dir, chunks=500).ds
+    return Level1_MERIS(l1_dir, chunks=500)
 
 
 @pytest.fixture(params=[500, (400, 600)])
@@ -161,7 +161,7 @@ def test_l1_flag_values(l1):
 
 
 def test_l1_subset(l1_dir):
-    ds = Level1_MERIS(l1_dir, metadata_template=[]).ds
+    ds = Level1_MERIS(l1_dir, metadata_template=[])
     generic.Test.subset(ds)
 
 
@@ -307,8 +307,8 @@ def test_l1_exit_probe(l1_dir, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
         "from eoread.readers.meris import Level1_MERIS\n"
-        f"reader = Level1_MERIS({str(l1_dir)!r})\n"
-        "x = reader.ds['Ltoa'].isel(y=slice(100, 200), x=slice(100, 200)).compute()\n"
+        f"ds = Level1_MERIS({str(l1_dir)!r})\n"
+        "x = ds['Ltoa'].isel(y=slice(100, 200), x=slice(100, 200)).compute()\n"
         "print('COMPUTED', float(x.mean()))\n",
     )
     repo_root = Path(__file__).resolve().parents[1]

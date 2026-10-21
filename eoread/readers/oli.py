@@ -5,8 +5,7 @@ Landsat OLI (Operational Land Imager) reader, level 1TP (Landsat-8 / Landsat-9).
 One class per level (REFACTORING.md, §4), sharing a sensor base:
 
     >>> from eoread.readers.oli import Level1_OLI        # doctest: +SKIP
-    >>> reader = Level1_OLI('LC08_L1TP_...')             # doctest: +SKIP
-    >>> ds = reader.ds                                    # doctest: +SKIP
+    >>> ds = Level1_OLI('LC08_L1TP_...')    # doctest: +SKIP
 
 Differences from the legacy v1 reader (documented clean breaks, see the
 REFACTORING.md decision log):

@@ -12,8 +12,7 @@ level, REFACTORING.md §4):
   L1B_GEO file for the geolocation layers (see `_EcostressPlainBase`).
 
     >>> from eoread.readers.ecostress import Level1C_Ecostress  # doctest: +SKIP
-    >>> reader = Level1C_Ecostress('ECOv002_L1CG_RAD_...h5')    # doctest: +SKIP
-    >>> ds = reader.ds                                          # doctest: +SKIP
+    >>> ds = Level1C_Ecostress('ECOv002_L1CG_RAD_...h5')    # doctest: +SKIP
 
 The ECOSTRESS level-1 radiance products of the PGE promise a single output
 contract (TOA radiance + brightness temperature, water/cloud/data-quality

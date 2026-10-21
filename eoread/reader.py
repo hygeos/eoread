@@ -3,20 +3,18 @@
 Base class for the v2 readers (see REFACTORING.md, §4).
 
 A reader is a class — one per (sensor, level), grouped by sensor base.
-Calling it reads the product and returns an instance holding the lazy dataset
-in `.ds`:
+Calling it reads the product and returns the lazy dataset directly:
 
     >>> from eoread.readers.msi import Level1C_MSI        # doctest: +SKIP
-    >>> reader = Level1C_MSI('S2A_MSIL1C_...SAFE')        # doctest: +SKIP
-    >>> ds = reader.ds                                    # doctest: +SKIP
+    >>> ds = Level1C_MSI('S2A_MSIL1C_...SAFE')            # doctest: +SKIP
 
 The base signature is fixed for every reader; reader-specific options may be
 added as extra keyword arguments with defaults (e.g. `resolution` on MSI):
 
     Reader(path, chunks=None, metadata_template=None, verbose=False)
 
-Reading must stay lazy (dask-backed): nothing may be computed in `__init__`
-beyond what is unavoidable to build the graph.
+Reading must stay lazy (dask-backed): nothing may be computed during
+construction beyond what is unavoidable to build the graph.
 """
 
 from pathlib import Path
@@ -40,7 +38,15 @@ class UnsupportedProductVersion(ProductError):
     """Raised when a product version/baseline is outside the supported range."""
 
 
-class Reader:
+class _ReaderMeta(type):
+    """Make ``ReaderClass(path, ...)`` return the dataset, not a reader object."""
+
+    def __call__(cls, *args, **kwargs):
+        reader = super().__call__(*args, **kwargs)
+        return reader.finalize(reader.read(reader.path))
+
+
+class Reader(metaclass=_ReaderMeta):
     """Base class for all v2 readers.
 
     Class attributes declaring the reader contract (enforced by
@@ -79,12 +85,12 @@ class Reader:
     flags = None
 
     def __init__(self, path, chunks=None, metadata_template=None, verbose=False):
+        # Options only: reading is triggered by _ReaderMeta.__call__, which
+        # returns the finalized dataset instead of the reader instance.
         self.path = Path(path)
         self.chunks = format_chunks(chunks if chunks is not None else self.chunks_default)
         self.metadata_template = metadata_template
         self.verbose = verbose
-        ds = self.read(self.path)
-        self.ds = self.finalize(ds)
 
     # ------------------------------------------------------------------ api
 
