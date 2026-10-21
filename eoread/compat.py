@@ -49,6 +49,17 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   legacy int-vs-string band alignment produced an all-NaN variable); lat/lon
   from a proper per-block UTM transform instead of legacy's flipped corner
   linear interpolation.
+- PACE: identity + schema_version strip (payload kept its v1 name ``Rtoa``;
+  values are bit-identical to legacy at the pinned window). Documented
+  deviations, NOT breaks: per-band chunking where legacy read one all-bands
+  block; flags returned as boolean masks where legacy returned raw values —
+  ``LAND`` repairs a latent legacy TypeError (``~water`` on the float32
+  watermask); ``shortname``/``crs`` attributes were added; ``resolution``
+  keeps legacy's hardcoded 1200 m (no data-driven spacing in the product);
+  azimuth angles keep the product's signed relative [-180, 180] convention
+  (registry declares [0, 180] — a documented registry inconsistency, see the
+  OLCI/MSI entries above). No orientation change: the product is natively
+  south-up and legacy kept it that way.
 """
 
 from core.geo.naming import names

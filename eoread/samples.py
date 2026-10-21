@@ -105,6 +105,11 @@ _samples: dict[str, Sample] = {
     'VENUS_L2A': Sample(
         _CEPH / 'VENUS' / 'VENUS-XS_20230116-112657-000_L2A_VILAINE_C_V3-1',
         'VENµS L2A'),
+
+    # PACE OCI
+    'PACE_L1B': Sample(
+        _CEPH / 'PACE_OCI' / 'PACE_OCI.20250430T130447.L1B.V3.nc',
+        'PACE OCI L1B'),
 }
 
 
