@@ -4,9 +4,9 @@
 v2 conformance tests for the Landsat OLI reader (Phase 5).
 
 Samples (see tests/README.md):
-- LEVEL1_L8: LC08 L1TP granule, EPSG:32610, 7671 x 7811 pixels at 30 m
+- OLI_L1TP_L8: LC08 L1TP granule, EPSG:32610, 7671 x 7811 pixels at 30 m
   (pan B8 at 15341 x 15621 / 15 m).
-- LEVEL1_L9: LC09 L1TP granule, EPSG:32621, 7831 x 7871 pixels at 30 m.
+- OLI_L1TP_L9: LC09 L1TP granule, EPSG:32621, 7831 x 7871 pixels at 30 m.
 
 The legacy v1 reader is kept as the reference implementation
 (eoread/legacy/oli.py); these tests pin the v2 contract instead: schema
@@ -27,7 +27,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
@@ -45,12 +45,12 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_l8():
-    return require_sample('LEVEL1_L8')
+    return get_sample(Level1_OLI, 'OLI_L1TP_L8')
 
 
 @pytest.fixture(scope='session')
 def level1_l9():
-    return require_sample('LEVEL1_L9')
+    return get_sample(Level1_OLI, 'OLI_L1TP_L9')
 
 
 @pytest.fixture(params=[500, (500, 700)])
@@ -208,9 +208,8 @@ def test_l8_exit_clean_stderr(level1_l8, tmp_path):
     """
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        "import os\n"
         "from eoread.readers.oli import Level1_OLI\n"
-        "reader = Level1_OLI(os.environ['LEVEL1_L8'], resolution=15)\n"
+        f"reader = Level1_OLI({str(level1_l8)!r}, resolution=15)\n"
         "assert reader.ds is not None\n"
         "print('READER_BUILT')\n",
     )

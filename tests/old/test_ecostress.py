@@ -1,11 +1,11 @@
 import pytest
-from ..conftest import require_sample
+from ..conftest import get_sample
 from eoread.legacy.ecostress import Level1C_ECOSTRESS
 from .. import generic
 
 
 @pytest.fixture(scope="session")
-def level1C_ecostress(): return require_sample('LEVEL1_ECOSTRESS')
+def level1C_ecostress(): return get_sample('ECOSTRESS_L1C')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

@@ -3,8 +3,8 @@
 """
 v2 conformance tests for the Sentinel-2 MSI readers (Phase 1).
 
-Samples (see tests/README.md): LEVEL1_MSI is an S2A L1C baseline-5 product;
-LEVEL2_MSI is an S2B L2A baseline-5.11 product (no B10, B8 present in R10m).
+Samples (see tests/README.md): MSI_L1C is an S2A L1C baseline-5 product;
+MSI_L2A is an S2B L2A baseline-5.11 product (no B10, B8 present in R10m).
 """
 
 import gc
@@ -18,7 +18,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.readers.msi import Level1C_MSI, Level2A_MSI
@@ -36,12 +36,12 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_msi():
-    return require_sample('LEVEL1_MSI')
+    return get_sample(Level1C_MSI)
 
 
 @pytest.fixture(scope='session')
 def level2_msi():
-    return require_sample('LEVEL2_MSI')
+    return get_sample(Level2A_MSI)
 
 
 @pytest.fixture(params=[500, (400, 600)])
@@ -124,9 +124,8 @@ def test_l1_exit_clean_stderr_r10(level1_msi, tmp_path):
     """
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        "import os\n"
         "from eoread.readers.msi import Level1C_MSI\n"
-        "reader = Level1C_MSI(os.environ['LEVEL1_MSI'], resolution=10)\n"
+        f"reader = Level1C_MSI({str(level1_msi)!r}, resolution=10)\n"
         "assert reader.ds is not None\n"
         "print('READER_BUILT')\n",
     )

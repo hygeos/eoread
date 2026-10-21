@@ -23,6 +23,7 @@ from pathlib import Path
 
 import xarray as xr
 
+from .samples import resolve as resolve_sample
 from .schema import SCHEMA_VERSION, validate
 from .tools import filter_metadata, format_chunks
 
@@ -55,6 +56,9 @@ class Reader:
         Primary payload variable ('Ltoa', 'Rtoa' or 'BT').
     required_vars : tuple of str
         Variables this reader must emit.
+    sample_products : tuple of str
+        Sample-product IDs registered in `eoread.samples` (e.g. 'MSI_L1C').
+        The first resolvable product is returned by `get_sample`.
     VARIANTS : dict, optional
         Variant table for product types within a level (see `detect_variant`).
     flags : dict or None
@@ -70,6 +74,7 @@ class Reader:
     chunks_default = 500
     payload_var = None
     required_vars = ()
+    sample_products = ()
     VARIANTS = {}
     flags = None
 
@@ -102,6 +107,45 @@ class Reader:
         ds.attrs['schema_version'] = SCHEMA_VERSION
         validate(ds, primary=self.payload_var, required_vars=self.required_vars)
         return ds
+
+    # ------------------------------------------------------------- samples
+
+    @classmethod
+    def get_sample(cls, product: str | None = None) -> Path:
+        """Resolve one of the reader's sample products to an existing path.
+
+        With no argument, the IDs in `sample_products` are tried in order and
+        the first one whose environment variable points to an existing path is
+        returned.  Passing an explicit `product` ID selects it directly.
+
+        Sample metadata (environment variable, description) lives in
+        `eoread.samples`; readers only declare which IDs they support.
+        """
+        if product is not None:
+            if product not in cls.sample_products:
+                raise KeyError(
+                    product+' is not part of declared sample products'
+                    f'{cls.sample_products}')
+            return resolve_sample(product)
+
+        products = cls.sample_products
+        if isinstance(products, str):
+            products = (products,)
+        if not products:
+            raise NotImplementedError(
+                f'{cls.__name__} does not declare any sample product '
+                f'(set the sample_products class attribute)')
+
+        errors = []
+        for name in products:
+            try:
+                return resolve_sample(name)
+            except (FileNotFoundError, KeyError) as exc:
+                errors.append(f'  - {exc}')
+
+        raise FileNotFoundError(
+            f'no sample product available for {cls.sensor} {cls.level}:\n'
+            + '\n'.join(errors))
 
     # ------------------------------------------------------------- variants
 

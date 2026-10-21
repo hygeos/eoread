@@ -3,9 +3,8 @@
 """
 v2 conformance + legacy parity tests for the MERIS reader (L1, N1 products).
 
-Real-data policy (tests/README.md): each test reads its sample path from an
-environment variable via require_sample(); missing variable or path means a
-clean skip.
+Real-data policy (tests/README.md): each test reads its sample path from the
+sample registry via get_sample(); missing sample means a clean skip.
 
 Parity with the legacy reader (eoread.legacy.meris) is pinned at a fixed
 window of pixel coordinates. Documented deviations from legacy (see
@@ -34,7 +33,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
@@ -64,7 +63,7 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def l1_dir():
-    return require_sample('LEVEL1_MERIS')
+    return get_sample(Level1_MERIS)
 
 
 @pytest.fixture(scope='session')
@@ -307,9 +306,8 @@ def test_l1_exit_probe(l1_dir, tmp_path):
     """
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        "import os\n"
         "from eoread.readers.meris import Level1_MERIS\n"
-        "reader = Level1_MERIS(os.environ['LEVEL1_MERIS'])\n"
+        f"reader = Level1_MERIS({str(l1_dir)!r})\n"
         "x = reader.ds['Ltoa'].isel(y=slice(100, 200), x=slice(100, 200)).compute()\n"
         "print('COMPUTED', float(x.mean()))\n",
     )

@@ -332,6 +332,7 @@ class Level1_OLI(_OliBase):
 
     level = 'L1TP'
     payload_var = str(names.rtoa)
+    sample_products = ('OLI_L1TP_L8', 'OLI_L1TP_L9')
 
 
 class FlagsReader_OLI(FlagsReaderBase):

@@ -1,7 +1,7 @@
 import pytest
 
 from .. import generic
-from ..conftest import require_sample
+from ..conftest import get_sample
 from eoread.legacy.pace import Level1B_PACE_OCI
 from core.tests import conftest
 
@@ -9,7 +9,7 @@ from core.tests import conftest
 
 @pytest.fixture
 def level1_oci():
-    return require_sample('LEVEL1_PACE')
+    return get_sample('LEVEL1_PACE')
 
 @pytest.fixture
 def OCI_product(chunks, level1_oci):

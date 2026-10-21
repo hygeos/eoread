@@ -400,6 +400,7 @@ class Level1C_VENUS(_VENUSBase):
 
     level = 'L1C'
     payload_var = str(names.rtoa)
+    sample_products = ('VENUS_L1C',)
     flags = 'eoread.readers.venus.FlagsReader_VENUS'
     srf_getter = 'eoread.readers.venus.get_SRF'
 
@@ -450,6 +451,7 @@ class Level2A_VENUS(_VENUSBase):
 
     level = 'L2A'
     payload_var = 'rho_surface'
+    sample_products = ('VENUS_L2A',)
     flags = 'eoread.readers.venus.FlagsReader_Level2A'
 
     def _read_level_vars(self, ds, dirname, radio, bands, quantif, ny, nx):

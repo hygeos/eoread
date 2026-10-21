@@ -223,6 +223,7 @@ class Level1C_Ecostress(_EcostressBase):
 
     level = 'L1C'
     payload_var = str(names.ltoa)
+    sample_products = ('ECOSTRESS_L1C',)
     required_vars = (str(names.bt), 'water', 'cloud', 'data_quality')
 
     #: Product types of the ECOSTRESS L1 family, keyed for `detect_variant`.
@@ -569,6 +570,7 @@ class Level1B_Ecostress(_EcostressPlainBase):
 
     level = 'L1B'
     payload_var = str(names.ltoa)
+    sample_products = ('ECOSTRESS_L1B',)
     required_vars = (str(names.bt), 'data_quality', 'water', 'land_fraction')
     flags = 'eoread.readers.ecostress.FlagsReader_Level1B'
 
@@ -644,6 +646,7 @@ class Level2_Ecostress(_EcostressPlainBase):
 
     level = 'L2'
     payload_var = 'LST'
+    sample_products = ('ECOSTRESS_L2_V001', 'ECOSTRESS_L2_V002')
     required_vars = ('LST_err', 'emis', 'emis_err', 'EmisWB', 'PWV', 'QC',
                      'water', 'land_fraction')
     flags = 'eoread.readers.ecostress.FlagsReader_Level2'

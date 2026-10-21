@@ -3,9 +3,8 @@
 """
 v2 conformance + legacy parity tests for the VENUS readers (L1C and L2A).
 
-Real-data policy (tests/README.md): each test reads its sample path from an
-environment variable via require_sample(); missing variable or path means a
-clean skip.
+Real-data policy (tests/README.md): each test reads its sample path from the
+sample registry via get_sample(); missing sample means a clean skip.
 
 Parity with the legacy readers (eoread.legacy.venus) is pinned at a fixed
 window of pixel coordinates, plus full-array compares for the small tie-point
@@ -42,7 +41,7 @@ from core.geo.naming import names
 from core.table import read_xml
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
@@ -67,12 +66,12 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def l1_dir():
-    return require_sample('LEVEL1_VENUS')
+    return get_sample(Level1C_VENUS)
 
 
 @pytest.fixture(scope='session')
 def l2_dir():
-    return require_sample('LEVEL2_VENUS')
+    return get_sample(Level2A_VENUS)
 
 
 @pytest.fixture(scope='session')
@@ -365,9 +364,8 @@ def test_l1_exit_probe(l1_dir, tmp_path):
     """
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        "import os\n"
         "from eoread.readers.venus import Level1C_VENUS\n"
-        "reader = Level1C_VENUS(os.environ['LEVEL1_VENUS'])\n"
+        f"reader = Level1C_VENUS({str(l1_dir)!r})\n"
         "assert reader.ds is not None\n"
         "print('READER_BUILT')\n",
     )
@@ -524,9 +522,8 @@ def test_l2_parity_legacy(l2, l2_dir, l2_mtd):
 def test_l2_exit_probe(l2_dir, tmp_path):
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        "import os\n"
         "from eoread.readers.venus import Level2A_VENUS\n"
-        "reader = Level2A_VENUS(os.environ['LEVEL2_VENUS'])\n"
+        f"reader = Level2A_VENUS({str(l2_dir)!r})\n"
         "assert reader.ds is not None\n"
         "print('READER_BUILT')\n",
     )

@@ -423,6 +423,7 @@ class Level1_OLCI(_OlciBase):
 
     level = 'L1'
     payload_var = str(names.ltoa)
+    sample_products = ('OLCI_L1_EFR',)
     required_vars = (str(names.rtoa), 'quality_flags')
     flags = 'eoread.readers.olci.FlagsReader_OLCI'
     _band_suffix = 'radiance'
@@ -491,6 +492,7 @@ class Level2_OLCI(_OlciBase):
 
     level = 'L2'
     payload_var = str(names.rho_w)
+    sample_products = ('OLCI_L2_WFR', 'OLCI_L2_WRR')
     required_vars = ('uncertainty',)
     flags = None
     _band_suffix = 'reflectance'

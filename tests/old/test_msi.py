@@ -4,17 +4,17 @@
 import pytest
 
 from .. import generic
-from ..conftest import require_sample
+from ..conftest import get_sample
 from eoread.legacy.msi import Level1_MSI, Level2_MSI
 
 
 @pytest.fixture(scope="session")
 def level1_msi(): 
-    return require_sample('LEVEL1_MSI')
+    return get_sample('MSI_L1C')
 
 @pytest.fixture(scope="session")
 def level2_msi(): 
-    return require_sample('LEVEL2_MSI')
+    return get_sample('MSI_L2A')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

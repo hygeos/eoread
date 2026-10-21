@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import xarray as xr
 
-from ..conftest import require_sample
+from ..conftest import get_sample
 from eoread.legacy.sgli import Level1_SGLI
 from core.env import getdir
 from .. import generic
@@ -13,7 +13,7 @@ from .. import generic
 
 
 @pytest.fixture(scope="module")
-def level1_sgli() -> Path: return require_sample('LEVEL1_SGLI')
+def level1_sgli() -> Path: return get_sample('LEVEL1_SGLI')
 
 @pytest.fixture(params=[500, (400, 600)])
 def chunks(request):

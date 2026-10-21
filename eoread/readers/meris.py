@@ -127,6 +127,7 @@ class Level1_MERIS(Reader):
     level = 'L1'
     chunks_default = 500
     payload_var = str(names.ltoa)
+    sample_products = ('MERIS_L1',)
     required_vars = (str(names.sza), str(names.saa), str(names.vza), str(names.vaa),
                      str(names.F0), str(names.wav), 'l1_flags', 'detector_index')
     flags = 'eoread.readers.meris.FlagsReader_MERIS'

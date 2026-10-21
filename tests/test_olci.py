@@ -4,11 +4,11 @@
 v2 conformance tests for the OLCI readers (Phase 3).
 
 Samples (see tests/README.md):
-- LEVEL1_OLCI: S3A OLCI L1 EFR granule, 4091 x 4865 pixels, 21 acquisition
+- OLCI_L1_EFR: S3A OLCI L1 EFR granule, 4091 x 4865 pixels, 21 acquisition
   bands, low-latitude ocean scene.
-- LEVEL2_OLCI: S3A OLCI L2 WFR water product (same frame grid, 16-band ocean
+- OLCI_L2_WFR: S3A OLCI L2 WFR water product (same frame grid, 16-band ocean
   subset).
-- LEVEL2_OLCI_WRR: S3A OLCI L2 WRR water product (reduced resolution, 600 m).
+- OLCI_L2_WRR: S3A OLCI L2 WRR water product (reduced resolution, 600 m).
 
 The samples are local, so full-grid operations (plot, materialized checks)
 are exercised. The legacy v1 reader is kept as the reference implementation
@@ -24,7 +24,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
@@ -62,17 +62,17 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_olci():
-    return require_sample('LEVEL1_OLCI')
+    return get_sample(Level1_OLCI)
 
 
 @pytest.fixture(scope='session')
 def level2_olci():
-    return require_sample('LEVEL2_OLCI')
+    return get_sample(Level2_OLCI, 'OLCI_L2_WFR')
 
 
 @pytest.fixture(scope='session')
 def level2_olci_wrr():
-    return require_sample('LEVEL2_OLCI_WRR')
+    return get_sample(Level2_OLCI, 'OLCI_L2_WRR')
 
 
 @pytest.fixture(params=[500, (400, 600)])

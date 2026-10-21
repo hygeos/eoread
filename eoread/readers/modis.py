@@ -383,6 +383,7 @@ class Level1B_MODIS(_ModisBase):
 
     level = 'L1'
     payload_var = str(names.ltoa)
+    sample_products = ('MODIS_L1_AQUA',)
     required_vars = (str(names.rtoa), 'gflags')
     flags = 'eoread.readers.modis.FlagsReader_MODIS'
 

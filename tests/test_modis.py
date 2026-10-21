@@ -4,7 +4,7 @@
 v2 conformance tests for the MODIS L1B reader (Phase 4).
 
 Sample (see tests/README.md):
-- LEVEL1_MODISA_MYD: Aqua MYD021KM HDF4 scene, 2030 x 1354 pixels at ~1 km
+- MODIS_L1_AQUA: Aqua MYD021KM HDF4 scene, 2030 x 1354 pixels at ~1 km
   registration, 38 file-native bands ('1.0' ... '36.0', with the high-gain TDI
   pairs '13.5'/'14.5'), latitude 44.9-67.2 N.
 
@@ -25,7 +25,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
@@ -43,7 +43,7 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_modisa_myd():
-    return require_sample('LEVEL1_MODISA_MYD')
+    return get_sample(Level1B_MODIS)
 
 
 @pytest.fixture(params=[200, (200, 300)])

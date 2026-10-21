@@ -11,7 +11,7 @@ from core.env import getvar
 from eoread.legacy.make_L1C import makeL1C
 from eoread.legacy.nasa import Level1_NASA
 from tests import generic
-from tests.conftest import require_sample
+from tests.conftest import get_sample
 
 nasa_products_L1A = {
     "HAWKEYE": {
@@ -45,7 +45,7 @@ nasa_products_L1A = {
 @pytest.fixture(params=nasa_products_L1A.values(), ids=list(nasa_products_L1A.keys()))
 def product_L1A(request):
     prod = request.param
-    require_sample(prod["var"])
+    get_sample(prod["var"])
     return prod
 
 

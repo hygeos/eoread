@@ -337,6 +337,7 @@ class Level1C_MSI(_MSIBase):
 
     level = 'L1C'
     payload_var = str(names.ltoa)
+    sample_products = ('MSI_L1C',)
     xml_root = 'MTD_MSIL1C.xml'
     payload_unit = 'W.m-2.sr-1'
     # Legacy parity: calibration stays float64 (the registry sets no dtype on Ltoa).
@@ -375,6 +376,7 @@ class Level2A_MSI(_MSIBase):
 
     level = 'L2A'
     payload_var = str(names.rtoa)
+    sample_products = ('MSI_L2A',)
     xml_root = 'MTD_MSIL2A.xml'
     payload_unit = None
     # Canonical registry dtype for Rtoa.

@@ -4,12 +4,12 @@
 v2 conformance tests for the ECOSTRESS readers (Phase 2).
 
 Samples (see tests/README.md):
-- LEVEL1_ECOSTRESS: ISS-ECOSTRESS L1CG gridded radiance granule (ECOv002,
+- ECOSTRESS_L1C: ISS-ECOSTRESS L1CG gridded radiance granule (ECOv002,
   70 m grid of 7074 x 8871 pixels, night pass over the western US).
-- LEVEL1B_ECOSTRESS: v001 TRISHNA maquette L1B_RAD granule over India; the
+- ECOSTRESS_L1B: v001 TRISHNA maquette L1B_RAD granule over India; the
   paired L1B_GEO file sits next to it and is auto-discovered by the reader.
-- LEVEL2_ECOSTRESS: the matching v001 L2_LSTE granule (same GEO pair).
-- LEVEL2_ECOSTRESS_V002: an ECOv002_L2_LSTE granule (~25% water, coastal
+- ECOSTRESS_L2_V001: the matching v001 L2_LSTE granule (same GEO pair).
+- ECOSTRESS_L2_V002: an ECOv002_L2_LSTE granule (~25% water, coastal
   scene) with its paired ECOv002_L1B_GEO file in the same directory.
 
 No legacy parity reference exists for the L1B/L2 products (the legacy L2
@@ -31,7 +31,7 @@ import pytest
 from core.geo.naming import names
 
 from . import generic
-from .conftest import require_sample
+from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
@@ -42,6 +42,7 @@ from eoread.readers.ecostress import (
     Level1C_Ecostress,
     Level2_Ecostress,
 )
+from eoread.readers.msi import Level1C_MSI
 
 
 @pytest.fixture(autouse=True)
@@ -55,27 +56,27 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_ecostress():
-    return require_sample('LEVEL1_ECOSTRESS')
+    return get_sample(Level1C_Ecostress)
 
 
 @pytest.fixture(scope='session')
 def level1b_ecostress():
-    return require_sample('LEVEL1B_ECOSTRESS')
+    return get_sample(Level1B_Ecostress)
 
 
 @pytest.fixture(scope='session')
 def level2_ecostress():
-    return require_sample('LEVEL2_ECOSTRESS')
+    return get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V001')
 
 
 @pytest.fixture(scope='session')
 def level2_ecostress_v002():
-    return require_sample('LEVEL2_ECOSTRESS_V002')
+    return get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
 
 
 @pytest.fixture(scope='session')
 def level1_msi():
-    return require_sample('LEVEL1_MSI')
+    return get_sample(Level1C_MSI)
 
 
 @pytest.fixture(params=[500, (400, 600)])
@@ -108,13 +109,12 @@ def _window(ds, rows=slice(200, 400), cols=slice(500, 700)):
     return ds.isel({str(names.rows): rows, str(names.columns): cols})
 
 
-def _exit_probe(cls, env_var, tmp_path):
+def _exit_probe(cls, sample, tmp_path):
     """Build one reader in a subprocess held to exit; assert clean teardown."""
     script = tmp_path / 'exit_probe.py'
     script.write_text(
-        f"import os\n"
         f"from eoread.readers.ecostress import {cls.__name__}\n"
-        f"reader = {cls.__name__}(os.environ['{env_var}'])\n"
+        f"reader = {cls.__name__}({str(sample)!r})\n"
         f"assert reader.ds is not None\n"
         f"print('READER_BUILT')\n",
     )
@@ -175,7 +175,7 @@ def test_l1c_exit_clean_stderr(level1_ecostress, tmp_path):
     interpreter at finalization; that path must come back clean (same guard
     as test_msi.py's rasterio regression).
     """
-    _exit_probe(Level1C_Ecostress, 'LEVEL1_ECOSTRESS', tmp_path)
+    _exit_probe(Level1C_Ecostress, level1_ecostress, tmp_path)
 
 
 def test_l1c_flagreader(l1):
@@ -300,7 +300,7 @@ def test_l1b_lazy_payload(level1b_ecostress):
 
 
 def test_l1b_exit_clean_stderr(level1b_ecostress, tmp_path):
-    _exit_probe(Level1B_Ecostress, 'LEVEL1B_ECOSTRESS', tmp_path)
+    _exit_probe(Level1B_Ecostress, level1b_ecostress, tmp_path)
 
 
 def test_l1b_flagreader(l1b):
@@ -386,7 +386,7 @@ def test_l2_lazy_payload(level2_ecostress):
 
 
 def test_l2_exit_clean_stderr(level2_ecostress, tmp_path):
-    _exit_probe(Level2_Ecostress, 'LEVEL2_ECOSTRESS', tmp_path)
+    _exit_probe(Level2_Ecostress, level2_ecostress, tmp_path)
 
 
 def test_l2_flagreader(l2):
