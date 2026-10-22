@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from warnings import warn
-from dask.array import array
+import dask.array as da
 
 import epr
 import numpy as np
@@ -131,10 +131,16 @@ def Level1_MERIS_ENVISAT(
     if verbose: log.debug('load raster')
     for name in prod.get_band_names():
         band = prod.get_band(name)
+        reader = _Internal.READ_MERIS(band, lock)
+        # read each chunk separately
         ds[name] = xr.DataArray(
-            array(_Internal.READ_MERIS(band, lock)),
+            da.from_array(
+                reader,
+                chunks=(chunks[str(names.rows)], chunks[str(names.columns)]),
+                meta=np.empty((0, 0), dtype=reader.dtype),
+            ),
             dims=(str(names.rows), str(names.columns)),
-        ).chunk(chunks)
+        )
         ds[name].attrs['unit'] = band.unit
         ds[name].attrs['description'] = band.description
 
