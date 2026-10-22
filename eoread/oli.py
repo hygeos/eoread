@@ -254,9 +254,18 @@ class _Internal:
             height = src.height
             width = src.width
 
+        # chunks can be int, tuple/list, or dict like {'y': 500, 'x': 500}
+        if isinstance(chunks, dict):
+            chunk_tuple = (chunks.get(str(names.rows), chunks.get('y', 500)),
+                          chunks.get(str(names.columns), chunks.get('x', 500)))
+        elif isinstance(chunks, (list, tuple)):
+            chunk_tuple = tuple(chunks)
+        else:
+            chunk_tuple = (chunks, chunks)
+
         # Build column / row index arrays (pixel centres)
-        col_indices = da.arange(width, dtype=np.float64) + 0.5
-        row_indices = da.arange(height, dtype=np.float64) + 0.5
+        col_indices = da.arange(width, dtype=np.float64, chunks=chunk_tuple[1]) + 0.5
+        row_indices = da.arange(height, dtype=np.float64, chunks=chunk_tuple[0]) + 0.5
 
         # Apply affine transform: UTM_easting = c + a*col + b*row
         #                        UTM_northing = f + d*col + e*row
@@ -267,29 +276,18 @@ class _Internal:
             row_indices[:, None]
         )
 
-        # Create transformer UTM → WGS84
-        utm_crs = pyproj.CRS.from_user_input(crs)
-        wgs84_crs = pyproj.CRS.from_epsg(4326)
-        transformer = pyproj.Transformer.from_crs(utm_crs, wgs84_crs, always_xy=True)
-
-        # Transform UTM → WGS84
-        # transformer.transform returns (lon, lat) for (x, y) input
-        lons_dask, lats_dask = transformer.transform(
-            utm_easting, utm_northing, errcheck=False
+        # Transform UTM → WGS84 lazily, per chunk
+        lonlat = da.map_blocks(
+            _Internal.utm_to_lonlat,
+            utm_easting,
+            utm_northing,
+            pyproj.CRS.from_user_input(crs).to_wkt(),
+            new_axis=0,
+            chunks=((2,),) + utm_easting.chunks,
+            dtype=np.float64,
         )
-
-        # Ensure dask arrays with proper chunks
-        # chunks can be int, tuple/list, or dict like {'y': 500, 'x': 500}
-        if isinstance(chunks, dict):
-            chunk_tuple = (chunks.get(str(names.rows), chunks.get('y', 500)),
-                          chunks.get(str(names.columns), chunks.get('x', 500)))
-        elif isinstance(chunks, (list, tuple)):
-            chunk_tuple = tuple(chunks)
-        else:
-            chunk_tuple = (chunks, chunks)
-
-        lons_dask = da.from_array(lons_dask, chunks=chunk_tuple)
-        lats_dask = da.from_array(lats_dask, chunks=chunk_tuple)
+        lons_dask = lonlat[0]
+        lats_dask = lonlat[1]
 
         ds[str(names.lat)] = xr.DataArray(
             lats_dask, dims=[str(names.rows), str(names.columns)],
@@ -302,6 +300,18 @@ class _Internal:
 
         ds.attrs['totalheight'] = height
         ds.attrs['totalwidth'] = width
+
+    @staticmethod
+    def utm_to_lonlat(easting: np.ndarray, northing: np.ndarray, crs_wkt: str) -> np.ndarray:
+        """
+        Transform UTM coordinates to WGS84, returns an array (lon/lat, rows, columns)
+        """
+        # pyproj transformers are not thread-safe: one per call
+        transformer = pyproj.Transformer.from_crs(
+            pyproj.CRS.from_wkt(crs_wkt), pyproj.CRS.from_epsg(4326), always_xy=True)
+        # transformer.transform returns (lon, lat) for (x, y) input
+        lon, lat = transformer.transform(easting, northing, errcheck=False)
+        return np.stack([lon, lat])
 
     @staticmethod
     def gen_l9_angles(dirname: Path, l9_angles: Union[str, Path, None] = None) -> None:
