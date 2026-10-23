@@ -233,7 +233,7 @@ def test_l1b_attrs(l1, l1_dir):
 
     # metadata carries the raw root attributes.
     assert md['instrument'] == 'OCI' and md['processing_level'] == 'L1B'
-    assert a['_flag_reader'] == 'eoread.readers.pace.FlagsReader_PACE'
+    assert a['_flag_reader'] == 'eoread.readers.pace.Level1B_PACE_OCI'
 
 
 # --------------------------------------------------------------------------

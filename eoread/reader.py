@@ -21,6 +21,7 @@ from pathlib import Path
 
 import xarray as xr
 
+from .flags import GenericFlags
 from .samples import resolve as resolve_sample
 from .schema import SCHEMA_VERSION, validate
 from .tools import filter_metadata, format_chunks
@@ -43,7 +44,13 @@ class _ReaderMeta(type):
 
     def __call__(cls, *args, **kwargs):
         reader = super().__call__(*args, **kwargs)
-        return reader.finalize(reader.read(reader.path))
+        ds = reader.read(reader.path)
+        # Every read() implementation must end with self.finalize(ds), which
+        # stamps schema_version after running validate(). Enforce the contract
+        # here so a reader that forgets to finalize fails loudly.
+        assert ds.attrs.get('schema_version') == SCHEMA_VERSION, (
+            f'{cls.__name__}.read() must end with self.finalize(ds)')
+        return ds
 
 
 class Reader(metaclass=_ReaderMeta):
@@ -67,8 +74,10 @@ class Reader(metaclass=_ReaderMeta):
         The first resolvable product is returned by `get_sample`.
     VARIANTS : dict, optional
         Variant table for product types within a level (see `detect_variant`).
-    flags : dict or None
-        Flag definitions {name: bit}, attached as the `_flag_reader` attribute.
+    flags : bool or None
+        True when the reader implements `flag_requires` / `flag_dims_like` /
+        `getflag`; `finalize` then advertises the reader class itself as the
+        `_flag_reader` (flags are decoded on demand, never stored).
 
     Classes named with a leading underscore are sensor bases (shared
     implementation across levels), not public readers; `discover_readers()`
@@ -86,7 +95,7 @@ class Reader(metaclass=_ReaderMeta):
 
     def __init__(self, path, chunks=None, metadata_template=None, verbose=False):
         # Options only: reading is triggered by _ReaderMeta.__call__, which
-        # returns the finalized dataset instead of the reader instance.
+        # invokes read() (finalized inside read) and returns the dataset.
         self.path = Path(path)
         self.chunks = format_chunks(chunks if chunks is not None else self.chunks_default)
         self.metadata_template = metadata_template
@@ -95,24 +104,51 @@ class Reader(metaclass=_ReaderMeta):
     # ------------------------------------------------------------------ api
 
     def read(self, path: Path) -> xr.Dataset:
-        """Read the product and return a lazy dataset. Must be implemented."""
+        """Read the product and return a lazy dataset.
+
+        Must be implemented; the implementation must end with
+        ``return self.finalize(ds)`` (enforced by ``_ReaderMeta``).
+        """
         raise NotImplementedError
 
     def finalize(self, ds: xr.Dataset, metadata: dict | None = None) -> xr.Dataset:
         """Attach curated metadata and enforce the canonical schema.
 
         Every reader ends in this method. It applies `metadata_template` to
-        `metadata` when both are given, attaches the flag definitions, stamps
-        `schema_version` and runs `eoread.schema.validate`. Readers with several
-        metadata sources should merge them into one dict before calling.
+        `metadata` when both are given, advertises the reader class as the
+        flag provider when ``flags`` is set, stamps `schema_version` and runs
+        `eoread.schema.validate`. Readers with several metadata sources should
+        merge them into one dict before calling.
         """
         if metadata is not None and self.metadata_template is not None:
             ds.attrs.update(filter_metadata(metadata, self.metadata_template))
-        if self.flags is not None:
-            ds.attrs['_flag_reader'] = self.flags
+        if self.flags:
+            cls = type(self)
+            ds.attrs['_flag_reader'] = f'{cls.__module__}.{cls.__qualname__}'
         ds.attrs['schema_version'] = SCHEMA_VERSION
         validate(ds, primary=self.payload_var, required_vars=self.required_vars)
         return ds
+
+    # --------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        """Variables the dataset must provide to `getflag`."""
+        return []
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        """Input variable whose grid/dims the decoded flags follow."""
+        return str(cls.payload_var)
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Return one boolean quality mask, or raise `ValueError` if unsupported.
+
+        Readers supporting flags override this (and declare ``flags = True``).
+        """
+        raise ValueError(
+            f'{cls.sensor} {cls.level}: unsupported flag {flag_name!r}')
 
     # ------------------------------------------------------------- samples
 

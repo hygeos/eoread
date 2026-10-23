@@ -27,7 +27,7 @@ REFACTORING.md decision log):
   (legacy assigned one bare positional list to the sorted bands dim); the pan
   band, excluded from the legacy bands dim, is included here.
 - `QA_PIXEL` is kept raw uint16 on the pixel grid and decoded on demand by
-  FlagsReader_OLI into a boolean L1_INVALID; the legacy reader exposed the
+  the reader's `getflag` into a boolean L1_INVALID; the legacy reader exposed the
   raw unbooleaned bitmask and also read QA_RADSAT, which has no consumer in v2.
 - The dataset carries every canonical attribute, in particular
   'input_directory'; its absence made the legacy output fail the generic
@@ -47,7 +47,7 @@ from core import log
 from core.geo.naming import names
 from core.table import read_xml
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader
 from eoread.tools import filter_metadata, install_exit_cleanup, spatial_resample
 from eoread.transforms.geometry import latlon_utm
@@ -129,7 +129,7 @@ class _OliBase(Reader):
 
     sensor = 'OLI'
     chunks_default = 500
-    flags = 'eoread.readers.oli.FlagsReader_OLI'
+    flags = True
     required_vars = (str(names.ltoa), str(names.bt), 'QA_PIXEL',
                      str(names.sza), str(names.saa), str(names.vza), str(names.vaa))
 
@@ -248,9 +248,6 @@ class _OliBase(Reader):
                            (str(names.rtoa), rtoa_parts),
                            (str(names.bt), bt_parts)):
             ds[var] = xr.DataArray(da.stack([a.data for a in parts]), dims=(bands, rows, cols))
-        ds[str(names.ltoa)].attrs['unit'] = 'W.m-2.sr-1.um-1'
-        ds[str(names.rtoa)].attrs['unit'] = None  # dimensionless
-        ds[str(names.bt)].attrs['unit'] = 'K'
 
         # Viewing/solar angles: int16 rasters in 0.01 degrees on the 30 m grid,
         # resampled onto the target grid (smooth fields, linear is fine).
@@ -273,7 +270,7 @@ class _OliBase(Reader):
             ds[name] = arr
 
         # QA_PIXEL kept raw uint16 on the pixel grid (decoded on demand by
-        # FlagsReader_OLI); nearest-neighbour so the bit patterns survive.
+        # the reader's getflag); nearest-neighbour so the bit patterns survive.
         qa = _open(_only_file(dirname, 'LC*_QA_PIXEL.TIF'), self.chunks,
                    mask_nodata=False)
         qa = qa.rename(x=cols, y=rows)
@@ -323,7 +320,28 @@ class _OliBase(Reader):
         })
 
         install_exit_cleanup()
-        return ds.unify_chunks()
+        return self.finalize(ds.unify_chunks())
+
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return ['QA_PIXEL']
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'QA_PIXEL'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """`QA_PIXEL` is kept raw; L1_INVALID = any USGS C2 quality bit set.
+
+        Bit 0 is reserved; fill | shadow | snow/ice | water | cloud (medium
+        confidence) | cloud (high confidence). QA_RADSAT is not read in v2.
+        """
+        if flag_name == GenericFlags.L1_INVALID:
+            return (ds['QA_PIXEL'] & 0b1111110) != 0
+        raise ValueError(f'Unsupported OLI flag: {flag_name!r}')
 
 
 class Level1_OLI(_OliBase):
@@ -332,24 +350,3 @@ class Level1_OLI(_OliBase):
     level = 'L1TP'
     payload_var = str(names.rtoa)
     sample_products = ('OLI_L1TP_L8', 'OLI_L1TP_L9')
-
-
-class FlagsReader_OLI(FlagsReaderBase):
-    """Decode the generic flags of an OLI 1TP product.
-
-    `QA_PIXEL` is kept raw; L1_INVALID covers the USGS C2 bit layout
-    (one-based numbering, bit 0 reserved): fill | shadow | snow/ice | water
-    | cloud (medium confidence) | cloud (high confidence). QA_RADSAT is not
-    read in v2 (no consumer).
-    """
-
-    def requires(self) -> list[str]:
-        return ['QA_PIXEL']
-
-    def dims_like(self) -> str:
-        return 'QA_PIXEL'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            return (ds['QA_PIXEL'] & 0b1111110) != 0
-        raise ValueError(f'Unsupported flag: {flag_name}')

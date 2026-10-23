@@ -36,7 +36,7 @@ from core import log
 from core.geo.naming import names
 from core.table import read_xml
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductVersion
 from eoread.tools import filter_metadata, install_exit_cleanup, spatial_resample
 from eoread.transforms.angles import tiepoint_angles
@@ -116,14 +116,13 @@ class _MSIBase(Reader):
 
     sensor = 'MSI'
     chunks_default = 500
-    flags = 'eoread.readers.msi.FlagsReader_MSI'
+    flags = True
     required_vars = (str(names.sza), str(names.saa), str(names.vza), str(names.vaa))
 
     # Per-level hooks, set by the subclasses ---------------------------------
     level = None
     payload_var = None
     xml_root = None
-    payload_unit = None
     payload_dtype = None
 
     def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=10):
@@ -178,7 +177,6 @@ class _MSIBase(Reader):
         stack = da.stack([arr.data for arr in arrays])
         ds[self.payload_var] = ((str(names.bands), str(names.rows), str(names.columns)),
                                 stack.astype(self.payload_dtype))
-        ds[self.payload_var].attrs['unit'] = self.payload_unit
 
         # 2. Geolocation (row 0 = north, as in the product)
         crs = str(_val(geocoding['HORIZONTAL_CS_CODE']))
@@ -228,7 +226,7 @@ class _MSIBase(Reader):
             'metadata_granule': metadata_granule,
         })
 
-        return ds
+        return self.finalize(ds)
 
     # --------------------------------------------------------------- helpers
 
@@ -330,6 +328,24 @@ class _MSIBase(Reader):
     def _find_band_file(self, granule_dir: Path, band: str, meta_res: int):
         raise NotImplementedError
 
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return [str(names.vza)]
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return str(names.vza)
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """No quality mask is read in v2; L1_INVALID = NaN viewing zenith angle."""
+        if flag_name == GenericFlags.L1_INVALID:
+            vza = ds[str(names.vza)]
+            return xr.DataArray(np.isnan(vza), dims=vza.dims, coords=vza.coords)
+        raise ValueError(f'Unsupported MSI flag: {flag_name!r}')
+
 
 class Level1C_MSI(_MSIBase):
     """Sentinel-2 MSI Level-1C: top-of-atmosphere radiance (payload `Ltoa`)."""
@@ -338,7 +354,6 @@ class Level1C_MSI(_MSIBase):
     payload_var = str(names.ltoa)
     sample_products = ('MSI_L1C',)
     xml_root = 'MTD_MSIL1C.xml'
-    payload_unit = 'W.m-2.sr-1' # FIXME : not useful ? 
     # Legacy parity: calibration stays float64 (the registry sets no dtype on Ltoa).
     payload_dtype = 'float64'
 
@@ -377,7 +392,6 @@ class Level2A_MSI(_MSIBase):
     payload_var = str(names.rtoa)
     sample_products = ('MSI_L2A',)
     xml_root = 'MTD_MSIL2A.xml'
-    payload_unit = None
     # Canonical registry dtype for Rtoa.
     payload_dtype = 'float32'
 
@@ -410,26 +424,3 @@ class Level2A_MSI(_MSIBase):
                     log.warning(f'MSI L2A: band {band} read from R{res}m, metadata says {meta_res} m')
                 return matches[0]
         return None
-
-
-class FlagsReader_MSI(FlagsReaderBase):
-    """MSI flags.
-
-    No quality mask is read in v2; L1_INVALID is defined as NaN viewing zenith
-    angle (same as the legacy reader).
-    """
-
-    def requires(self) -> list[str]:
-        return [str(names.vza)]
-
-    def dims_like(self) -> str:
-        return str(names.vza)
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            vza = ds[str(names.vza)]
-            return xr.DataArray(np.isnan(vza), dims=vza.dims, coords=vza.coords)
-        raise ValueError(f'Unsupported flag: {flag_name}')
-
-    def getflag_raw(self, ds: xr.Dataset, flag_name: str) -> xr.DataArray:
-        raise NotImplementedError('MSI does not read raw quality flags')

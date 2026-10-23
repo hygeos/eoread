@@ -204,7 +204,7 @@ def test_l1_attrs(l1, l1_dir):
 
     assert a[str(names.input_directory)] == str(Path(l1_dir).parent)
     assert a['user_guide'].startswith('https://archive.org/')
-    assert a['_flag_reader'] == 'eoread.readers.meris.FlagsReader_MERIS'
+    assert a['_flag_reader'] == 'eoread.readers.meris.Level1_MERIS'
     assert a['_srf_getter'] == 'eotools.srf.get_SRF_meris'
     assert a['_srf_getter_arg'] == ''
 

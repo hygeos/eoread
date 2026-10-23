@@ -42,7 +42,7 @@ import xarray as xr
 from core import log
 from core.geo.naming import names
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import Reader
 from eoread.tools import filter_metadata
 
@@ -129,7 +129,7 @@ class Level1_MERIS(Reader):
     sample_products = ('MERIS_L1',)
     required_vars = (str(names.sza), str(names.saa), str(names.vza), str(names.vaa),
                      str(names.F0), str(names.wav), 'l1_flags', 'detector_index')
-    flags = 'eoread.readers.meris.FlagsReader_MERIS'
+    flags = True
     VARIANTS = {
         'rr': dict(detect=dict(field='PRODUCT', value='MER_RR', prefix=True)),
         'fr': dict(detect=dict(field='PRODUCT', value='MER_FR', prefix=True)),
@@ -183,7 +183,8 @@ class Level1_MERIS(Reader):
         ds[str(names.ltoa)] = ltoa.chunk({bands: 1, rows: self.chunks[rows],
                                           cols: self.chunks[cols]})
         first = prod.get_band(radiance_names[0])
-        ds[str(names.ltoa)].attrs['unit'] = first.unit
+        if first.unit is not None:
+            ds[str(names.ltoa)].attrs['unit'] = first.unit
         ds[str(names.ltoa)].attrs['description'] = str(first.description)
 
         # 3. Canonical geometry / angle names
@@ -254,21 +255,23 @@ class Level1_MERIS(Reader):
         ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_meris'
         ds.attrs['_srf_getter_arg'] = ''
 
-        return ds
+        return self.finalize(ds)
 
+    # ----------------------------------------------------------------- flags
 
-class FlagsReader_MERIS(FlagsReaderBase):
-    """MERIS L1 flags: nonzero ``l1_flags`` marks an invalid pixel."""
-
-    def requires(self) -> list[str]:
+    @classmethod
+    def flag_requires(cls) -> list[str]:
         return ['l1_flags']
 
-    def dims_like(self) -> str:
+    @classmethod
+    def flag_dims_like(cls) -> str:
         return 'l1_flags'
 
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Nonzero ``l1_flags`` marks an invalid pixel."""
         if flag_name == GenericFlags.L1_INVALID:
             # Canonical bool contract; raiseflag's `condition != 0` keeps the
             # output identical to the legacy raw-value return.
             return (ds['l1_flags'] != 0)
-        raise ValueError(f'Unsupported flag: {flag_name}')
+        raise ValueError(f'Unsupported MERIS flag: {flag_name!r}')

@@ -54,7 +54,7 @@ from core.geo.naming import names
 from core.table import read_xml
 from core.tools import getflag
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
 from eoread.transforms.angles import tiepoint_angles
 from eoread.tools import filter_metadata, spatial_resample
@@ -205,7 +205,7 @@ class _OlciBase(Reader):
             'footprint_lon': header['footprint_lon'],
             'metadata': filter_fn(manifest, self.metadata_template),
         })
-        return ds
+        return self.finalize(ds)
 
     # ------------------------------------------------------------- manifest
 
@@ -416,7 +416,7 @@ class Level1_OLCI(_OlciBase):
     Payload `Ltoa` (TOA radiance, true file units mW.m-2.sr-1.nm-1) on the 21
     acquisition bands; declared extra `Rtoa` = pi * Ltoa / (cos(sza) * F0),
     computed lazily from the tie-point solar zenith angle and the per-pixel
-    solar flux. Quality flags decode through `FlagsReader_OLCI` (LAND and
+    solar flux. Quality flags decode through `Level1_OLCI.getflag` (LAND and
     L1_INVALID from the `quality_flags` bit field).
     """
 
@@ -424,7 +424,7 @@ class Level1_OLCI(_OlciBase):
     payload_var = str(names.ltoa)
     sample_products = ('OLCI_L1_EFR',)
     required_vars = (str(names.rtoa), 'quality_flags')
-    flags = 'eoread.readers.olci.FlagsReader_OLCI'
+    flags = True
     _band_suffix = 'radiance'
     _level_token = 'Level 1'
 
@@ -444,17 +444,15 @@ class Level1_OLCI(_OlciBase):
         arrays = [xr.open_dataarray(files[b], chunks=nc, engine='h5netcdf')
                   .rename(_GRID_RENAME) for b in labels]
         ltoa = xr.concat(arrays, dim=str(names.bands))
-        if 'units' not in arrays[0].attrs:
-            raise ProductError(
-                f'{self.sensor} {self.level}: radiance files carry no units '
-                f'attribute; cannot report the payload unit')
         ds[str(names.ltoa)] = ltoa
-        ds[str(names.ltoa)].attrs['unit'] = arrays[0].attrs['units']
+        # Radiance unit only when the files state one.
+        if 'units' in arrays[0].attrs:
+            ds[str(names.ltoa)].attrs['unit'] = arrays[0].attrs['units']
         return ds
 
     def _level_layers(self, ds: xr.Dataset, dirname: Path, nc: dict,
                       platform: str) -> xr.Dataset:
-        # Quality flags (decoded on demand via FlagsReader_OLCI)
+        # Quality flags (decoded on demand via Level1_OLCI.getflag)
         qf = xr.open_dataset(dirname / 'qualityFlags.nc', chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
         ds['quality_flags'] = qf['quality_flags']
 
@@ -463,8 +461,9 @@ class Level1_OLCI(_OlciBase):
         # the DataArray as Variable data and reject it.
         mus = np.cos(np.radians(ds[str(names.sza)]))
         rtoa = np.pi * ds[str(names.ltoa)] / (mus * ds[str(names.F0)])
+        # Derived ratio: do not inherit the radiance attributes (no unit).
+        rtoa.attrs = {}
         ds[str(names.rtoa)] = rtoa
-        ds[str(names.rtoa)].attrs['unit'] = None
 
         # SRF getter (loud on unknown platforms)
         srf_arg = {
@@ -478,6 +477,30 @@ class Level1_OLCI(_OlciBase):
         ds.attrs['_srf_getter'] = 'eotools.srf.get_SRF_olci'
         ds.attrs['_srf_getter_arg'] = srf_arg[platform]
         return ds
+
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return ['quality_flags']
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'quality_flags'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Bit definitions from `quality_flags.flag_meanings` (core registry).
+
+        LAND is 'land' minus 'fresh_inland_water'; L1_INVALID is 'invalid'.
+        """
+        if flag_name == GenericFlags.LAND:
+            land = getflag(ds['quality_flags'], 'land')
+            fresh_inland_water = getflag(ds['quality_flags'], 'fresh_inland_water')
+            return land & ~fresh_inland_water
+        if flag_name == GenericFlags.L1_INVALID:
+            return getflag(ds['quality_flags'], 'invalid')
+        raise ValueError(f'Unsupported OLCI flag: {flag_name!r}')
 
 
 class Level2_OLCI(_OlciBase):
@@ -520,8 +543,10 @@ class Level2_OLCI(_OlciBase):
             rhos.append(f[f'{band}_reflectance'])
             uncs.append(f[f'{band}_reflectance_unc'])
         ds[str(names.rho_w)] = xr.concat(rhos, dim=str(names.bands))
-        # Dimensionless ratio: no units attribute in the files (MSI L2A precedent)
-        ds[str(names.rho_w)].attrs['unit'] = None
+        # Dimensionless ratio: the reflectance files normally carry no units
+        # attribute; if they do state one, report it verbatim.
+        if 'units' in rhos[0].attrs:
+            ds[str(names.rho_w)].attrs['unit'] = rhos[0].attrs['units']
         ds['uncertainty'] = xr.concat(uncs, dim=str(names.bands))
         return ds
 
@@ -537,27 +562,3 @@ class Level2_OLCI(_OlciBase):
         for var in ('A865', 'T865'):
             ds[var] = aer[var]
         return ds
-
-
-class FlagsReader_OLCI(FlagsReaderBase):
-    """Decode the generic flags of an OLCI level-1 product.
-
-    Bit definitions come from the `flag_meanings` attribute of the
-    `quality_flags` variable (core registry): LAND is 'land' minus
-    'fresh_inland_water'; L1_INVALID is 'invalid'.
-    """
-
-    def requires(self) -> list[str]:
-        return ['quality_flags']
-
-    def dims_like(self) -> str:
-        return 'quality_flags'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.LAND:
-            land = getflag(ds['quality_flags'], 'land')
-            fresh_inland_water = getflag(ds['quality_flags'], 'fresh_inland_water')
-            return land & ~fresh_inland_water
-        if flag_name == GenericFlags.L1_INVALID:
-            return getflag(ds['quality_flags'], 'invalid')
-        raise ValueError(f'Unsupported flag: {flag_name}')

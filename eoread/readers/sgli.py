@@ -39,7 +39,7 @@ from dateutil.parser import parse
 from core import log
 from core.geo.naming import names
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import Reader
 from eoread.tools import filter_metadata, spatial_resample
 
@@ -80,7 +80,7 @@ class Level1B_SGLI(Reader):
     sample_products = ('SGLI_L1B',)
     required_vars = (str(names.sza), str(names.saa), str(names.vza), str(names.vaa),
                      'water', 'quality_flag')
-    flags = 'eoread.readers.sgli.FlagsReader_SGLI'
+    flags = True
     VARIANTS = {'l1b': dict(detect=dict(field='Product_level', value='Level-1B'))}
 
     def read(self, path: Path) -> xr.Dataset:
@@ -183,9 +183,10 @@ class Level1B_SGLI(Reader):
             parts.append(part)
         ds[str(names.rtoa)] = xr.concat(parts, dim=bands).chunk(
             {bands: 1, **self.chunks})
-        # Legacy's merge kept the first band's attributes; Rtoa carries no unit.
+        # Legacy's merge kept the first band's attributes (including its raw
+        # lowercase-free `Unit`); reflectance is dimensionless and gets no
+        # `unit` attribute of its own.
         ds[str(names.rtoa)].attrs.update(first_attrs)
-        ds[str(names.rtoa)].attrs['unit'] = None
 
         # Masks (same full grid).
         ds['water'] = imdata['Land_water_flag']
@@ -216,28 +217,31 @@ class Level1B_SGLI(Reader):
                         filter_metadata(metadata, self.metadata_template),
         })
 
-        return ds
+        return self.finalize(ds)
 
+    # ----------------------------------------------------------------- flags
 
-class FlagsReader_SGLI(FlagsReaderBase):
-    """GCOM-C SGLI L1B flags.
-
-    ``quality_flag`` (QA_flag, uint16) bit 0 is the per-pixel channel-integrity
-    bit — the product's own description says ``1 : Integrity`` (sound), and the
-    sample scene has it set on ~86% of pixels — so L1_INVALID is the *negation*
-    of bit 0; legacy's raw-value test flagged the sound majority instead.
-    ``water`` (Land_water_flag, uint8) is a land percentage 0-100 (0 = water,
-    100 = land); legacy's ``~ds['water']`` on the uint8 mask is nonzero
-    everywhere, so its LAND flag was set on every pixel.
-    """
-
-    def requires(self) -> list[str]:
+    @classmethod
+    def flag_requires(cls) -> list[str]:
         return ['quality_flag', 'water']
 
-    def dims_like(self) -> str:
+    @classmethod
+    def flag_dims_like(cls) -> str:
         return 'quality_flag'
 
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """GCOM-C SGLI L1B flags.
+
+        ``quality_flag`` (QA_flag, uint16) bit 0 is the per-pixel
+        channel-integrity bit — the product's own description says
+        ``1 : Integrity`` (sound), and the sample scene has it set on ~86% of
+        pixels — so L1_INVALID is the *negation* of bit 0; legacy's raw-value
+        test flagged the sound majority instead. ``water`` (Land_water_flag,
+        uint8) is a land percentage 0-100 (0 = water, 100 = land); legacy's
+        ``~ds['water']`` on the uint8 mask is nonzero everywhere, so its LAND
+        flag was set on every pixel.
+        """
         if flag_name == GenericFlags.L1_INVALID:
             # Bit 0 set = channel integrity (sound), per the product's own bit
             # description — invalid is the negation of bit 0. Legacy's raw-value
@@ -247,4 +251,4 @@ class FlagsReader_SGLI(FlagsReaderBase):
         if flag_name == GenericFlags.LAND:
             # Majority-land threshold on the land percentage.
             return ds['water'] >= 50
-        raise ValueError(f'Unsupported flag: {flag_name}')
+        raise ValueError(f'Unsupported SGLI flag: {flag_name!r}')

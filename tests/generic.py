@@ -339,11 +339,4 @@ def check_vars(ds, primary=None):
             f'contain at least one of {spectral}'
         )
     
-    # Check that each variable has a unit attribute
-    for name in spectral:
-        if name not in ds:
-            continue
-        if not hasattr(ds[name],'unit'):
-            raise ValueError(f'{name} does not have a unit field')
-    
     # Check spectral variables values

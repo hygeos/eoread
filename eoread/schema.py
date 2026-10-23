@@ -71,7 +71,8 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
     Validate a v2 reader output against the canonical schema.
 
     Checks presence/dims/dtype of variables and the mandatory attribute set
-    (never data values). All violations are collected and reported together.
+    (never data values). Payload units are not mandatory: readers set a `unit`
+    attribute only when the product metadata provides one.
 
     Parameters
     ----------
@@ -126,8 +127,8 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
                          else ()) + grid_dims
         if tuple(var.dims) != expected_dims:
             errors.append(f'{p}: dims are {tuple(var.dims)}, expected {expected_dims}')
-        if str(names.unit) not in var.attrs:
-            errors.append(f'{p}: missing {names.unit!s} attribute')
+        # No unit check: payload units are only set when the product metadata
+        # states one (readers never invent a unit).
 
     # --- bands --------------------------------------------------------------
     if str(names.bands) in ds.dims or str(names.bands) in ds:

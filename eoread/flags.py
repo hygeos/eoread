@@ -185,7 +185,11 @@ class FlagsInit(BlockProcessor):
         Data type for the flag array (typically 'uint16' for packed flags).
 
     flag_reader : str
-        Fully qualified module path to the flag reader class (inherits from FlagsReaderBase).
+        Fully qualified dotted path of the flag provider. It may be a v2
+        `Reader` subclass carrying `flag_requires` / `flag_dims_like` /
+        `getflag` classmethods (the current form, advertised through the
+        `_flag_reader` dataset attribute), or a legacy `FlagsReaderBase`
+        subclass instantiated with `flag_reader_kwargs`.
 
     flag_reader_kwargs : dict | None, optional
         Additional keyword arguments for the flag reader constructor.
@@ -242,14 +246,45 @@ class FlagsInit(BlockProcessor):
             if not flag_reader.startswith('eoread.'):
                 raise
             flgreader_cls = import_module(flag_reader.replace('eoread.', 'eoread.legacy.', 1))
-        self.flgreader: FlagsReaderBase = flgreader_cls(**(flag_reader_kwargs or {}))
+        self.flgreader: FlagsReaderBase | None = None
+        self._reader_cls = None
+        self._available_vars: set[str] | None = None
+        # v2 readers decode flags themselves: their flag API consists of
+        # classmethods on the reader class, which cannot be instantiated here
+        # (ReaderClass(path) returns the dataset). Legacy flag readers are
+        # still instantiated with their mapping kwargs.
+        from .reader import Reader
+        if isinstance(flgreader_cls, type) and issubclass(flgreader_cls, Reader):
+            self._reader_cls = flgreader_cls
+        else:
+            self.flgreader = flgreader_cls(**(flag_reader_kwargs or {}))
         self.dtype = dtype
         self.flags_varname = flags_varname
         self.strict = strict
 
+    def _requires(self) -> list[str]:
+        if self._reader_cls is not None:
+            return self._reader_cls.flag_requires()
+        return self.flgreader.requires()
+
+    def _dims_like(self) -> str:
+        if self._reader_cls is not None:
+            return self._reader_cls.flag_dims_like()
+        return self.flgreader.dims_like()
+
+    def _getflag(self, ds: xr.Dataset, flag_name):
+        if self._reader_cls is not None:
+            return self._reader_cls.getflag(ds, flag_name)
+        return self.flgreader.getflag(ds, flag_name)
+
     def input_vars(self) -> list[Var]:
-        required = [Var(x) for x in self.flgreader.requires()]
-        dimslike = Var(self.flgreader.dims_like())
+        required = [Var(x) for x in self._requires()]
+        if self._available_vars is not None:
+            # Readers declare the union of variables any of their flag
+            # implementations may use (e.g. ECOSTRESS L2 declares `cloud` for
+            # the v002 variant only). Keep just the ones this dataset has.
+            required = [v for v in required if str(v) in self._available_vars]
+        dimslike = Var(self._dims_like())
         if dimslike not in required:
             required.append(dimslike)
         return required
@@ -260,17 +295,17 @@ class FlagsInit(BlockProcessor):
                 self.flags_varname,
                 dtype=self.dtype,
                 flags=self.flags,
-                dims_like=self.flgreader.dims_like(),
+                dims_like=self._dims_like(),
             )
         ]
 
     def process_block(self, block: xr.Dataset):
-        flags = xr.zeros_like(block[self.flgreader.dims_like()], dtype=self.dtype)
+        flags = xr.zeros_like(block[self._dims_like()], dtype=self.dtype)
         flags.attrs = {}
         for flagname, flag_value in self.flags.items():
             # flag_name is either a GenericFlag(enum) or a string
             try:
-                flag_data = self.flgreader.getflag(block, flagname)
+                flag_data = self._getflag(block, flagname)
             except ValueError:
                 if self.strict:
                     raise
@@ -282,3 +317,11 @@ class FlagsInit(BlockProcessor):
                 flag_data,
             )
         block[self.flags_varname] = flags
+
+    def map_blocks(self, ds: xr.Dataset) -> xr.Dataset:
+        """Run the flag initializer, keeping only requirements present in `ds`."""
+        self._available_vars = set(ds.variables)
+        try:
+            return super().map_blocks(ds)
+        finally:
+            self._available_vars = None

@@ -40,7 +40,7 @@ import xarray as xr
 from core import log
 from core.geo.naming import names
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.hdf4 import load_hdf4
 from eoread.reader import ProductError, Reader, UnsupportedProductType
 from eoread.tools import filter_metadata, parse_hdf4_metadata
@@ -123,7 +123,7 @@ class _ModisBase(Reader):
     level = None
     payload_var = None
     required_vars = ()
-    flags = None
+    flags = True
     VARIANTS = {}
 
     # ------------------------------------------------------------------- open
@@ -270,12 +270,10 @@ class _ModisBase(Reader):
 
         ds[str(names.ltoa)] = xr.concat(ltoa_parts, dim=bands)
         ds[str(names.rtoa)] = xr.concat(rtoa_parts, dim=bands)
-        if not units:
-            raise ProductError(
-                f'{self.sensor} {self.level}: the EV blocks carry no '
-                f'radiance_units attribute; cannot report the payload unit')
-        ds[str(names.ltoa)].attrs['unit'] = str(units)
-        ds[str(names.rtoa)].attrs['unit'] = None  # dimensionless, like OLCI
+        # Radiance unit only when the EV blocks state one (dimensionless Rtoa
+        # gets no unit attribute at all).
+        if units:
+            ds[str(names.ltoa)].attrs['unit'] = str(units)
 
         ds = ds.assign_coords({
             bands: labels_all,
@@ -343,7 +341,7 @@ class _ModisBase(Reader):
         header['attributes'] = raw_attrs
         ds.attrs['metadata'] = filter_fn(header, self.metadata_template)
 
-        return ds
+        return self.finalize(ds)
 
     # ------------------------------------------------------------- orientation
 
@@ -370,6 +368,23 @@ class _ModisBase(Reader):
         ny, nx = ds.sizes[rows], ds.sizes[cols]
         return ds.assign_coords({rows: np.arange(ny), cols: np.arange(nx)})
 
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return ['gflags']
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'gflags'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """`gflags` is raw (the file carries no bit definitions): any bit set."""
+        if flag_name == GenericFlags.L1_INVALID:
+            return ds['gflags'] != 0
+        raise ValueError(f'Unsupported MODIS flag: {flag_name!r}')
+
 
 class Level1B_MODIS(_ModisBase):
     """MODIS L1B swath product (MOD021KM / MYD021KM).
@@ -377,15 +392,14 @@ class Level1B_MODIS(_ModisBase):
     Payload `Ltoa` (TOA radiance, file units W.m-2.um-1.sr-1) on the 38
     file-native bands; declared extra `Rtoa` from the file's per-band
     reflectance calibration (NaN on the emissive block, which carries none).
-    Quality flags decode through `FlagsReader_MODIS` (L1_INVALID = any bit set
-    in the raw `gflags`).
+    Quality flags decode through `Level1B_MODIS.getflag` (L1_INVALID = any bit
+    set in the raw `gflags`).
     """
 
     level = 'L1'
     payload_var = str(names.ltoa)
     sample_products = ('MODIS_L1_AQUA',)
     required_vars = (str(names.rtoa), 'gflags')
-    flags = 'eoread.readers.modis.FlagsReader_MODIS'
 
     #: L1B shortnames, keyed for `detect_variant` on the INVENTORYMETADATA
     #: SHORTNAME; an unknown value raises `UnsupportedProductType` at open
@@ -400,22 +414,3 @@ class Level1B_MODIS(_ModisBase):
         )
         for shortname in ('MOD021KM', 'MYD021KM')
     }
-
-
-class FlagsReader_MODIS(FlagsReaderBase):
-    """Decode the generic flags of a MODIS L1B product.
-
-    The file carries no bit definitions: `gflags` is kept raw, and
-    L1_INVALID is 'any flag bit set'.
-    """
-
-    def requires(self) -> list[str]:
-        return ['gflags']
-
-    def dims_like(self) -> str:
-        return 'gflags'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            return ds['gflags'] != 0
-        raise ValueError(f'Unsupported flag: {flag_name}')

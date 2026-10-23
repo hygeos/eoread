@@ -125,7 +125,6 @@ class Level1_PLANETSCOPE(Reader):
     level = 'L1'
     chunks_default = 1024
     payload_var = str(names.rtoa)
-    payload_unit = None
     required_vars = (str(names.sza), str(names.saa),
                      str(names.vza), str(names.vaa))
     sample_products = ('PLANETSCOPE_MS',)
@@ -235,9 +234,7 @@ class Level1_PLANETSCOPE(Reader):
             '_srf_getter_arg': None,
             'metadata': metadata,
         })
-        ds[self.payload_var].attrs['unit'] = self.payload_unit
-
-        return ds
+        return self.finalize(ds)
 
     # ------------------------------------------------------------- helpers
 

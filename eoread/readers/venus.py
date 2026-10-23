@@ -43,7 +43,7 @@ from core import log
 from core.geo.naming import names
 from core.table import read_xml
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
 from eoread.tools import (filter_metadata, install_exit_cleanup,
                           spatial_resample)
@@ -288,7 +288,7 @@ class _VENUSBase(Reader):
             ds.attrs['_srf_getter'] = self.srf_getter
             ds.attrs['_srf_getter_arg'] = None
 
-        return ds
+        return self.finalize(ds)
 
     # --------------------------------------------------------------- helpers
 
@@ -400,7 +400,7 @@ class Level1C_VENUS(_VENUSBase):
     level = 'L1C'
     payload_var = str(names.rtoa)
     sample_products = ('VENUS_L1C',)
-    flags = 'eoread.readers.venus.FlagsReader_VENUS'
+    flags = True
     srf_getter = 'eoread.readers.venus.get_SRF'
 
     def _read_level_vars(self, ds, dirname, radio, bands, quantif, ny, nx):
@@ -414,7 +414,6 @@ class Level1C_VENUS(_VENUSBase):
 
         ds[self.payload_var] = ((str(names.bands), str(names.rows), str(names.columns)),
                                 da.stack(arrays))
-        ds[self.payload_var].attrs['unit'] = None
 
         # Classification map: coarse native grid, resampled onto the pixel grid
         cld = self._lazy_open(_find_file(dirname / 'DATA', '*CLA_ALL.tif'))
@@ -444,6 +443,27 @@ class Level1C_VENUS(_VENUSBase):
                 arrays.append(arr.data)
             ds[var] = ((str(names.bands), str(names.rows), str(names.columns)), da.stack(arrays))
 
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return ['CLA_ALL', 'CLD_XS']
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'CLA_ALL'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """VENµS L1C flags (legacy semantics kept verbatim)."""
+        if flag_name == GenericFlags.L1_INVALID:
+            cla = ds['CLA_ALL']
+            return xr.DataArray(cla.isnull(), dims=cla.dims, coords=cla.coords)
+        if flag_name == GenericFlags.CLOUD:
+            cld = ds['CLD_XS']
+            return xr.DataArray(cld, dims=cld.dims, coords=cld.coords)
+        raise ValueError(f'Unsupported VENUS L1C flag: {flag_name!r}')
+
 
 class Level2A_VENUS(_VENUSBase):
     """VENµS level L2A: surface reflectance (payloads `rho_surface` / `rho_flat`)."""
@@ -451,7 +471,7 @@ class Level2A_VENUS(_VENUSBase):
     level = 'L2A'
     payload_var = 'rho_surface'
     sample_products = ('VENUS_L2A',)
-    flags = 'eoread.readers.venus.FlagsReader_Level2A'
+    flags = True
 
     def _read_level_vars(self, ds, dirname, radio, bands, quantif, ny, nx):
         # Product nodata raw value (SVL 'nodata' entry; absent on L1C)
@@ -472,7 +492,6 @@ class Level2A_VENUS(_VENUSBase):
                     calib = calib.where(arr != nodata)
                 arrays.append(calib.data)
             ds[var] = ((str(names.bands), str(names.rows), str(names.columns)), da.stack(arrays))
-            ds[var].attrs['unit'] = None
 
         # Atmospheric state band: raw counts calibrated with the MTD quantifications
         atb = self._lazy_open(_find_file(dirname, '*ATB_XS.tif'))
@@ -500,41 +519,22 @@ class Level2A_VENUS(_VENUSBase):
             f'Venus L2A PIX shape {tuple(pix.shape)} does not match ({len(bands)}, {ny}, {nx})'
         ds['PIX_XS'] = ((str(names.bands), str(names.rows), str(names.columns)), pix.data)
 
+    # ----------------------------------------------------------------- flags
 
-class FlagsReader_VENUS(FlagsReaderBase):
-    """VENµS L1C flags (legacy semantics kept verbatim)."""
-
-    def requires(self) -> list[str]:
-        return ['CLA_ALL', 'CLD_XS']
-
-    def dims_like(self) -> str:
-        return 'CLA_ALL'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            cla = ds['CLA_ALL']
-            return xr.DataArray(cla.isnull(), dims=cla.dims, coords=cla.coords)
-        elif flag_name == GenericFlags.CLOUD:
-            cld = ds['CLD_XS']
-            return xr.DataArray(cld, dims=cld.dims, coords=cld.coords)
-        else:
-            raise ValueError(f'Unsupported flag: {flag_name}')
-
-
-class FlagsReader_Level2A(FlagsReaderBase):
-    """VENµS L2A flags (new in v2; the legacy L2A reader set no flag reader)."""
-
-    def requires(self) -> list[str]:
+    @classmethod
+    def flag_requires(cls) -> list[str]:
         return ['rho_surface', 'CLM_XS']
 
-    def dims_like(self) -> str:
+    @classmethod
+    def flag_dims_like(cls) -> str:
         return 'CLM_XS'
 
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """VENµS L2A flags (new in v2; the legacy L2A reader set none)."""
         if flag_name == GenericFlags.L1_INVALID:
             rho = ds['rho_surface']
             return rho.isnull().any(dim=str(names.bands))
-        elif flag_name == GenericFlags.CLOUD:
+        if flag_name == GenericFlags.CLOUD:
             return ds['CLM_XS'] > 0
-        else:
-            raise ValueError(f'Unsupported flag: {flag_name}')
+        raise ValueError(f'Unsupported VENUS L2A flag: {flag_name!r}')

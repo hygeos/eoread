@@ -47,7 +47,7 @@ from core import log
 from core.geo.naming import names
 from core.tools import merge
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
 from eoread.tools import filter_metadata
 from eoread.transforms.geometry import latlon_bbox
@@ -71,7 +71,7 @@ class _EcostressBase(Reader):
 
     sensor = 'ECOSTRESS'
     chunks_default = 500
-    flags = 'eoread.readers.ecostress.FlagsReader_ECOSTRESS'
+    flags = True
 
     # Per-level hooks, set by the subclasses ---------------------------------
     level = None
@@ -124,9 +124,14 @@ class _EcostressBase(Reader):
         raw = raw.chunk(chunks=self.chunks)
 
         # 2. Radiometry: merge per-band fields, calibrate, Planck -------------
+        # Radiance unit, when the product states one (HDF `units` attribute).
+        radiance_units = next(
+            (v.attrs['units'] for k, v in raw.data_vars.items()
+             if k.startswith('radiance') and v.attrs.get('units')), None)
         ds = merge(raw, dim=str(names.bands), pattern=r'(.+)_(\d+)')
         ds = ds.rename({'radiance': str(names.ltoa)})
-        ds[str(names.ltoa)].attrs['unit'] = 'W/sr/m^2'
+        if radiance_units is not None:
+            ds[str(names.ltoa)].attrs['unit'] = radiance_units
 
         product = tree[_PRODUCT_METADATA].to_dataset()
         cwvl_um = np.asarray(product['BandSpecification'].values).ravel()[1:]
@@ -147,9 +152,12 @@ class _EcostressBase(Reader):
         cwvl = cwvl_um.reshape(nbands, 1, 1)
         calibrated = gain.reshape(nbands, 1, 1) * ds[str(names.ltoa)].where(valid) \
             + offset.reshape(nbands, 1, 1)
-        ds[str(names.bt)] = _K2 / (cwvl * np.log(
+        bt = _K2 / (cwvl * np.log(
             _K1 / (calibrated.where(valid) * cwvl ** 5) + 1))
-        ds[str(names.bt)].attrs['unit'] = 'Kelvin'
+        # Derived quantity: xarray propagates the radiance attributes through
+        # the arithmetic, and they do not apply here (no unit is inferred).
+        bt.attrs = {}
+        ds[str(names.bt)] = bt
 
         # 3. Geolocation: the grid is axis-aligned in geographic space, so the
         #    scene bounding box pins the lat/lon rasters (north-up, as stored)
@@ -194,7 +202,7 @@ class _EcostressBase(Reader):
             'hdfeos_info': filter_fn(self._struct_metadata(tree),
                                      self.metadata_template),
         })
-        return ds
+        return self.finalize(ds)
 
     @staticmethod
     def _scene_corners(metadata: dict):
@@ -210,6 +218,42 @@ class _EcostressBase(Reader):
         parser = _StructMetadataParser(info.split('\n'))
         parser.parse()
         return parser.data
+
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        # Every variable used by getflag (the legacy reader under-declared
+        # water, cloud and data_quality here).
+        return ['water', 'cloud', 'data_quality', str(names.ltoa)]
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'water'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Decode the generic flags from the L1 data layers.
+
+        Legacy semantics, made dtype-robust: this product stores water/cloud
+        as float64, where the legacy bitwise `~water` raised.
+
+        - L1_INVALID:   band 4 radiance is missing
+        - LAND:         water mask is zero
+        - CLOUD:        cloud layer is non-zero
+        - L1_DEGRADED:  any data-quality layer is non-zero
+        """
+        if flag_name == GenericFlags.L1_INVALID:
+            band = ds[str(names.ltoa)].sel({str(names.bands): '4'})
+            return band.isnull()
+        if flag_name == GenericFlags.LAND:
+            return ds['water'] == 0
+        if flag_name == GenericFlags.CLOUD:
+            return ds['cloud'] != 0
+        if flag_name == GenericFlags.L1_DEGRADED:
+            quality = ds['data_quality'].max(dim=str(names.bands))
+            return quality != 0
+        raise ValueError(f'Unsupported ECOSTRESS L1C flag: {flag_name!r}')
 
 
 class Level1C_Ecostress(_EcostressBase):
@@ -300,44 +344,6 @@ def _parse_wkt(wkt: str) -> np.ndarray:
     return np.array(points)
 
 
-class FlagsReader_ECOSTRESS(FlagsReaderBase):
-    """
-    Decode the generic flags of an ECOSTRESS L1 product from its data layers.
-
-    Legacy semantics, made dtype-robust: this product stores water/cloud as
-    float64, where the legacy bitwise `~water` raised.
-
-    - L1_INVALID:   band 4 radiance is missing
-    - LAND:         water mask is zero
-    - CLOUD:        cloud layer is non-zero
-    - L1_DEGRADED:  any data-quality layer is non-zero
-    """
-
-    def requires(self) -> list[str]:
-        # Every variable used by getflag (the legacy reader under-declared
-        # water, cloud and data_quality here).
-        return ['water', 'cloud', 'data_quality', str(names.ltoa)]
-
-    def dims_like(self) -> str:
-        return 'water'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            band = ds[str(names.ltoa)].sel({str(names.bands): '4'})
-            return band.isnull()
-        if flag_name == GenericFlags.LAND:
-            return ds['water'] == 0
-        if flag_name == GenericFlags.CLOUD:
-            return ds['cloud'] != 0
-        if flag_name == GenericFlags.L1_DEGRADED:
-            quality = ds['data_quality'].max(dim=str(names.bands))
-            return quality != 0
-        raise ValueError(f'Unsupported ECOSTRESS flag: {flag_name!r}')
-
-    def getflag_raw(self, ds: xr.Dataset, flag_name: str) -> xr.DataArray:
-        raise NotImplementedError('ECOSTRESS flags are derived from data variables')
-
-
 # ===========================================================================
 # Plain-HDF5 family: v001 L1B/L2 maquette products + v002 L2 LSTE
 # ===========================================================================
@@ -401,11 +407,6 @@ class _EcostressPlainBase(Reader):
                 f'{instrument!r}, not {self.sensor!r}')
 
         spec = self.VARIANTS[self.detect_variant(metadata)]
-        if 'flags' in spec:
-            # Per-variant flag reader (the v002 cloud mask has no v001
-            # counterpart); the instance attribute shadows the class default
-            # for finalize().
-            self.flags = spec['flags']
 
         # 1. Payload grid: rename the two spatial dims, keep it lazy ----------
         try:
@@ -462,7 +463,7 @@ class _EcostressPlainBase(Reader):
             '_srf_getter_arg': 'iss_1_ecostres',
             'metadata': filter_fn(metadata, self.metadata_template),
         })
-        return ds
+        return self.finalize(ds)
 
     def payload(self, raw: xr.Dataset, tree: xr.DataTree, spec: dict) -> xr.Dataset:
         """Build the payload variables from the raw grid (per-level hook)."""
@@ -571,7 +572,7 @@ class Level1B_Ecostress(_EcostressPlainBase):
     payload_var = str(names.ltoa)
     sample_products = ('ECOSTRESS_L1B',)
     required_vars = (str(names.bt), 'data_quality', 'water', 'land_fraction')
-    flags = 'eoread.readers.ecostress.FlagsReader_Level1B'
+    flags = True
 
     #: Product types of the ECOSTRESS L1B family, keyed for `detect_variant`.
     #: Only entries verified against a real sample are listed; an unknown
@@ -591,9 +592,13 @@ class Level1B_Ecostress(_EcostressPlainBase):
     def payload(self, raw: xr.Dataset, tree: xr.DataTree, spec: dict) -> xr.Dataset:
         # radiance_1..5 / data_quality_1..5 merge into band stacks; anything
         # else in the grid is not part of the output contract.
+        radiance_units = next(
+            (v.attrs['units'] for k, v in raw.data_vars.items()
+             if k.startswith('radiance') and v.attrs.get('units')), None)
         ds = merge(raw, dim=str(names.bands), pattern=r'(.+)_(\d+)')
         ds = ds.rename({'radiance': str(names.ltoa)})
-        ds[str(names.ltoa)].attrs['unit'] = 'W/sr/m^2'
+        if radiance_units is not None:
+            ds[str(names.ltoa)].attrs['unit'] = radiance_units
         extra = set(ds.data_vars) - {str(names.ltoa), 'data_quality'}
         assert not extra, (
             f'{self.sensor} {self.level}: unexpected grid fields {sorted(extra)}; '
@@ -610,10 +615,44 @@ class Level1B_Ecostress(_EcostressPlainBase):
         # The radiance fields are already calibrated: direct Planck inversion.
         valid = ~ds[str(names.ltoa)].isnull()
         cwvl = cwvl_um.reshape(nbands, 1, 1)
-        ds[str(names.bt)] = _K2 / (cwvl * np.log(
+        bt = _K2 / (cwvl * np.log(
             _K1 / (ds[str(names.ltoa)].where(valid) * cwvl ** 5) + 1))
-        ds[str(names.bt)].attrs['unit'] = 'Kelvin'
+        # Derived quantity: do not inherit the radiance attributes (no unit).
+        bt.attrs = {}
+        ds[str(names.bt)] = bt
         return ds
+
+    # ----------------------------------------------------------------- flags
+
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        return ['water', 'data_quality', str(names.ltoa)]
+
+    @classmethod
+    def flag_dims_like(cls) -> str:
+        return 'water'
+
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Generic flags of the v001 L1B radiance product.
+
+        - L1_INVALID:   band-4 radiance is missing
+        - L1_DEGRADED:  any data-quality layer is non-zero
+        - LAND:         water mask is zero (derived from the GEO land_fraction)
+
+        CLOUD has no source in this product and raises `ValueError`.
+        """
+        if flag_name == GenericFlags.L1_INVALID:
+            band = ds[str(names.ltoa)].sel({str(names.bands): '4'})
+            return band.isnull()
+        if flag_name == GenericFlags.L1_DEGRADED:
+            quality = ds['data_quality'].max(dim=str(names.bands))
+            return quality != 0
+        if flag_name == GenericFlags.LAND:
+            return ds['water'] == 0
+        raise ValueError(
+            'CLOUD flag not available on ECOSTRESS L1B: the v001 product '
+            'carries no cloud layer')
 
 
 class Level2_Ecostress(_EcostressPlainBase):
@@ -629,8 +668,7 @@ class Level2_Ecostress(_EcostressPlainBase):
     wide-band emissivity (`EmisWB`), precipitable water vapor (`PWV`, cm) and
     the raw quality-control layer (`QC`; bit layout undocumented, so no flag
     decoding). The v002 variant additionally carries an in-grid cloud mask,
-    exposed as `cloud` (0/1, NaN = invalid) and decoded by its dedicated flag
-    reader.
+    exposed as `cloud` (0/1, NaN = invalid); `getflag` decodes it when present.
 
     The v002 ShortName carries a scene suffix ('ECO_L2_LSTE.002'), so that
     variant is matched by prefix. The CLOUD products (ECO2CLD /
@@ -648,7 +686,7 @@ class Level2_Ecostress(_EcostressPlainBase):
     sample_products = ('ECOSTRESS_L2_V001', 'ECOSTRESS_L2_V002')
     required_vars = ('LST_err', 'emis', 'emis_err', 'EmisWB', 'PWV', 'QC',
                      'water', 'land_fraction')
-    flags = 'eoread.readers.ecostress.FlagsReader_Level2'
+    flags = True
 
     VARIANTS = {
         'ECO2LSTE': dict(
@@ -664,7 +702,6 @@ class Level2_Ecostress(_EcostressPlainBase):
             product_metadata='L2 LSTE Metadata',
             geo_token=('L2_LSTE', 'L1B_GEO'),
             resolution=70,
-            flags='eoread.readers.ecostress.FlagsReader_Level2Cloud',
         ),
     }
 
@@ -702,79 +739,42 @@ class Level2_Ecostress(_EcostressPlainBase):
             f'{len(cwvl_um)} thermal wavelengths for {nbands} data bands')
         ds[str(names.cwav)] = (str(names.bands), cwvl_um * 1e3)  # µm -> nm
 
-        # The file stores the CF plural `units`; the registry wants `unit`.
-        ds['LST'].attrs['unit'] = 'K'
+        # The file states the LST unit with the CF plural `units`; expose it
+        # under the registry name, and only when it is actually present.
+        if 'units' in ds['LST'].attrs:
+            ds['LST'].attrs['unit'] = ds['LST'].attrs['units']
         return ds
 
+    # ----------------------------------------------------------------- flags
 
-class FlagsReader_Level1B(FlagsReaderBase):
-    """Generic flags of the ECOSTRESS v001 L1B radiance product.
+    @classmethod
+    def flag_requires(cls) -> list[str]:
+        # The v002 variant adds `cloud`; input_vars is a superset, which is
+        # harmless (v001 simply never reads it).
+        return ['LST', 'water', 'cloud']
 
-    - L1_INVALID:   band-4 radiance is missing
-    - L1_DEGRADED:  any data-quality layer is non-zero
-    - LAND:         water mask is zero (derived from the GEO land_fraction)
-    CLOUD has no source in this product and raises `ValueError`.
-    """
-
-    def requires(self) -> list[str]:
-        return ['water', 'data_quality', str(names.ltoa)]
-
-    def dims_like(self) -> str:
-        return 'water'
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        if flag_name == GenericFlags.L1_INVALID:
-            band = ds[str(names.ltoa)].sel({str(names.bands): '4'})
-            return band.isnull()
-        if flag_name == GenericFlags.L1_DEGRADED:
-            quality = ds['data_quality'].max(dim=str(names.bands))
-            return quality != 0
-        if flag_name == GenericFlags.LAND:
-            return ds['water'] == 0
-        raise ValueError(
-            'CLOUD flag not available on ECOSTRESS L1B: the v001 product '
-            'carries no cloud layer')
-
-    def getflag_raw(self, ds: xr.Dataset, flag_name: str) -> xr.DataArray:
-        raise NotImplementedError('ECOSTRESS flags are derived from data variables')
-
-
-class FlagsReader_Level2(FlagsReaderBase):
-    """Generic flags of the ECOSTRESS L2 LSTE product (v001 ECO2LSTE).
-
-    - L1_INVALID:   LST is missing (the generic enum has no L2_INVALID)
-    - LAND:         water mask is zero (derived from the GEO land_fraction)
-    CLOUD has no source in this variant and raises `ValueError`.
-    """
-
-    def requires(self) -> list[str]:
-        return ['LST', 'water']
-
-    def dims_like(self) -> str:
+    @classmethod
+    def flag_dims_like(cls) -> str:
         return 'LST'
 
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """Generic flags of the ECOSTRESS L2 LSTE product.
+
+        - L1_INVALID:   LST is missing (the generic enum has no L2_INVALID)
+        - LAND:         water mask is zero (derived from the GEO land_fraction)
+        - CLOUD:        only when the variant carries the in-grid mask (`cloud`
+                        is 0/1 with NaN for invalid; an explicit 1 is a cloud,
+                        a `!= 0` test would count NaN as cloudy)
+        """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['LST'].isnull()
         if flag_name == GenericFlags.LAND:
             return ds['water'] == 0
-        raise ValueError(
-            'CLOUD flag not available on this ECOSTRESS L2 variant: the '
-            'product carries no cloud layer')
-
-    def getflag_raw(self, ds: xr.Dataset, flag_name: str) -> xr.DataArray:
-        raise NotImplementedError('ECOSTRESS flags are derived from data variables')
-
-
-class FlagsReader_Level2Cloud(FlagsReader_Level2):
-    """v002 ECO_L2_LSTE adds the in-grid cloud mask (`cloud`, 0/1, NaN)."""
-
-    def requires(self) -> list[str]:
-        return ['LST', 'water', 'cloud']
-
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
         if flag_name == GenericFlags.CLOUD:
-            # The mask is float32 with NaN invalids: only an explicit 1 is a
-            # cloud (a `!= 0` test would count NaN pixels as cloudy).
+            if 'cloud' not in ds:
+                raise ValueError(
+                    'CLOUD flag not available on this ECOSTRESS L2 variant: '
+                    'the product carries no cloud layer')
             return ds['cloud'] == 1
-        return super().getflag(ds, flag_name)
+        raise ValueError(f'Unsupported ECOSTRESS L2 flag: {flag_name!r}')

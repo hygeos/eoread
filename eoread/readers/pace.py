@@ -48,7 +48,7 @@ from core import log
 from core.geo.naming import names
 from core.tools import only
 
-from eoread.flags import FlagsReaderBase, GenericFlags
+from eoread.flags import GenericFlags
 from eoread.reader import Reader
 from eoread.tools import filter_metadata
 
@@ -75,7 +75,7 @@ class Level1B_PACE_OCI(Reader):
     sample_products = ('PACE_L1B',)
     required_vars = (str(names.sza), str(names.saa), str(names.vza), str(names.vaa),
                      'water', 'quality_flag')
-    flags = 'eoread.readers.pace.FlagsReader_PACE'
+    flags = True
     VARIANTS = {'l1b': dict(detect=dict(field='processing_level', value='L1B'))}
 
     def read(self, path: Path) -> xr.Dataset:
@@ -114,7 +114,6 @@ class Level1B_PACE_OCI(Reader):
         ds[str(names.rtoa)] = xr.concat(
             [_rename_bands(obs[k]) for k in ('rhot_blue', 'rhot_red', 'rhot_SWIR')],
             dim=bands)
-        ds[str(names.rtoa)].attrs['unit'] = None
 
         # Central wavelengths, same concatenation order.
         ds[str(names.cwav)] = xr.concat(
@@ -157,24 +156,26 @@ class Level1B_PACE_OCI(Reader):
                         filter_metadata(dict(tree.attrs), self.metadata_template),
         })
 
-        return ds
+        return self.finalize(ds)
 
+    # ----------------------------------------------------------------- flags
 
-class FlagsReader_PACE(FlagsReaderBase):
-    """PACE OCI L1B flags from the geolocation group.
-
-    ``quality_flag`` carries the product's bit fields (Off_Earth /
-    Solar_eclipse / Terrain_bad / 10_deg_scan_angle); any set bit marks an
-    invalid pixel. The float32 ``water`` mask is 0 for land, 1 for water.
-    """
-
-    def requires(self) -> list[str]:
+    @classmethod
+    def flag_requires(cls) -> list[str]:
         return ['quality_flag', 'water']
 
-    def dims_like(self) -> str:
+    @classmethod
+    def flag_dims_like(cls) -> str:
         return 'quality_flag'
 
-    def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+    @classmethod
+    def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
+        """OCI L1B quality flags from the geolocation group.
+
+        ``quality_flag`` carries the product's bit fields (Off_Earth /
+        Solar_eclipse / Terrain_bad / 10_deg_scan_angle); any set bit marks an
+        invalid pixel. The float32 ``water`` mask is 0 for land, 1 for water.
+        """
         if flag_name == GenericFlags.L1_INVALID:
             # Canonical bool contract; legacy returned the raw float32 values,
             # which encode identically (raiseflag applies `condition != 0`).
@@ -184,4 +185,4 @@ class FlagsReader_PACE(FlagsReaderBase):
             # compute time; casting to bool first restores the intended
             # "not water" semantics for the {0, 1} encoding.
             return ~ds['water'].astype(bool)
-        raise ValueError(f'Unsupported flag: {flag_name}')
+        raise ValueError(f'Unsupported PACE flag: {flag_name!r}')

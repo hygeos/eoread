@@ -164,7 +164,6 @@ class Level1_GEOSAT(Reader):
     level = 'L1'
     chunks_default = 1024
     payload_var = str(names.ltoa)
-    payload_unit = 'W/m2/sr/µm'
     required_vars = (str(names.sza), str(names.saa),
                      str(names.vza), str(names.vaa))
     sample_products = ('GEOSAT_DE1', 'GEOSAT_DE2')
@@ -183,7 +182,6 @@ class Level1_GEOSAT(Reader):
     # the legacy reader.
     _BAND_WAVELENGTHS = {'NIR': 830, 'Red': 660, 'RED': 660, 'Green': 560,
                          'GREEN': 560, 'Blue': 490, 'BLUE': 490}
-    _UNITS = ('W/m2/sr/m-6', 'W m<sup>-2</sup> &micro;m<sup>-1</sup> str<sup>-1</sup>')
 
     # --------------------------------------------------------------- read
 
@@ -212,8 +210,8 @@ class Level1_GEOSAT(Reader):
         bands = [str(s['BAND_DESCRIPTION']) for s in bands_info]
         gains = np.array([_num(s['PHYSICAL_GAIN']) for s in bands_info], dtype='float64')
         bias = np.array([_num(s['PHYSICAL_BIAS']) for s in bands_info], dtype='float64')
-        unit = str(bands_info[0]['PHYSICAL_UNIT'])
-        assert unit in self._UNITS, f'unexpected radiance unit {unit!r}'
+        # Radiance unit as stated by the product (never hardcoded).
+        unit = xml_value(bands_info[0].get('PHYSICAL_UNIT'))
 
         cwav = np.array([self._BAND_WAVELENGTHS[b] for b in bands], dtype='float64')
 
@@ -326,9 +324,10 @@ class Level1_GEOSAT(Reader):
             '_srf_getter_arg': variant,
             'metadata': metadata,
         })
-        ds[self.payload_var].attrs['unit'] = self.payload_unit
+        if unit is not None:
+            ds[self.payload_var].attrs['unit'] = str(unit)
 
-        return ds
+        return self.finalize(ds)
 
     # ------------------------------------------------------------- helpers
 

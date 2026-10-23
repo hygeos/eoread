@@ -324,7 +324,7 @@ def test_l1b_attrs(l1, l1_dir):
     # The file stores a non-ISO scene time; v2 normalizes it (same instant).
     assert a[str(names.datetime)] == parse(md['Scene_center_time']).isoformat()
     assert md['Product_level'] == 'Level-1B'
-    assert a['_flag_reader'] == 'eoread.readers.sgli.FlagsReader_SGLI'
+    assert a['_flag_reader'] == 'eoread.readers.sgli.Level1B_SGLI'
     # SRF getter attributes carried over from legacy (consumed by eotools).
     assert a['_srf_getter'] == 'eotools.srf.get_SRF_eumetsat'
     assert a['_srf_getter_arg'] == 'gcom-c_1_sgli'

@@ -37,7 +37,6 @@ from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import ProductError, UnsupportedProductType
 from eoread.readers.ecostress import (
-    FlagsReader_Level2,
     Level1B_Ecostress,
     Level1C_Ecostress,
     Level2_Ecostress,
@@ -430,7 +429,7 @@ def test_l2_cloud_flag_raises(l2):
     sub = l2.isel({str(names.rows): slice(100, 300),
                    str(names.columns): slice(200, 400)}).compute()
     with pytest.raises(ValueError):
-        FlagsReader_Level2().getflag(sub, GenericFlags.CLOUD)
+        Level2_Ecostress.getflag(sub, GenericFlags.CLOUD)
 
 
 def test_l2_foreign_product(level2_ecostress):
@@ -472,8 +471,10 @@ def test_l2_v002_lazy_load(l2_v002):
 
 
 def test_l2_v002_flagreader(l2_v002):
-    # The per-variant flag reader (with the cloud layer) must be wired in.
-    assert l2_v002.attrs['_flag_reader'].endswith('FlagsReader_Level2Cloud')
+    # The reader itself is the flag provider, and it must see the v002
+    # cloud layer.
+    assert l2_v002.attrs['_flag_reader'] == (
+        'eoread.readers.ecostress.Level2_Ecostress')
     sub = l2_v002.isel({str(names.rows): slice(100, 300),
                         str(names.columns): slice(200, 400)})
     generic.Test.flagreader(sub)
