@@ -110,6 +110,11 @@ _samples: dict[str, Sample] = {
     'PACE_L1B': Sample(
         _CEPH / 'PACE_OCI' / 'PACE_OCI.20250430T130447.L1B.V3.nc',
         'PACE OCI L1B'),
+
+    # GCOM-C SGLI
+    'SGLI_L1B': Sample(
+        _CEPH / 'SGLI' / 'GC1SG1_201912050159F05712_1BSG_VNRDQ_1007.h5',
+        'GCOM-C SGLI L1B'),
 }
 
 

@@ -60,6 +60,23 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   (registry declares [0, 180] — a documented registry inconsistency, see the
   OLCI/MSI entries above). No orientation change: the product is natively
   south-up and legacy kept it that way.
+- SGLI: identity + schema_version strip (all payloads kept their v1 names;
+  ``water``/``quality_flag`` are bit-identical to legacy at mirrored rows).
+  Documented deviations, NOT breaks: the output is south-up where legacy
+  followed the file's line order — for a north-up-stored granule (the sample)
+  v2 row i carries legacy row ny-1-i; the tie fields carry the full affine
+  ``Slope*x + Offset`` where legacy applied ``(1+Slope)*x`` (lat/lon doubled,
+  centidegree angles inflated ~101x), so geometry and Rtoa (which divides by
+  cos of sza) differ from legacy — a confirmed bug fix pinned against the
+  product's raw tie data / counts; float32 geometry per the naming registry;
+  ``LAND`` = ``water >= 50`` where legacy's ``~water`` on the uint8
+  land-percentage was True on every pixel; ``L1_INVALID`` is the negation of
+  QA_flag bit 0 where legacy used the raw value (the file's bit description
+  says 1 = "Integrity", so the legacy test flagged the sound ~86% of the
+  sample scene);
+  ``add_ancillary_data`` dropped (instrument telemetry with no consumer);
+  ``shortname``/``crs`` attributes were added; ``datetime`` is normalized to
+  ISO from the product's non-ISO ``Scene_center_time`` (same instant).
 """
 
 from core.geo.naming import names
