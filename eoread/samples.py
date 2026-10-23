@@ -115,6 +115,25 @@ _samples: dict[str, Sample] = {
     'SGLI_L1B': Sample(
         _CEPH / 'SGLI' / 'GC1SG1_201912050159F05712_1BSG_VNRDQ_1007.h5',
         'GCOM-C SGLI L1B'),
+
+    # DIMAP strips (staged under downloads/eoread)
+    'GEOSAT_DE1': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'GEOSAT-1',
+        'GEOSAT-1 (DE-1) L1 strip'),
+    'GEOSAT_DE2': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'GEOSAT-2',
+        'GEOSAT-2 (DE-2) L1C strip'),
+    'PLEIADES_MS': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'PLEIADES' /
+        'Polygon1_SO24012539-2-01_DS_PHR1B_202404231033373_FR1_PX_E005N43_0118_03298',
+        'Pleiades multi-spectral L1 strip'),
+    'PNEO_MS': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'PLEIADES-NEO' /
+        'WO_000194880_1_1_SAL24178541-1_ACQ_PNEO4_03432708887687',
+        'Pleiades-Neo multi-spectral L1 strip'),
+    'PLANETSCOPE_MS': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'PLANETSCOPE' / 'PSScene_Basic_Analytic_8b_udm2',
+        'PlanetScope Basic Analytic 8-band L1 scene'),
 }
 
 

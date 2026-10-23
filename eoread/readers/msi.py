@@ -338,7 +338,7 @@ class Level1C_MSI(_MSIBase):
     payload_var = str(names.ltoa)
     sample_products = ('MSI_L1C',)
     xml_root = 'MTD_MSIL1C.xml'
-    payload_unit = 'W.m-2.sr-1'
+    payload_unit = 'W.m-2.sr-1' # FIXME : not useful ? 
     # Legacy parity: calibration stays float64 (the registry sets no dtype on Ltoa).
     payload_dtype = 'float64'
 

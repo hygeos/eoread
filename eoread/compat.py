@@ -77,6 +77,30 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   ``add_ancillary_data`` dropped (instrument telemetry with no consumer);
   ``shortname``/``crs`` attributes were added; ``datetime`` is normalized to
   ISO from the product's non-ISO ``Scene_center_time`` (same instant).
+- PLEIADES: identity + schema_version strip (payload kept its v1 name
+  ``Rtoa``). Documented deviations, NOT breaks: south-up flip (v2 row i carries
+  legacy row ny-1-i); nodata DN==0 becomes NaN where the legacy rioxarray open
+  kept it as zero data; payload/angles/lat-lon are float32 end to end where
+  legacy mixed float64 intermediates.
+- PNEO: identity + schema_version strip (payload kept its v1 name ``Rtoa``).
+  Documented deviations, NOT breaks: south-up flip (v2 row i carries legacy row
+  ny-1-i); all six spectral bands are kept (sorted by central wavelength) where
+  the legacy reader silently dropped the red-edge and deep-blue bands; nodata
+  DN==0 becomes NaN where legacy kept it as zero data; azimuth angles keep the
+  product's unsigned [0, 360) convention (registry declares [0, 180] — a
+  documented registry inconsistency, see OLCI/MSI/MERIS); payload/angles/lat-lon
+  are float32 end to end where legacy mixed float64 intermediates.
+- GEOSAT: identity + schema_version strip (payload kept its v1 name ``Ltoa``;
+  one reader class serves the DE-1 and DE-2 variants). Documented deviations,
+  NOT breaks: south-up flip (v2 row i carries legacy row ny-1-i); GEOSAT-2
+  nodata DN==0 becomes NaN where legacy kept it as zero data (the calibration
+  bias survives in the legacy output there); ``datetime`` is the full DE-2
+  START_TIME where legacy emitted a date-only value; ``cwav`` is float64 where
+  legacy was int32.
+- PLANETSCOPE: identity + schema_version strip (payload kept its v1 name
+  ``Rtoa``). Documented deviations, NOT breaks: south-up flip (v2 row i carries
+  legacy row ny-1-i); nodata DN==0 becomes NaN where legacy kept it as zero
+  data; ``cwav`` is float64 where legacy was float32.
 """
 
 from core.geo.naming import names

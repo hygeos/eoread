@@ -112,7 +112,9 @@ class Test:
                 (str(names.datetime), names.datetime.desc, str),
                 (str(names.platform), names.platform.desc, str),
                 (str(names.sensor), names.sensor.desc, str),            
-                (str(names.resolution), names.resolution.desc, int|None),
+                # int or float: sub-meter sensors (Pleiades ~0.76 m) carry a
+                # fractional ground sample distance, as the schema allows
+                (str(names.resolution), names.resolution.desc, int|float|None),
                 (str(names.product_name), names.product_name.desc, str), 
                 (str(names.input_directory), names.input_directory.desc, str),
             ]:

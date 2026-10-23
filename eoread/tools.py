@@ -120,6 +120,32 @@ def filter_metadata(metadata: dict, template: list) -> dict:
     return result
 
 
+def xml_value(node):
+    """Unwrap a ``core.table.read_xml`` leaf.
+
+    A leaf element without attributes is parsed as a plain typed value; an
+    element carrying attributes comes back as ``{'attributes': ..., 'values':
+    ...}`` (or ``{'attributes': ...}`` when it has no text). This returns the
+    element's value in both cases and passes anything else through unchanged.
+    """
+    if isinstance(node, dict) and 'values' in node:
+        return node['values']
+    return node
+
+
+def _num(node, default=None):
+    """Coerce a ``read_xml`` leaf to a float; empty leaves become `default`.
+
+    ``read_xml`` parses empty text (and attribute-only elements) as ``{}``, so
+    ``{}``, ``None`` and ``''`` are all treated as "no value" and replaced by
+    `default`.
+    """
+    value = xml_value(node)
+    if value in (None, '', {}):
+        return default
+    return float(value)
+
+
 # ---------------------------------------------------------------------------
 # Process-exit hygiene (shared by every rasterio-backed reader)
 # ---------------------------------------------------------------------------

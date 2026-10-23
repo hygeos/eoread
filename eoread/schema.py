@@ -61,7 +61,9 @@ REQUIRED_ATTRS = {
 
 
 def _is_string_dtype(dtype) -> bool:
-    return np.issubdtype(dtype, np.str_) or np.issubdtype(dtype, np.unicode_)
+    # np.unicode_ was removed in NumPy 2; object arrays may hold str labels.
+    dtype = np.dtype(dtype)
+    return np.issubdtype(dtype, np.str_) or dtype == np.dtype('O')
 
 
 def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:

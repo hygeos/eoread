@@ -21,19 +21,6 @@ import pathlib
 import sys
 
 
-#: WIP DIMAP readers (Phase-2 scope, see TODO.md step 7) that import
-#: xmltodict and jrc_rayleigh_processor at module level. Neither package is
-#: installable in the supported environments (not on PyPI or conda-forge), so
-#: these four modules are excluded from the smoke check until Phase 2 decides
-#: their fate (port, dedupe or drop).
-EXCLUDED = frozenset({
-    'eoread.legacy.geosat',
-    'eoread.legacy.planetscope',
-    'eoread.legacy.pleiades',
-    'eoread.legacy.pleiades_neo',
-})
-
-
 def package_root() -> pathlib.Path:
     import eoread
     return pathlib.Path(next(iter(eoread.__path__)))
@@ -48,9 +35,7 @@ def collect_modules() -> list[str]:
         if '__pycache__' in parts:
             continue
         dotted = '.'.join([*parts[:-1], parts[-1][:-3]])
-        name = f'eoread.{dotted}'
-        if name not in EXCLUDED:
-            modules.add(name)
+        modules.add(f'eoread.{dotted}')
     return sorted(modules)
 
 
