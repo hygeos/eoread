@@ -101,6 +101,24 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   ``Rtoa``). Documented deviations, NOT breaks: south-up flip (v2 row i carries
   legacy row ny-1-i); nodata DN==0 becomes NaN where legacy kept it as zero
   data; ``cwav`` is float64 where legacy was float32.
+- GOESNG: identity + schema_version strip. No v1 reference exists: the legacy
+  function is unusable (it references undefined ``naming``/``eo``/``flags``
+  globals and never reaches a result), so the v2 port is verified against the
+  raw NetCDF files instead. Documented deviations from the legacy intent:
+  south-up flip; string band labels + ``cwav`` (legacy used integer
+  wavelengths and a ``wav`` variable); float32 payload/geometry; the optional
+  NWC/GEO cloud mask is an explicit ``cloud`` layer decoded through
+  ``getflag(CLOUD)`` instead of a packed ``flags`` variable.
+- HYPSO: identity + schema_version strip (payload kept its v1 name ``Ltoa``).
+  No usable v1 reference exists either: the legacy function leaves the payload
+  uint16, keeps the north-up orientation and raises on a bands coordinate that
+  the product does not carry. Documented deviations: south-up flip; ``Ltoa``
+  float32 (integer radiance is preserved exactly by the cast); 0-based string
+  band labels + ``cwav`` from the file's wavelength table; ``datetime``
+  normalized to ISO from ``date_aquired``; sensor/platform taken from the
+  modern ``instrument_id``/``sat_id`` fields when present (the legacy values
+  otherwise). Both geolocation layouts are read: the old ``navigation`` group
+  and the current hypso-package ``geometry`` group.
 """
 
 from core.geo.naming import names

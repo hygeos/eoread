@@ -134,6 +134,18 @@ _samples: dict[str, Sample] = {
     'PLANETSCOPE_MS': Sample(
         _CEPH / 'downloads' / 'eoread' / 'PLANETSCOPE' / 'PSScene_Basic_Analytic_8b_udm2',
         'PlanetScope Basic Analytic 8-band L1 scene'),
+
+    # GOES-NG (CMS/ICARE "Emultic" composition)
+    'GOESNG_L1': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'GOESNG' /
+        'Emultic1kmNC4_goes16_202206171400.nc',
+        'GOES-16 ABI L1b 1 km/500 m multi-channel (Emultic)'),
+
+    # HYPSO-1 (NTNU hyperspectral)
+    'HYPSO_L1': Sample(
+        _CEPH / 'downloads' / 'eoread' / 'HYPSO' /
+        'vancouver_2022-07-30_1825Z-l1b.nc',
+        'HYPSO-1 L1B hyperspectral radiance (Vancouver)'),
 }
 
 
