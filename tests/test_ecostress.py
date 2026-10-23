@@ -70,7 +70,14 @@ def level2_ecostress():
 
 @pytest.fixture(scope='session')
 def level2_ecostress_v002():
-    return get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
+    path = get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
+    # The v002 LSTE product carries no per-pixel lat/lon: it is only readable
+    # with its paired L1B_GEO file next to it. Skip cleanly when the staged
+    # sample lacks that companion rather than erroring in every dependent test.
+    geo = path.with_name(path.name.replace('L2_LSTE', 'L1B_GEO'))
+    if not geo.exists():
+        pytest.skip(f'missing paired geolocation file {geo.name}')
+    return path
 
 
 @pytest.fixture(scope='session')
@@ -432,11 +439,14 @@ def test_l2_cloud_flag_raises(l2):
         Level2_Ecostress.getflag(sub, GenericFlags.CLOUD)
 
 
-def test_l2_foreign_product(level2_ecostress):
+def test_l2_foreign_product():
     """A CLOUD product is not a LSTE product: loud raise at open time."""
-    cloud = level2_ecostress.with_name(
-        level2_ecostress.name.replace('L2_LSTE', 'L2_CLOUD'))
-    assert cloud.exists(), 'expected the CLOUD sibling of the LSTE sample'
+    # The v002 LSTE staging ships the CLOUD sibling (the v001 sample does not);
+    # this test only needs the file path, not a readable LSTE+GEO pair.
+    lste = get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
+    cloud = lste.with_name(lste.name.replace('L2_LSTE', 'L2_CLOUD'))
+    if not cloud.exists():
+        pytest.skip(f'missing CLOUD sibling {cloud.name}')
     with pytest.raises(UnsupportedProductType):
         Level2_Ecostress(cloud)
 

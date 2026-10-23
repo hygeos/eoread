@@ -17,6 +17,7 @@ conformance, canonical south-up orientation, lazy loading and flag decoding.
 """
 
 import gc
+import os
 
 import numpy as np
 import pytest
@@ -60,19 +61,30 @@ def _gc():
     gc.collect()
 
 
+def _readable(path):
+    """Skip cleanly when a staged sample cannot be traversed/read.
+
+    A .SEN3 granule is a directory tree: a missing execute bit on any level
+    raises PermissionError at the first open instead of a useful test failure.
+    """
+    if not os.access(path, os.R_OK | os.X_OK):
+        pytest.skip(f'sample not readable (check permissions): {path}')
+    return path
+
+
 @pytest.fixture(scope='session')
 def level1_olci():
-    return get_sample(Level1_OLCI)
+    return _readable(get_sample(Level1_OLCI))
 
 
 @pytest.fixture(scope='session')
 def level2_olci():
-    return get_sample(Level2_OLCI, 'OLCI_L2_WFR')
+    return _readable(get_sample(Level2_OLCI, 'OLCI_L2_WFR'))
 
 
 @pytest.fixture(scope='session')
 def level2_olci_wrr():
-    return get_sample(Level2_OLCI, 'OLCI_L2_WRR')
+    return _readable(get_sample(Level2_OLCI, 'OLCI_L2_WRR'))
 
 
 @pytest.fixture(params=[500, (400, 600)])

@@ -253,8 +253,20 @@ def test_l1b_v1_compat(l1):
     assert ds.attrs[str(names.crs)] == 'EPSG:4326'
 
 
-def test_l1b_parity_legacy(l1, l1_dir):
+def test_l1b_parity_legacy(l1, l1_dir, monkeypatch):
     """Bit-exact parity with the legacy reader at a pinned window."""
+    # The v2 reader already opened the file with h5netcdf in this process; the
+    # legacy reader's default netCDF4 open then fails with a NetCDF HDF error
+    # (two bundled libhdf5 copies resident, see REFACTORING.md). Force the
+    # legacy open onto h5netcdf too so the comparison can run in one process.
+    import eoread.legacy.pace as legacy_pace
+    real_open = legacy_pace.xr.open_datatree
+
+    def _open_h5netcdf(*args, **kwargs):
+        kwargs.setdefault('engine', 'h5netcdf')
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(legacy_pace.xr, 'open_datatree', _open_h5netcdf)
     legacy = Level1B_PACE_OCI_legacy(l1_dir, chunks=500, verbose=False)
     try:
         r, c = WIN_ROWS, WIN_COLS
