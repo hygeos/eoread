@@ -49,8 +49,8 @@ from eoread.tools import filter_metadata
 #: User guide for the MERIS L1 product (legacy attribute kept).
 USER_GUIDE = 'https://archive.org/details/manualzilla-id-5933919/page/n13/mode/2up'
 
-#: Per-detector characterization tables (kept in the legacy auxdata tree).
-_AUXDATA_DIR = Path(__file__).resolve().parents[1] / 'legacy' / 'auxdata' / 'meris'
+#: Per-detector characterization tables, shipped with the v2 package.
+_AUXDATA_DIR = Path(__file__).resolve().parents[1] / 'auxdata' / 'meris'
 
 
 def _decode(value):

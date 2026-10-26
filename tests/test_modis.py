@@ -8,12 +8,11 @@ Sample (see tests/README.md):
   registration, 38 file-native bands ('1.0' ... '36.0', with the high-gain TDI
   pairs '13.5'/'14.5'), latitude 44.9-67.2 N.
 
-The legacy v1 reader is kept as the reference implementation
-(eoread/legacy/modis.py); these tests pin the v2 contract instead: schema
+The v1 reader has been removed; these tests pin the v2 contract: schema
 conformance, canonical south-up orientation, lazy loading and flag decoding.
 MODIS has a documented clean break in eoread.compat (CLEAN_BREAKS): the v2
-radiance formula is scale * (raw - offset) per PUG M1054E where the legacy
-reader used scale * raw + offset, so compat.v1 raises NotImplementedError —
+radiance formula is scale * (raw - offset) per PUG M1054E where the v1 reader
+used scale * raw + offset, so compat.v1 raises NotImplementedError —
 there is no v1 mapping (pinned by test_l1_v1_clean_break).
 """
 
@@ -94,7 +93,7 @@ def test_l1_subset(level1_modisa_myd, chunks):
 
 def test_l1_plot(request, level1_modisa_myd):
     ds = Level1B_MODIS(level1_modisa_myd)
-    # Band labels are the file-native float values as strings (legacy parity).
+    # Band labels are the file-native float values as strings (as in v1).
     generic.plot(request, ds, '1.0', poi={'x': 1000, 'y': 1000})
 
 
@@ -216,6 +215,30 @@ def test_l1_pyhdf_fallback(level1_modisa_myd, chunks, monkeypatch):
     monkeypatch.setattr(modis_module.xr, 'open_dataset', fake_open)
     ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks)
     generic.Test.main(ds, angle_data=False)
+
+
+def test_l1_netcdf4_open_is_lazy(level1_modisa_myd, chunks, monkeypatch):
+    """The netCDF4 path must open chunked (dask-backed), never eager numpy.
+
+    The per-block radiometry arithmetic and the da.full(..., chunks=...) calls
+    assume dask arrays; an unchunked open would materialize the whole granule
+    at construction (and crash on the emissive block's fdata.chunks lookup).
+    """
+    import eoread.readers.modis as modis_module
+    from dask.array import Array
+
+    real_open = modis_module.xr.open_dataset
+    calls = {}
+
+    def spy_open(*args, **kwargs):
+        calls.update(kwargs)
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(modis_module.xr, 'open_dataset', spy_open)
+    ds = Level1B_MODIS(level1_modisa_myd, chunks=chunks)
+    assert 'chunks' in calls, 'the netCDF4 open must be chunked (lazy)'
+    assert isinstance(ds[str(names.ltoa)].data, Array), \
+        'Ltoa must stay dask-backed after the read'
 
 
 def test_l1_not_a_modis_product(tmp_path):

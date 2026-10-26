@@ -24,16 +24,21 @@ are test support only and are no longer called from the test suite.
 | `LEVEL1_MSI` | Sentinel-2 MSI Level-1C `.SAFE` | test_msi.py, test_autodetect.py |
 | `LEVEL2_MSI` | Sentinel-2 MSI Level-2A `.SAFE` | test_msi.py, test_autodetect.py |
 | `LEVEL1_OLCI` | Sentinel-3 OLCI Level-1 (SEN3) | test_olci.py |
-| `LEVEL2_OLCI` | Sentinel-3 OLCI Level-2 (SEN3) | test_olci.py |
+| `LEVEL2_OLCI` | Sentinel-3 OLCI Level-2 WFR water product (SEN3) | test_olci.py |
+| `LEVEL2_OLCI_WRR` | Sentinel-3 OLCI Level-2 WRR water product (SEN3) | test_olci.py |
 | `LEVEL1_MODISA_MYD` | Aqua MODIS Level-1 HDF | test_modis.py |
-| `LEVEL1_ECOSTRESS` | ECOSTRESS L1B HDF5 | test_ecostress.py |
+| `LEVEL1_ECOSTRESS` | ECOSTRESS L1C HDF5 | test_ecostress.py |
+| `LEVEL1B_ECOSTRESS` | ECOSTRESS v001 L1B_RAD swath radiance (TRISHNA maquette; paired L1B_GEO in same dir) | test_ecostress.py |
+| `LEVEL2_ECOSTRESS` | ECOSTRESS v001 L2_LSTE (paired L1B_GEO in same dir) | test_ecostress.py |
+| `LEVEL2_ECOSTRESS_V002` | ECOSTRESS ECOv002 L2_LSTE (paired ECOv002_L1B_GEO in same dir) | test_ecostress.py |
 | `LEVEL1_L8`, `LEVEL2_L8` | Landsat 8 OLI L1/L2 (Collection 2) | test_landsat8.py |
 | `LEVEL1_L9`, `LEVEL2_L9` | Landsat 9 OLI L1/L2 (Collection 2) | test_landsat9.py |
 | `LEVEL1_MERIS` | MERIS Level-1 | test_meris.py |
 | `LEVEL1_SGLI` | SGLI Level-1 | test_sgli.py |
 | `LEVEL1_PACE` | PACE OCI Level-1B | test_pace.py |
 | `LEVEL1_VENUS`, `LEVEL2_VENUS` | VENµS L1C / L2A | test_venus.py |
-| `DIR_SAMPLE_HYPSO` | HYPSO sample directory (no local copy known) | test_hypso.py |
+| `GOESNG_L1` | GOES-16 ABI L1b Emultic (1 km + 500 m + ICARE static grid + optional CMA cloud mask) | test_goesng.py |
+| `HYPSO_L1` | HYPSO-1 L1B hyperspectral product (Vancouver sample) | test_hypso.py |
 | `LEVEL1_HAWKEYE` | HAWKEYE L1A NetCDF | test_nasa.py |
 | `LEVEL1_SEAWIFS` | SeaWiFS L1A NetCDF | test_nasa.py |
 | `LEVEL1_MODISA` | Aqua MODIS L1A (LAC) | test_nasa.py |
@@ -41,15 +46,16 @@ are test support only and are no longer called from the test suite.
 
 ## Sample locations (developer machines)
 
-- `data/sample_products/` — MSI, PACE_OCI, OLCI FR/RR, VENUS
-- `/mnt/ceph/samples/` — ECOSTRESS, IASI, LANDSAT_OLI, MERIS, MODIS_AQUA, PACE_OCI, SeaWiFS, SGLI, VIIRS
-- HYPSO: no copy anywhere yet → `test_hypso.py` always skips until one is provided.
+- `data/sample_products/` — MSI, PACE_OCI, OLCI FR/RR, VENUS, ECOSTRESS L1C
+- `/mnt/ceph/samples/` — IASI, LANDSAT_OLI, MERIS, MODIS_AQUA, PACE_OCI, SeaWiFS, SGLI, VIIRS
+- `/mnt/ceph/data/ECOSTRESS/L2_LSTE/` — ECOSTRESS ECOv002 L2_LSTE granules (paired L1B_GEO in the same dir)
+- `/mnt/ceph/proj/CNES_TRISHNA_LST_MAQUETTE/2024/raw_data/india/` — ECOSTRESS v001 L1B_RAD / L1B_GEO / L2_LSTE (TRISHNA maquette)
+- HYPSO: sample staged as `HYPSO_L1` (symlink to the `vancouver_2022-07-30` L1B); `test_hypso.py` skips cleanly if it is missing.
 
 ## No-data gate
 
 ```bash
 pixi run -e default gate        # import smoke-check of all modules + pytest --collect-only
-pixi run -e xarray-2024 gate    # same, against the older supported xarray generation
 ```
 
-Both must be green on every commit; they run without any sample data.
+Must be green on every commit; it runs without any sample data.

@@ -5,13 +5,12 @@ v2 conformance tests for the HYPSO-1 L1B reader.
 
 Real-data policy (tests/README.md): the sample comes from the registry via
 `get_sample`; a missing sample means a clean skip. The sample is the NTNU
-``vancouver_2022-07-30`` L1B product (956 x 684 pixels, 120 bands, legacy
+``vancouver_2022-07-30`` L1B product (956 x 684 pixels, 120 bands,
 ``navigation`` group).
 
-Legacy (``eoread.legacy.hypso``) is usable as a reference for the data layout,
-but not as-is for values: it leaves the payload uint16, keeps the north-up
-orientation and fails on the nonexistent ``bands`` coordinate. Values are
-therefore pinned against the raw NetCDF file (the same independent check).
+The v1 reader is removed; its output could not serve as a value reference
+anyway (it left the payload uint16 and kept the north-up orientation). Values
+are therefore pinned against the raw NetCDF file.
 """
 
 import gc

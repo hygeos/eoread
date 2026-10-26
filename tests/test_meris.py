@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the MERIS reader (L1, N1 products).
+v2 conformance tests for the MERIS reader (L1, N1 products).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
-Parity with the legacy reader (eoread.legacy.meris) is pinned at a fixed
-window of pixel coordinates. Documented deviations from legacy (see
-REFACTORING.md):
+Documented deviations from the v1 implementation (see REFACTORING.md):
 
-- south-up orientation: v2 row i carries legacy row ny - 1 - i (unlike VENUS,
-  the legacy MERIS lat/lon are consistent with its own rasters, so every
-  variable — lat/lon included — is compared at flipped indices).
-- ``F0`` / ``wav`` are always emitted; the legacy reader gated them behind
+- south-up orientation: v2 row i carries file row ny - 1 - i.
+- ``F0`` / ``wav`` are always emitted; the v1 reader gated them behind
   ``read_auxdata=False``.
 - ``resolution`` comes from the SPH COLUMN_SPACING (1040 m on this RR sample);
-  legacy hardcoded 300 m for both variants.
+  v1 hardcoded 300 m for both variants.
 - Azimuth angles keep the product's absolute [0, 360) convention; the naming
   registry declares [0, 180] — a documented registry inconsistency (OLCI/MSI).
 """
@@ -39,24 +35,17 @@ from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import UnsupportedProductType
 from eoread.readers.meris import Level1_MERIS, _AUXDATA_DIR, _read_date
-from eoread.legacy.meris import Level1_MERIS as Level1_MERIS_legacy
 
-# Fixed comparison window: north-up raster rows x columns, well inside the
+# Fixed check window: north-up raster rows x columns, well inside the
 # 15009 x 1121 scene.
 WIN_ROWS = np.array([4000, 7500, 11000])
 WIN_COLS = np.array([300, 560, 820])
-
-# Every native full-grid variable (canonical names; legacy uses the same).
-TWO_D_VARS = ('latitude', 'longitude', 'dem_alt', 'dem_rough', 'lat_corr',
-              'lon_corr', 'sza', 'saa', 'vza', 'vaa', 'zonal_wind',
-              'merid_wind', 'atm_press', 'ozone', 'rel_hum', 'l1_flags',
-              'detector_index')
 
 
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -195,7 +184,7 @@ def test_l1_attrs(l1, l1_dir):
     assert a[str(names.product_name)] == product
     assert a[str(names.shortname)] == re.split(r'\d{8}', product)[0]
 
-    # Data-driven resolution (documented deviation from legacy's hardcoded 300)
+    # Data-driven resolution (documented deviation from v1's hardcoded 300)
     assert a[str(names.resolution)] == int(md['COLUMN_SPACING'])
 
     dstart = _read_date(md['SENSING_START'])
@@ -212,7 +201,7 @@ def test_l1_attrs(l1, l1_dir):
 def test_l1_v1_compat(l1):
     old = v1(l1)
     # identity + schema_version strip; F0/wav remain (documented superset —
-    # the legacy default output did not carry them)
+    # the v1 default output did not carry them)
     assert 'Ltoa' in old and 'F0' in old and str(names.wav) in old
     assert 'schema_version' not in old.attrs
 
@@ -249,49 +238,6 @@ def test_l1_F0_wav(l1):
     r0, c0 = invalid[0]
     for var in (str(names.F0), str(names.wav)):
         assert np.isnan(l1[var].isel(y=int(r0), x=int(c0)).compute().values).all(), var
-
-
-# --------------------------------------------------------------------------
-# Legacy parity
-# --------------------------------------------------------------------------
-
-def test_l1_parity_legacy(l1, l1_dir):
-    """Bit-parity with the legacy reader at the fixed window (flipped rows)."""
-    legacy = Level1_MERIS_legacy(l1_dir, chunks=500, verbose=False)
-    try:
-        ny = l1.sizes[str(names.rows)]
-        j = (ny - 1 - WIN_ROWS).tolist()
-        r = WIN_ROWS.tolist()
-        c = WIN_COLS.tolist()
-
-        # Ltoa: all 15 bands, bit-equal
-        a = l1['Ltoa'].isel(y=j, x=c).compute().values
-        b = legacy['Ltoa'].isel(y=r, x=c).compute().values
-        assert np.array_equal(a, b)
-
-        for var in TWO_D_VARS:
-            a = l1[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=r, x=c).compute().values
-            assert np.array_equal(a, b), var
-
-        # Spectral table and band labels
-        assert np.array_equal(l1[str(names.cwav)].values, legacy[str(names.cwav)].values)
-        assert list(l1.coords[str(names.bands)].values) == \
-            list(legacy.coords[str(names.bands)].values)
-
-        # Shared attributes are value-identical
-        for key in (str(names.platform), str(names.sensor), str(names.product_name),
-                    str(names.input_directory), str(names.datetime), 'user_guide',
-                    '_srf_getter', '_srf_getter_arg'):
-            assert l1.attrs[key] == legacy.attrs[key], key
-
-        # Documented deviations: resolution is data-driven in v2 (the RR
-        # sample's COLUMN_SPACING is 1040 m; legacy hardcoded 300)
-        assert l1.attrs[str(names.resolution)] == int(l1.attrs['metadata']['COLUMN_SPACING'])
-        assert legacy.attrs[str(names.resolution)] == 300
-    finally:
-        del legacy
-        gc.collect()
 
 
 # --------------------------------------------------------------------------

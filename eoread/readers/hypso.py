@@ -17,20 +17,20 @@ Two product layouts exist and are both supported:
   variable names; wavelengths may also be a ``metadata/corrections/wavelengths``
   variable or a ``products/wavelengths`` variable.
 
-Deviation from legacy (``eoread.legacy.hypso``):
+Deviations from the v1 implementation (removed in 2.0):
 
 - Output is south-up (row 0 = southern edge, canonical orientation). The
   stored pushbroom grid is north-up (latitude decreases with ``lines``); all
   fields are flipped together once.
-- ``Ltoa`` is float32 (legacy kept the file's uint16 counts). Integer
+- ``Ltoa`` is float32 (v1 kept the file's uint16 counts). Integer
   radiance is preserved exactly by the cast.
-- Band labels are the 0-based band indices as strings (legacy attempted
+- Band labels are the 0-based band indices as strings (v1 attempted
   ``bands.data.astype(str)`` on a coordinate that does not exist); the
   wavelengths are the ``cwav`` coordinate (from the file's own table).
-- ``datetime`` is normalized to ISO from the file's ``date_aquired`` (legacy
+- ``datetime`` is normalized to ISO from the file's ``date_aquired`` (v1
   kept the raw string; modern products use ``timestamp_acquired``).
 - ``sensor``/``platform`` come from ``instrument_id``/``sat_id`` when the
-  product provides them (modern files), falling back to the legacy
+  product provides them (modern files), falling back to the v1
   ``instrument`` / ``'HYPSO'`` values (the v1-compatible sample).
 """
 

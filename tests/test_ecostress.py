@@ -12,12 +12,11 @@ Samples (see tests/README.md):
 - ECOSTRESS_L2_V002: an ECOv002_L2_LSTE granule (~25% water, coastal
   scene) with its paired ECOv002_L1B_GEO file in the same directory.
 
-No legacy parity reference exists for the L1B/L2 products (the legacy L2
-entry point targets a dead HDF-EOS5 path), so their verification is schema
-conformance plus physical sanity on real data; the L1C reader is pinned
-against the legacy implementation instead. The L1B/L2 samples live on a
-network mount, so computing tests keep their read windows small and
-`generic.plot` is not exercised for them (it materializes full grids).
+No v1 reference exists for the L1B/L2 products (the v1 L2 entry point targeted
+a dead HDF-EOS5 path), so their verification is schema conformance plus
+physical sanity on real data. The L1B/L2 samples live on a network mount, so
+computing tests keep their read windows small and `generic.plot` is not
+exercised for them (it materializes full grids).
 """
 
 import gc
@@ -222,48 +221,6 @@ def test_l1c_foreign_product(level1_msi):
         Level1C_Ecostress(level1_msi)
 
 
-def test_l1c_parity_legacy(level1_ecostress):
-    """Values must match the legacy reader modulo the documented breaks.
-
-    v2 is south-up and stores lat/lon as float32, so v2 row i carries legacy
-    row ny-1-i, and lat/lon compare against the flipped legacy values cast to
-    float32; everything else must be bit-exact.
-    """
-    from eoread.legacy.ecostress import Level1C_ECOSTRESS
-
-    v2 = Level1C_Ecostress(level1_ecostress, chunks=500)
-    legacy = Level1C_ECOSTRESS(level1_ecostress, chunks=500, verbose=False)
-
-    ny, nx = v2.sizes[str(names.rows)], v2.sizes[str(names.columns)]
-    rows = [0, ny // 2, ny - 1]
-    cols = [0, 42, nx - 1]
-    flipped = [ny - 1 - r for r in rows]
-
-    # equal_nan: edge rows carry invalid pixels (band 4 nulls), so the windows
-    # contain NaNs that must compare equal to each other.
-    for var in (str(names.ltoa), str(names.bt), 'data_quality', 'water', 'cloud'):
-        a = v2[var].isel({str(names.rows): rows, str(names.columns): cols}).values
-        b = legacy[var].isel({str(names.rows): flipped, str(names.columns): cols}).values
-        assert np.array_equal(a, b, equal_nan=True), \
-            f'{var} does not match the legacy reader'
-
-    for var in (str(names.lat), str(names.lon)):
-        a = v2[var].isel({str(names.rows): rows, str(names.columns): cols}).values
-        ref = legacy[var].isel({str(names.rows): flipped, str(names.columns): cols}).values
-        assert np.array_equal(a, ref.astype('float32')), f'{var} parity'
-
-    # Band table and scalar attributes
-    assert list(v2[str(names.bands)].values) == list(legacy[str(names.bands)].values)
-    assert np.array_equal(v2[str(names.cwav)].values, legacy[str(names.cwav)].values)
-    assert v2.attrs['metadata'] == legacy.attrs['metadata']
-    assert v2.attrs['hdfeos_info'] == legacy.attrs['hdfeos_info']
-    for key in ('daytime', 'user_guide', str(names.platform), str(names.sensor),
-                str(names.product_name), str(names.resolution)):
-        assert v2.attrs[key] == legacy.attrs[key]
-    assert Path(v2.attrs[str(names.input_directory)]).resolve() == \
-        Path(legacy.attrs[str(names.input_directory)]).resolve()
-
-
 # ---------------------------------------------------------------------------
 # L1B (v001 L1B_RAD)
 # ---------------------------------------------------------------------------
@@ -335,7 +292,7 @@ def test_l1b_v1_compat(level1b_ecostress):
 
 
 def test_l1b_sanity(l1b):
-    """Physical sanity on the v001 sample (no legacy parity reference exists)."""
+    """Physical sanity on the v001 sample (no v1 reference exists)."""
     bt = _window(l1b)[str(names.bt)].values
     assert (~np.isnan(bt)).any()
     assert 280. <= np.nanmin(bt) and np.nanmax(bt) <= 340., \
@@ -419,7 +376,7 @@ def test_l2_v1_compat(level2_ecostress):
 
 
 def test_l2_sanity(l2):
-    """Physical sanity on the v001 sample (no legacy parity reference exists)."""
+    """Physical sanity on the v001 sample (no v1 reference exists)."""
     w = _window(l2)
     lst = w['LST'].values
     assert (~np.isnan(lst)).any()

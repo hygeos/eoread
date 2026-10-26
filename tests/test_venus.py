@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the VENUS readers (L1C and L2A).
+v2 conformance tests for the VENUS readers (L1C and L2A).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
-Parity with the legacy readers (eoread.legacy.venus) is pinned at a fixed
-window of pixel coordinates, plus full-array compares for the small tie-point
-rasters. Documented deviations from legacy (see REFACTORING.md):
+Documented deviations from the v1 implementation (see REFACTORING.md):
 
-- south-up orientation: v2 row i carries legacy row ny - 1 - i; lat/lon are
-  therefore compared at the *same* index (legacy stored them flipped relative
-  to its own rasters).
-- canonical tie-point angles (sza/saa/vza/vaa) are new; legacy computed none.
+- south-up orientation: v2 row i carries file row ny - 1 - i. (v1 stored
+  lat/lon flipped relative to its own rasters, so its geolocation could not
+  serve as a reference anyway.)
+- canonical tie-point angles (sza/saa/vza/vaa) are new; v1 computed none.
   The raw 2x2 XML grids are kept as ``*_tie`` variables.
-- SOL_ALL / VIE_ALL are kept raw on their native tie grids. Legacy's assignment
+- SOL_ALL / VIE_ALL are kept raw on their native tie grids. The v1 assignment
   reindexed VIE onto SOL's smaller indexes: every tie point outside that grid
   (row 23, col 26) came back all-NaN, and the file's extra detector bands
   (bands 5-8 of 8) were dropped.
-- L2A product nodata (-10000) becomes NaN; legacy kept -10.0 after calibration.
-- L2A ATB bands are calibrated with the MTD quantification factors; legacy
+- L2A product nodata (-10000) becomes NaN; v1 kept -10.0 after calibration.
+- L2A ATB bands are calibrated with the MTD quantification factors; v1
   kept raw counts.
-- L2A PIX_XS is assigned positionally; the legacy int band index vs string
+- L2A PIX_XS is assigned positionally; the v1 int band index vs string
   coordinate alignment silently produced an all-NaN variable.
-- lat/lon come from a proper per-pixel UTM->WGS84 transform; legacy used a
+- lat/lon come from a proper per-pixel UTM->WGS84 transform; v1 used a
   flipped linear interpolation between the granule corners.
 """
 
@@ -48,9 +46,8 @@ from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import UnsupportedProductType
 from eoread.readers.venus import (Level1C_VENUS, Level2A_VENUS, _find_file,
                                   _grid64, _grid_node, _val)
-from eoread.legacy.venus import Level1_VENUS, Level2_VENUS
 
-# Fixed comparison window: north-up raster rows x columns, well inside the
+# Fixed check window: north-up raster rows x columns, well inside the
 # 11405 x 12787 granule and away from the tie-raster NaN corners.
 WIN_ROWS = np.array([4987, 5557, 6127])
 WIN_COLS = np.array([5600, 6560, 7520])
@@ -59,7 +56,7 @@ WIN_COLS = np.array([5600, 6560, 7520])
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -181,43 +178,6 @@ def _latlon_corners_check(ds, mtd):
         assert abs(lon - corners[key]['LON']) < 5e-4, (key, 'lon', lon)
 
 
-def _parity_angle_rasters(ds, legacy):
-    """Compare the SOL_ALL / VIE_ALL tie rasters against the legacy reader."""
-    # SOL: both readers keep the raw 4x24x27 tie raster -> bit equality.
-    a, b = ds['SOL_ALL'].compute(), legacy['SOL_ALL'].compute()
-    assert a.sizes == b.sizes
-    assert np.array_equal(a.values, b.values, equal_nan=True)
-
-    # VIE: v2 keeps the raw 8x116x129 raster on its native tie grid; the legacy
-    # reader's assignment aligned it onto SOL's indexes and lost both every tie
-    # point outside SOL's 24x27 grid (row 23 / col 26 came back all-NaN) and the
-    # file's extra detector bands (bands 5-8 dropped). Compare where the legacy
-    # grid coincides with v2's native points, on the shared band subset.
-    a, b = ds['VIE_ALL'].compute(), legacy['VIE_ALL'].compute()
-    nb = b.sizes[b.dims[0]]
-    assert a.sizes[a.dims[0]] >= nb
-    a = a.isel({a.dims[0]: slice(None, nb)})
-    # Check on the legacy (reindexed) grid: each of its 24x27 points either
-    # coincides exactly with a v2 native VIE point (value must match) or has no
-    # tie point at all and must be NaN there.
-    dr_b = np.abs(b['y_tie'].values[:, None] - a['y_view'].values[None, :])
-    dc_b = np.abs(b['x_tie'].values[:, None] - a['x_view'].values[None, :])
-    jr_b = dr_b.argmin(axis=1)
-    ic_b = dc_b.argmin(axis=1)
-    ok_b = (dr_b.min(axis=1) == 0.0)[:, None] & (dc_b.min(axis=1) == 0.0)[None, :]
-    want = a.values[np.ix_(np.arange(nb), jr_b, ic_b)]
-    assert ok_b.any(), 'no legacy VIE tie point coincides with the v2 native grid'
-    assert np.array_equal(b.values[:, ok_b], want[:, ok_b], equal_nan=True)
-    assert np.isnan(b.values[:, ~ok_b]).all(), \
-        'legacy VIE should be NaN where it has no tie point (SOL row 23 / col 26)'
-
-
-def _window(ds):
-    """(v2 y indices, legacy/north-up rows, shared columns) for the window."""
-    ny = ds.sizes[str(names.rows)]
-    return (ny - 1 - WIN_ROWS).tolist(), WIN_ROWS.tolist(), WIN_COLS.tolist()
-
-
 # --------------------------------------------------------------------------
 # Level-1C
 # --------------------------------------------------------------------------
@@ -314,44 +274,6 @@ def test_l1_latlon_pyproj(l1, l1_mtd):
 
 def test_l1_latlon_corners(l1, l1_mtd):
     _latlon_corners_check(l1, l1_mtd)
-
-
-def test_l1_parity_legacy(l1, l1_dir):
-    """Payload bit-parity with the legacy reader at the fixed window."""
-    legacy = Level1_VENUS(l1_dir, chunks=500, verbose=False)
-    try:
-        j, r, c = _window(l1)
-
-        # Rtoa: all 12 bands, bit-equal (same lazy open, same float32 division)
-        a = l1['Rtoa'].isel(y=j, x=c).compute().values
-        b = legacy['Rtoa'].isel(y=r, x=c).compute().values
-        assert np.array_equal(a, b, equal_nan=True)
-
-        for var in ('CLA_ALL', 'CLD_XS', 'USI_XS'):
-            a = l1[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=r, x=c).compute().values
-            assert np.array_equal(a, b, equal_nan=True), var
-
-        # the legacy reader merges the per-band zips onto bare 'PIX' / 'SAT'
-        for label in ('B1', 'B6', 'B12'):
-            for var, leg_name in (('PIX_XS', 'PIX'), ('SAT_XS', 'SAT')):
-                a = l1[var].sel(bands=label).isel(y=j, x=c).compute().values
-                b = legacy[leg_name].sel(bands=label).isel(y=r, x=c).compute().values
-                assert np.array_equal(a, b, equal_nan=True), (var, label)
-
-        _parity_angle_rasters(l1, legacy)
-
-        # lat/lon: legacy stored them flipped relative to its own rasters, so
-        # v2[i] and legacy[i] carry the same geographic point at index i. The
-        # difference is UTM transform vs corner linear interpolation (~1e-3 deg
-        # of east-west swing across the tile).
-        for var in ('latitude', 'longitude'):
-            a = l1[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=j, x=c).compute().values
-            assert np.allclose(a, b, atol=5e-3), var
-    finally:
-        del legacy
-        gc.collect()
 
 
 def test_l1_exit_probe(l1_dir, tmp_path):
@@ -465,58 +387,21 @@ def test_l2_latlon_corners(l2, l2_mtd):
     _latlon_corners_check(l2, l2_mtd)
 
 
-def test_l2_parity_legacy(l2, l2_dir, l2_mtd):
-    """Payload parity with the legacy reader at the fixed window."""
-    # the legacy L2A entry point takes no `verbose` argument (L1C does)
-    legacy = Level2_VENUS(l2_dir, chunks=500)
-    try:
-        j, r, c = _window(l2)
-        radio = l2_mtd['Radiometric_Informations']
-        q_wv = float(_val(radio['WATER_VAPOR_CONTENT_QUANTIFICATION_VALUE']))
-        q_aot = float(_val(radio['AEROSOL_OPTICAL_THICKNESS_QUANTIFICATION_VALUE']))
+def test_l2_pix_xs_positional(l2, l2_dir):
+    """PIX_XS is assigned positionally onto the MTD band order.
 
-        # Surface reflectances: bit-equal after mapping the legacy nodata
-        # sentinel (-10000 -> -10.0 post-calibration) to NaN.
-        for var in ('rho_surface', 'rho_flat'):
-            a = l2[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=r, x=c).compute().values
-            b[b == -10.0] = np.nan
-            assert np.array_equal(a, b, equal_nan=True), var
-
-        # water_vapor / aod: v2 calibrates with the MTD quantification factors,
-        # legacy kept raw counts; bit-equal after the same float32 division.
-        for var, q in (('water_vapor', q_wv), ('aod', q_aot)):
-            a = l2[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=r, x=c).compute().values
-            assert np.array_equal(a, (b / q).astype('float32')), var
-
-        for var in ('CLM_XS', 'USI_XS', 'SAT_XS', 'IAB_XS', 'EDG_XS'):
-            a = l2[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=r, x=c).compute().values
-            assert np.array_equal(a, b, equal_nan=True), var
-
-        # PIX_XS: pin against the raw file (positionally onto the MTD band
-        # order); the legacy reader comes back all-NaN here (int vs string band
-        # alignment bug) — asserted explicitly to document the deviation.
-        pix = xr.open_dataarray(
-            str(_find_file(l2_dir / 'MASKS', '*PIX_XS.tif')), engine='rasterio',
-            chunks={'y': 500, 'x': 500})
-        b = pix.isel(band=np.arange(12), y=r, x=c).compute().values
-        a = l2['PIX_XS'].isel(y=j, x=c).compute().values
-        assert np.array_equal(a, b, equal_nan=True)
-        leg_pix = legacy['PIX_XS'].isel(y=r, x=c).compute().values
-        assert np.isnan(leg_pix).all(), \
-            'legacy PIX_XS is expected to be all-NaN (documented bug)'
-
-        _parity_angle_rasters(l2, legacy)
-
-        for var in ('latitude', 'longitude'):
-            a = l2[var].isel(y=j, x=c).compute().values
-            b = legacy[var].isel(y=j, x=c).compute().values
-            assert np.allclose(a, b, atol=5e-3), var
-    finally:
-        del legacy
-        gc.collect()
+    The v1 reader's int band index vs string coordinate alignment silently
+    produced an all-NaN variable here; pin against the raw file instead.
+    """
+    pix = xr.open_dataarray(
+        str(_find_file(l2_dir / 'MASKS', '*PIX_XS.tif')), engine='rasterio',
+        chunks={'y': 500, 'x': 500})
+    ny = l2.sizes[str(names.rows)]
+    j = (ny - 1 - WIN_ROWS).tolist()          # v2 south-up rows
+    b = pix.isel(band=np.arange(12), y=WIN_ROWS.tolist(),
+                 x=WIN_COLS.tolist()).compute().values
+    a = l2['PIX_XS'].isel(y=j, x=WIN_COLS.tolist()).compute().values
+    assert np.array_equal(a, b, equal_nan=True)
 
 
 def test_l2_exit_probe(l2_dir, tmp_path):

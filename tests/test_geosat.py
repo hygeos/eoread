@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the GEOSAT readers (DE-1 and DE-2).
+v2 conformance tests for the GEOSAT readers (DE-1 and DE-2).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
 One reader class serves both satellites; every test is parametrized over the
-two samples. Parity with the legacy reader (eoread.legacy.geosat) is pinned at
-two fixed windows of pixel coordinates (north-up rows/columns in the legacy
-space). Documented deviations from legacy (see REFACTORING.md):
+two samples. Documented deviations from the v1 implementation (see
+REFACTORING.md):
 
-- south-up orientation: v2 row i carries legacy row ny - 1 - i; windows are
-  therefore compared with the legacy rows flipped.
-- GEOSAT-2 nodata pixels (DN == 0) become NaN; the legacy rioxarray open kept
-  them as zero data (masked=False default), so the calibration bias survives
-  there and only the unmasked pixels are value-compared.
-- DE-2 `datetime` is the full START_TIME (legacy produced a date-only value);
-  `cwav` is float64 (legacy int32).
+- south-up orientation: v2 row i carries file row ny - 1 - i.
+- GEOSAT-2 nodata pixels (DN == 0) become NaN; a plain rioxarray open keeps
+  them as zero data (masked=False default), which would survive calibration.
+- DE-2 `datetime` is the full START_TIME (v1 produced a date-only value);
+  `cwav` is float64 (v1 int32).
 """
 
 import gc
@@ -38,25 +35,17 @@ from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.readers.geosat import Level1_GEOSAT
-from eoread.legacy.geosat import Level1_GEOSAT as legacy_geosat
 from eoread.tools import _num, xml_value
 
-# Fixed comparison windows in north-up (file/legacy) rows/columns; both well
-# inside the 16200 x 7200 (DE-1) and 5676 x 5400 (DE-2) rasters.
+# Fixed check window in north-up (file) rows/columns; well inside the
+# 16200 x 7200 (DE-1) and 5676 x 5400 (DE-2) rasters.
 WIN1 = (100, 200)
-WIN2 = (2800, 2700)
-WIN = 5
-
-# float32 rounding tolerances (legacy mixed float64 intermediates).
-PAYLOAD_RTOL = 1e-6
-LATLON_ATOL = 1e-6
-ANGLE_ATOL = 1e-7
 
 
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -91,11 +80,6 @@ def _tif(product_dir):
     tifs = sorted(product_dir.glob('*.tif'))
     assert len(tifs) == 1, f'expected one .tif in {product_dir}, got {tifs}'
     return tifs[0]
-
-
-def _window_sels(ny, y0, x0):
-    """(v2 south-up row slice, shared column slice) of a legacy window."""
-    return (slice(ny - 1 - (y0 + WIN - 1), ny - y0), slice(x0, x0 + WIN))
 
 
 def _file_bands(dim):
@@ -195,7 +179,7 @@ def test_bands_attrs(product_dir, ds, dim):
         expected_res = float(_num(scene['THEORETICAL_RESOLUTION']))
         assert expected_res == 22.0
     else:
-        # DE-2 keeps the full START_TIME (legacy produced a date-only value).
+        # DE-2 keeps the full START_TIME (v1 produced a date-only value).
         expected_dt = str(xml_value(scene['START_TIME']))
         expected_res = float(_num(scene['PIXEL_RESOLUTION_X']))
         assert expected_res == 3.0
@@ -323,59 +307,6 @@ def test_nodata_mask(product_dir, ds, dim):
             v2 = ds['Ltoa'].isel(bands=i, **sel).compute().values
             dn = raw.isel(bands=j, **sel).values
             assert np.array_equal(np.isnan(v2), (dn == 0.0)), (label, sel)
-
-
-def _parity_window(ds, legacy, mapping, ny, y0, x0):
-    """Compare one 5x5 legacy window against the v2 south-up image of it.
-
-    For DE-2 the NaN positions are checked against the raw DN nodata flags
-    (the legacy reader kept DN == 0 as zero data, so its calibration bias
-    survives there); values are compared on the unmasked pixels only.
-    """
-    jy, jx = _window_sels(ny, y0, x0)
-    ly, lx = slice(y0, y0 + WIN), slice(x0, x0 + WIN)
-
-    for i, label in enumerate(ds.coords[str(names.bands)].values):
-        a = ds['Ltoa'].isel(bands=i).isel(y=jy, x=jx).compute().values
-        b = legacy['Ltoa'].sel(bands=label).isel(y=ly, x=lx).compute().values[::-1]
-        if mapping is not None:
-            raw, j = mapping[label]
-            dn = raw.isel(bands=j, y=jy, x=jx).values
-            assert np.array_equal(np.isnan(a), dn == 0.0), f'Ltoa {label} NaN mask'
-        else:
-            assert not np.isnan(a).any(), f'Ltoa {label} must be unmasked (DE-1)'
-        m = ~np.isnan(a)
-        if m.any():
-            assert np.allclose(a[m], b[m], rtol=PAYLOAD_RTOL, atol=0), \
-                f'Ltoa {label} value mismatch'
-
-    for var in ('latitude', 'longitude'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=LATLON_ATOL), var
-
-    for var in ('sza', 'saa', 'vza', 'vaa'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=ANGLE_ATOL), var
-
-
-def test_parity_legacy(product_dir, ds, dim):
-    """Value parity with the legacy reader at both fixed windows.
-
-    DE-1 geolocation is an eager full-grid spline in the legacy reader
-    (~2 GB transient); this is accepted once per session.
-    """
-    variant = _variant(ds)
-    ny = ds.sizes[str(names.rows)]
-    mapping = _raw_band_map(product_dir, dim) if variant == 'DE-2' else None
-    legacy = legacy_geosat(product_dir, chunks=500)
-    try:
-        for win in (WIN1, WIN2):
-            _parity_window(ds, legacy, mapping, ny, *win)
-    finally:
-        del legacy
-        gc.collect()
 
 
 def test_exit_probe(product_dir, tmp_path):

@@ -15,24 +15,22 @@ direct-readout radiances:
 - optionally, ``S_NWC_CMA_GOES16_globeE-NR_YYYYMMDDTHHMMSSZ.nc``: the NWC/GEO
   cloud mask at 2 km, repeated 2x2 (``cloudmask=True``).
 
-Deviation from the legacy function (``eoread.legacy.goesng``):
-
-- The legacy function is unusable as-is: it references undefined globals
-  (``naming``, ``eo``, ``flags``, ``file_1km``) and never reaches a result.
-  This reader is a fresh implementation of the same product family, verified
-  against real CMS/ICARE files.
+The v1 function was unusable as-is (it referenced undefined globals —
+``naming``, ``eo``, ``flags``, ``file_1km`` — and never reached a result) and
+was removed in 2.0. This reader is a fresh implementation of the same product
+family, verified against real CMS/ICARE files. Deviations from v1:
 - Output is **south-up** (row 0 = southern edge, canonical orientation). The
   stored geostationary grid is north-up; all fields are flipped together once.
 - Band labels are sensor-native strings (``VIS_004`` ...), with central
-  wavelengths in ``cwav`` (nm); legacy used the four integer wavelengths as
+  wavelengths in ``cwav`` (nm); v1 used the four integer wavelengths as
   the band coordinate and a separate ``wav`` variable.
-- Geometry, reflectance and pixel-area fields are float32 (legacy kept the
+- Geometry, reflectance and pixel-area fields are float32 (v1 kept the
   files' float64); ``Rtoa`` is dimensionless and carries the product's
   ``units='1'``.
 - The NWC/GEO cloud mask is an optional ``cloud`` layer (2D float32, NaN off
-  disk) exposed to the flags framework as ``GenericFlags.CLOUD``; legacy tried
+  disk) exposed to the flags framework as ``GenericFlags.CLOUD``; v1 tried
   to fold it into a packed ``flags`` variable and failed (undefined ``flags``).
-- The legacy ``convert_auxfile`` option is dropped: a NetCDF auxiliary grid is
+- The v1 ``convert_auxfile`` option is dropped: a NetCDF auxiliary grid is
   read directly and an HDF4 one lazily through ``eoread.hdf4.load_hdf4``
   (no on-disk conversion side effect).
 """
@@ -54,7 +52,7 @@ from eoread.reader import ProductError, Reader
 from eoread.tools import filter_metadata
 
 #: Band labels, in output order, and their central wavelengths (nm).
-#: Values carried over from the legacy reader (ABI channels 1, 2, 3, 5).
+#: Values carried over from the v1 reader (ABI channels 1, 2, 3, 5).
 BANDS = ('VIS_004', 'VIS_006', 'VIS_008', 'VIS_016')
 #: Bands stored in the 1 km file (VIS_006 comes from the 500 m file).
 BANDS_1KM = ('VIS_004', 'VIS_008', 'VIS_016')
@@ -158,8 +156,8 @@ class Level1_GOESNG(Reader):
             raise ProductError(
                 f'GOESNG L1: {file_500m.name} lacks the VIS_006 channel')
         vis_006 = ds_500m['VIS_006'].rename({'ny500m': rows, 'nx500m': cols})
-        # Exactly the legacy 2x2 box average: sum the four strided phases and
-        # divide by 4 (NaN propagates, as in the legacy sum).
+        # Exactly the v1 2x2 box average: sum the four strided phases and
+        # divide by 4 (NaN propagates, as in the v1 sum).
         acc = 0.
         for i in (0, 1):
             for j in (0, 1):
@@ -313,7 +311,7 @@ class Level1_GOESNG(Reader):
         cma = xr.open_dataset(
             cma_path, chunks={'ny': max(1, cy // 2), 'nx': max(1, cx // 2)},
             engine='h5netcdf')['cma']
-        # 2 km -> 1 km: repeat each pixel 2x2 (legacy semantics); NaN off disk
+        # 2 km -> 1 km: repeat each pixel 2x2 (v1 semantics); NaN off disk
         # stays NaN.
         return da.repeat(da.repeat(cma.data, 2, axis=0), 2, axis=1).astype('float32')
 
@@ -344,7 +342,7 @@ class Level1_GOESNG(Reader):
 
 
 def _solar_zenith(lat, lon, dt):
-    """90 deg - solar altitude (pysolar); same definition as the legacy reader."""
+    """90 deg - solar altitude (pysolar); same definition as the v1 reader."""
     return 90. - pysol.get_altitude(lat, lon, dt, pressure=0.0, elevation=0.0)
 
 

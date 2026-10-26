@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the GCOM-C SGLI reader (L1B).
+v2 conformance tests for the GCOM-C SGLI reader (L1B).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
 The sample is a descending-track granule: the file stores lines in
-acquisition order, so legacy's output is north-up and v2 flips it — v2 row i
-carries legacy row ny-1-i (pinned by test_l1b_parity_legacy). Legacy's
-geometry pipeline applied (1+Slope)*x instead of Slope*x+Offset: lat/lon were
-doubled and the centidegree angles inflated ~101x. Geometry therefore pins
-against the product's raw tie data (test_l1b_tie_values) and against legacy
-modulo the constant per-field factor, Rtoa is recomputed from the file's raw
-counts (test_l1b_rtoa_formula), and only the untransformed uint8/uint16 masks
-pin bit-exactly.
+acquisition order, so v1's output was north-up and v2 flips it — v2 row i
+carries file row ny-1-i. The v1 geometry pipeline applied (1+Slope)*x instead
+of Slope*x+Offset: lat/lon were doubled and the centidegree angles inflated
+~101x. Geometry therefore pins against the product's raw tie data
+(test_l1b_tie_values), Rtoa is recomputed from the file's raw counts
+(test_l1b_rtoa_formula), and only the untransformed uint8/uint16 masks pin
+bit-exactly.
 
 The scene is a curved swath (latitude varies by several degrees along a
 raster row), so `generic.Test.latlon`'s flat-projection check does not apply;
@@ -39,13 +38,12 @@ from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import UnsupportedProductType
 from eoread.readers.sgli import Level1B_SGLI, SGLI_CENTRAL_WAVELENGTHS
-from eoread.legacy.sgli import Level1_SGLI as Level1B_SGLI_legacy
 
-# Fixed comparison window: raster rows x columns, well inside the 7820x5000 scene.
+# Fixed check window: raster rows x columns, well inside the 7820x5000 scene.
 WIN_ROWS = [1000, 4000, 7000]
 WIN_COLS = [500, 2500, 4500]
 
-# Tie-point fields: file name -> output name (legacy's exact names).
+# Tie-point fields: file name -> output name (v1's exact names).
 TIE_FIELDS = (('Latitude', 'lat_tie'), ('Longitude', 'lon_tie'),
               ('Sensor_zenith', str(names.vza) + '_tie'),
               ('Sensor_azimuth', str(names.vaa) + '_tie'),
@@ -56,7 +54,7 @@ TIE_FIELDS = (('Latitude', 'lat_tie'), ('Longitude', 'lon_tie'),
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -147,7 +145,7 @@ def test_l1b_angles(l1):
     The product stores signed relative azimuths in [-180, 180] while the
     naming registry declares [0, 180] — a documented registry inconsistency
     (OLCI/MSI/MERIS/PACE precedent). The zenith angles are absolute and stay
-    within [0, 90]. The scene facts pin the corrected magnitudes: legacy's
+    within [0, 90]. The scene facts pin the corrected magnitudes: v1's
     broken scale factor would inflate them ~101x.
     """
     sel = {str(names.rows): slice(None, None, 50),
@@ -168,14 +166,14 @@ def test_l1b_angles(l1):
 
 
 # --------------------------------------------------------------------------
-# Value pins against the product itself (legacy geometry was broken)
+# Value pins against the product itself (v1 geometry was broken)
 # --------------------------------------------------------------------------
 
 def test_l1b_tie_values(l1, l1_dir):
     """Tie fields carry the full affine Slope*x + Offset.
 
-    Legacy's (1+Slope)*x doubled lat/lon and inflated the centidegree angles
-    ~101x; the product's raw tie data is the reference. The sample granule is
+    The v1 reader's (1+Slope)*x doubled lat/lon and inflated the centidegree
+    angles ~101x; the product's raw tie data is the reference. The sample granule is
     north-up in file order, so v2's tie rows are mirrored — the test applies
     the same orientation rule as the reader (pinned independently by
     test_l1b_latlon).
@@ -208,8 +206,8 @@ def test_l1b_tie_values(l1, l1_dir):
 def test_l1b_rtoa_formula(l1, l1_dir):
     """Rtoa = ((Lt & Mask) * Slope_refl + Offset_refl) / cos(sza), per band.
 
-    Legacy's Rtoa divided by the cosine of its inflated sza and cannot be
-    pinned; the product's raw counts are the reference instead.
+    The v1 reader's Rtoa divided by the cosine of its inflated sza and cannot
+    be pinned; the product's raw counts are the reference instead.
     """
     rows, cols = str(names.rows), str(names.columns)
     tree = xr.open_datatree(l1_dir, engine='h5netcdf', phony_dims='sort')
@@ -259,10 +257,10 @@ def test_l1b_flag_values(l1):
     qf = sub['quality_flag'].compute().values
     water = sub['water'].compute().values
     # Bit 0 set = "Integrity" (sound) per the product's own description; the
-    # legacy raw-value test flagged the sound ~86% of this scene.
+    # v1 raw-value test flagged the sound ~86% of this scene.
     assert np.array_equal((f & 4) != 0, (qf & 1) == 0)
     # water is a land percentage 0-100 (255 = error); LAND at the majority
-    # threshold. Legacy's `~water` on the uint8 mask was set on every pixel.
+    # threshold. v1's `~water` on the uint8 mask was set on every pixel.
     assert np.array_equal((f & 8) != 0, water >= 50)
 
     # Scene facts (pinned sample): both quality states occur, and the land
@@ -289,7 +287,7 @@ def test_l1b_plot(request, l1):
 
 def test_l1b_bands_cwav(l1, l1_dir):
     """Band labels from the product's Stored_channels; cwav is the hardcoded
-    registry table (legacy parity)."""
+    registry table, kept from v1."""
     tree = xr.open_datatree(l1_dir, engine='h5netcdf', phony_dims='sort')
     try:
         labels = dict(tree['Global_attributes'].attrs)['Stored_channels'].split(',')
@@ -314,7 +312,7 @@ def test_l1b_attrs(l1, l1_dir):
     assert a[str(names.platform)] == 'GCOM-C'
     assert a[str(names.product_name)] == Path(l1_dir).name
     assert a[str(names.input_directory)] == str(Path(l1_dir).parent)
-    # No data-driven spacing field exists in the product; legacy's hardcoded
+    # No data-driven spacing field exists in the product; the v1 hardcoded
     # value is kept.
     assert a[str(names.resolution)] == 250
     assert a[str(names.shortname)] == '1BSG'
@@ -325,20 +323,21 @@ def test_l1b_attrs(l1, l1_dir):
     assert a[str(names.datetime)] == parse(md['Scene_center_time']).isoformat()
     assert md['Product_level'] == 'Level-1B'
     assert a['_flag_reader'] == 'eoread.readers.sgli.Level1B_SGLI'
-    # SRF getter attributes carried over from legacy (consumed by eotools).
+    # SRF getter attributes carried over from v1 (consumed by eotools).
     assert a['_srf_getter'] == 'eotools.srf.get_SRF_eumetsat'
     assert a['_srf_getter_arg'] == 'gcom-c_1_sgli'
 
 
 # --------------------------------------------------------------------------
-# v1 compatibility and legacy parity
+# v1 compatibility
 # --------------------------------------------------------------------------
 
 def test_l1b_v1_compat(l1):
     """SGLI is an identity transform: v1 strips schema_version, keeps the rest.
 
-    Values differ from legacy by the documented fixes (south-up flip, affine
-    scale factors, float32 geometry — see REFACTORING.md); this pins layout.
+    Values differ from the v1 output by the documented fixes (south-up flip,
+    affine scale factors, float32 geometry — see REFACTORING.md); this pins
+    layout.
     """
     ds = v1(l1)
     assert 'schema_version' not in ds.attrs
@@ -350,66 +349,6 @@ def test_l1b_v1_compat(l1):
     # Superset attributes pass through untouched.
     assert ds.attrs[str(names.shortname)] == '1BSG'
     assert ds.attrs[str(names.crs)] == 'EPSG:4326'
-
-
-def test_l1b_parity_legacy(l1, l1_dir):
-    """Parity with the legacy reader where its output was correct.
-
-    The untransformed uint8/uint16 masks pin bit-exactly, at mirrored rows
-    (v2 is south-up; this granule's file order is north-up). Geometry pins
-    against legacy modulo the constant per-field scale factor introduced by
-    the affine fix; Rtoa cannot be pinned at all (it divides by cos of the
-    inflated sza) and is instead recomputed from the product's raw counts
-    (test_l1b_rtoa_formula).
-    """
-    legacy = Level1B_SGLI_legacy(l1_dir, chunks=500, verbose=False)
-    try:
-        rows = str(names.rows)
-        r, c = WIN_ROWS, WIN_COLS
-        rm = [l1.sizes[rows] - 1 - v for v in r]     # mirrored legacy rows
-
-        # Untransformed masks pin bit-exactly.
-        assert l1['water'].dtype == np.uint8
-        assert l1['quality_flag'].dtype == np.uint16
-        for var in ('water', 'quality_flag'):
-            assert np.array_equal(l1[var].isel(y=r, x=c).compute().values,
-                                  legacy[var].isel(y=rm, x=c).compute().values), var
-
-        # Geometry: v2 = Slope*x + Offset, legacy = (1+Slope)*x — a constant
-        # factor per field (lat/lon with Slope=1 pin at half the legacy value;
-        # centidegree angles with Slope=0.01 at 0.01/1.01).
-        for var, factor in (('latitude', 0.5), ('longitude', 0.5),
-                            (str(names.vza), 0.01 / 1.01),
-                            (str(names.vaa), 0.01 / 1.01),
-                            (str(names.sza), 0.01 / 1.01),
-                            (str(names.saa), 0.01 / 1.01)):
-            assert np.allclose(l1[var].isel(y=r, x=c).compute().values,
-                               legacy[var].isel(y=rm, x=c).compute().values * factor,
-                               rtol=1e-5), var
-
-        # Band table in full.
-        assert np.array_equal(l1[str(names.cwav)].values, legacy['cwav'].values)
-        assert list(l1.coords[str(names.bands)].values) == \
-            list(legacy.coords['bands'].values)
-        assert list(l1.coords[str(names.bgroup)].values) == \
-            list(legacy.coords['bands_group'].values)
-
-        # Shared attributes (datetime: legacy kept the raw non-ISO string —
-        # same instant, compared parsed).
-        for key in (str(names.sensor), str(names.platform), str(names.product_name),
-                    str(names.input_directory)):
-            assert l1.attrs[key] == legacy.attrs[key], key
-        assert parse(l1.attrs[str(names.datetime)]) == \
-            parse(legacy.attrs[str(names.datetime)])
-        assert l1.attrs[str(names.resolution)] == 250
-        assert legacy.attrs[str(names.resolution)] == 250
-
-        # Superset attributes: absent in legacy.
-        for key in (str(names.shortname), str(names.crs)):
-            assert key not in legacy.attrs
-    finally:
-        del legacy
-        gc.collect()
 
 
 # --------------------------------------------------------------------------

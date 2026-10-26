@@ -17,8 +17,8 @@ def get_sample(reader_or_id, product: str | None = None) -> Path:
         get_sample(Level1C_MSI)
         get_sample(Level1_OLI, 'OLI_L1TP_L9')
 
-    A sample-product ID (registered in :mod:`eoread.samples`) is also accepted,
-    which keeps legacy tests working::
+    A sample-product ID (registered in :mod:`eoread.samples`) is also
+    accepted directly::
 
         get_sample('MSI_L1C')
 

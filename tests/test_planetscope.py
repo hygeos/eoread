@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the PlanetScope reader
+v2 conformance tests for the PlanetScope reader
 (PSScene Basic Analytic 8b).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
-Parity with the legacy reader (eoread.legacy.planetscope) is pinned at two
-fixed windows of pixel coordinates (north-up rows/columns in the legacy
-space). Documented deviations from legacy (see REFACTORING.md):
+Documented deviations from the v1 implementation (see REFACTORING.md):
 
-- south-up orientation: v2 row i carries legacy row ny - 1 - i; windows are
-  therefore compared with the legacy rows flipped.
-- nodata pixels (DN == 0) become NaN; the legacy rioxarray open kept them as
+- south-up orientation: v2 row i carries file row ny - 1 - i.
+- nodata pixels (DN == 0) become NaN; a plain rioxarray open keeps them as
   zero data (masked=False default).
-- `cwav` is float64 (legacy float32); the band labels are the GeoTIFF band
-  descriptions, verbatim (as in legacy).
+- `cwav` is float64 (v1 float32); the band labels are the GeoTIFF band
+  descriptions, verbatim (as in v1).
 """
 
 import gc
@@ -36,25 +33,18 @@ from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.readers.planetscope import Level1_PLANETSCOPE
-from eoread.legacy.planetscope import Level1_Planetscope as legacy_planetscope
 from eoread.tools import xml_value
 
-# Fixed comparison windows in north-up (file/legacy) rows/columns; both well
-# inside the 5304 x 8880 scene.
+# Fixed check window in north-up (file) rows/columns; well inside the
+# 5304 x 8880 scene.
 WIN1 = (100, 200)
-WIN2 = (2800, 2700)
 WIN = 5
-
-# float32 rounding tolerances (legacy mixed float64 intermediates).
-PAYLOAD_RTOL = 1e-6
-LATLON_ATOL = 1e-6
-ANGLE_ATOL = 1e-7
 
 
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -84,11 +74,6 @@ def _tif(product_dir):
     tifs = sorted(product_dir.glob('**/*8b.tif'))
     assert len(tifs) == 1, f'expected one *8b.tif in {product_dir}, got {tifs}'
     return tifs[0]
-
-
-def _window_sels(ny, y0, x0):
-    """(v2 south-up row slice, shared column slice) of a legacy window."""
-    return (slice(ny - 1 - (y0 + WIN - 1), ny - y0), slice(x0, x0 + WIN))
 
 
 # --------------------------------------------------------------------------
@@ -204,7 +189,7 @@ def test_latlon_rpc(ds, product_dir):
     """Independent RPC evaluation: own file parse + rasterio transformer.
 
     The reader evaluates the model at 0-based pixel indices (no +0.5), as in
-    legacy; v2 row r carries file row ny - 1 - r.
+    v1; v2 row r carries file row ny - 1 - r.
     """
     from rasterio.rpc import RPC
     from rasterio.transform import RPCTransformer
@@ -285,56 +270,6 @@ def test_nodata_mask(product_dir, ds):
             v2 = ds['Rtoa'].isel(bands=i, **sel).compute().values
             dn = raw.isel(bands=i, **sel).values
             assert np.array_equal(np.isnan(v2), (dn == 0.0)), (label, sel)
-
-
-def _parity_window(ds, legacy, raw, ny, y0, x0):
-    """Compare one 5x5 legacy window against the v2 south-up image of it.
-
-    NaN positions are checked against the raw DN nodata flags (the legacy
-    reader kept DN == 0 as zero data); values on the unmasked pixels only.
-    The file band order equals the v2 band order (identity map).
-    """
-    jy, jx = _window_sels(ny, y0, x0)
-    ly, lx = slice(y0, y0 + WIN), slice(x0, x0 + WIN)
-
-    for i, label in enumerate(ds.coords[str(names.bands)].values):
-        a = ds['Rtoa'].isel(bands=i).isel(y=jy, x=jx).compute().values
-        b = legacy['Rtoa'].sel(bands=label).isel(y=ly, x=lx).compute().values[::-1]
-        dn = raw.isel(bands=i, y=jy, x=jx).values
-        m = ~np.isnan(a)
-        assert np.array_equal(np.isnan(a), dn == 0.0), f'Rtoa {label} NaN mask'
-        if m.any():
-            assert np.allclose(a[m], b[m], rtol=PAYLOAD_RTOL, atol=0), \
-                f'Rtoa {label} value mismatch'
-
-    for var in ('latitude', 'longitude'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=LATLON_ATOL), var
-
-    for var in ('sza', 'saa', 'vza', 'vaa'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=ANGLE_ATOL), var
-
-
-def test_parity_legacy(ds, product_dir):
-    """Value parity with the legacy reader at both fixed windows.
-
-    The legacy reader evaluates the RPC model eagerly on the full grid
-    (~2 GB transient); this is accepted once per session.
-    """
-    raw = rioxarray.open_rasterio(str(_tif(product_dir)), masked=False,
-                                  chunks=500)
-    raw = raw.isel(y=slice(None, None, -1)).rename(band='bands')  # north-up flip
-    ny = ds.sizes[str(names.rows)]
-    legacy = legacy_planetscope(product_dir, chunks=500)
-    try:
-        _parity_window(ds, legacy, raw, ny, *WIN1)
-        _parity_window(ds, legacy, raw, ny, *WIN2)
-    finally:
-        del legacy
-        gc.collect()
 
 
 def test_exit_probe(product_dir, tmp_path):

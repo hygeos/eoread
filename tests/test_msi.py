@@ -200,7 +200,7 @@ def test_l2_flagreader(l2):
 
 
 def test_l2_bands(l2):
-    # Baseline-5 L2A: B10 is absent from the product and B8 is kept (legacy dropped it).
+    # Baseline-5 L2A: B10 is absent from the product and B8 is kept (v1 dropped it).
     assert list(l2.coords['bands'].values) == \
         ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B11', 'B12']
 

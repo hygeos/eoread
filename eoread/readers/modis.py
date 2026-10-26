@@ -129,7 +129,7 @@ class _ModisBase(Reader):
     # ------------------------------------------------------------------- open
 
     def _open(self, filepath: Path) -> xr.Dataset:
-        """Open the HDF4 scene; loud pyhdf fallback when netCDF4 lacks HDF4.
+        """Open the HDF4 scene lazily (dask-backed); loud pyhdf fallback when netCDF4 lacks HDF4.
 
         The legacy reader's fallback was a dead branch (its error check was
         always true and unconditionally raised ImportError); here the -128
@@ -147,7 +147,13 @@ class _ModisBase(Reader):
             raise ProductError(f'{self.sensor} {self.level}: no such file {filepath}')
         import h5py  # noqa: F401  (load order guard, see docstring)
         try:
-            return xr.open_dataset(filepath, engine='netcdf4', decode_cf=False)
+            # chunks='auto' keeps every variable dask-backed from the open; an
+            # unchunked netCDF4 read would materialize the whole granule in RAM
+            # at construction (the per-block radiometry below, and the
+            # da.full(..., chunks=fdata.chunks) calls, assume dask arrays).
+            # The final spatial chunking is set in read() via self.chunks.
+            return xr.open_dataset(filepath, engine='netcdf4', decode_cf=False,
+                                   chunks='auto')
         except OSError as e:
             if '-128' not in str(e):
                 raise

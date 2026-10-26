@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the PACE OCI reader (L1B).
+v2 conformance tests for the PACE OCI reader (L1B).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
-Parity with the legacy reader (eoread.legacy.pace) is pinned at a fixed
-window of pixel coordinates. Documented deviations from legacy (see
-REFACTORING.md): no orientation change (the product is natively south-up),
-per-band chunking, boolean flag masks where legacy returned raw values (and
-would raise on the float32 watermask for LAND), plus the added shortname/crs
-attributes.
+Documented deviations from the v1 implementation (see REFACTORING.md): no
+orientation change (the product is natively south-up), per-band chunking,
+boolean flag masks where v1 returned raw values (and would raise on the
+float32 watermask for LAND), plus the added shortname/crs attributes.
 
 The sample is a curved-swatch scene: latitude varies by several degrees along
 a raster row, so `generic.Test.latlon`'s flat-projection check does not
@@ -37,21 +35,12 @@ from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import UnsupportedProductType
 from eoread.readers.pace import Level1B_PACE_OCI
-from eoread.legacy.pace import Level1B_PACE_OCI as Level1B_PACE_OCI_legacy
-
-# Fixed comparison window: raster rows x columns, well inside the 1709x1272 scene.
-WIN_ROWS = [400, 850, 1300]
-WIN_COLS = [200, 640, 1080]
-
-# Every full-grid variable (canonical names; legacy uses the same).
-TWO_D_VARS = ('latitude', 'longitude', 'height', 'water', 'quality_flag',
-              'sza', 'saa', 'vza', 'vaa')
 
 
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -200,7 +189,7 @@ def test_l1b_bands_cwav(l1, l1_dir):
     got = list(l1.coords[str(names.bands)].values)
     assert len(got) == 289
     assert got == seq
-    # The legacy sort key is the string label, not the wavelength: four-digit
+    # The v1 sort key is the string label, not the wavelength: four-digit
     # SWIR labels come first and the sequence is lexicographically sorted.
     assert got == sorted(got)
     assert got[0] == '1038' and got[-1] == '939'
@@ -219,14 +208,14 @@ def test_l1b_attrs(l1, l1_dir):
     assert a[str(names.platform)] == 'PACE'
     assert a[str(names.product_name)] == Path(l1_dir).name
     assert a[str(names.input_directory)] == str(Path(l1_dir).parent)
-    # No data-driven spacing field exists in the product; legacy's hardcoded
+    # No data-driven spacing field exists in the product; the v1 hardcoded
     # value is kept.
     assert a[str(names.resolution)] == 1200
     assert a[str(names.shortname)] == 'PACE_OCI'
     assert a[str(names.crs)] == 'EPSG:4326'
 
     # datetime is the midpoint of the product's time coverage, exactly as
-    # legacy computed it.
+    # v1 computed it.
     md = a['metadata']
     start, end = parse(md['time_coverage_start']), parse(md['time_coverage_end'])
     assert a[str(names.datetime)] == (start + (end - start) / 2).isoformat()
@@ -237,7 +226,7 @@ def test_l1b_attrs(l1, l1_dir):
 
 
 # --------------------------------------------------------------------------
-# v1 compatibility and legacy parity
+# v1 compatibility
 # --------------------------------------------------------------------------
 
 def test_l1b_v1_compat(l1):
@@ -251,56 +240,6 @@ def test_l1b_v1_compat(l1):
     # Superset attributes pass through untouched.
     assert ds.attrs[str(names.shortname)] == 'PACE_OCI'
     assert ds.attrs[str(names.crs)] == 'EPSG:4326'
-
-
-def test_l1b_parity_legacy(l1, l1_dir, monkeypatch):
-    """Bit-exact parity with the legacy reader at a pinned window."""
-    # The v2 reader already opened the file with h5netcdf in this process; the
-    # legacy reader's default netCDF4 open then fails with a NetCDF HDF error
-    # (two bundled libhdf5 copies resident, see REFACTORING.md). Force the
-    # legacy open onto h5netcdf too so the comparison can run in one process.
-    import eoread.legacy.pace as legacy_pace
-    real_open = legacy_pace.xr.open_datatree
-
-    def _open_h5netcdf(*args, **kwargs):
-        kwargs.setdefault('engine', 'h5netcdf')
-        return real_open(*args, **kwargs)
-
-    monkeypatch.setattr(legacy_pace.xr, 'open_datatree', _open_h5netcdf)
-    legacy = Level1B_PACE_OCI_legacy(l1_dir, chunks=500, verbose=False)
-    try:
-        r, c = WIN_ROWS, WIN_COLS
-
-        # Payload: all bands at the window.
-        assert np.array_equal(
-            l1[str(names.rtoa)].isel(y=r, x=c).compute().values,
-            legacy['Rtoa'].isel(y=r, x=c).compute().values)
-
-        # Every full-grid variable at the window.
-        for var in TWO_D_VARS:
-            assert np.array_equal(l1[var].isel(y=r, x=c).compute().values,
-                                  legacy[var].isel(y=r, x=c).compute().values), var
-
-        # Band table in full.
-        assert np.array_equal(l1[str(names.cwav)].values, legacy['cwav'].values)
-        assert list(l1.coords[str(names.bands)].values) == \
-            list(legacy.coords['bands'].values)
-        assert list(l1.coords[str(names.bgroup)].values) == \
-            list(legacy.coords['bands_group'].values)
-
-        # Shared attributes.
-        for key in (str(names.sensor), str(names.platform), str(names.product_name),
-                    str(names.input_directory), str(names.datetime)):
-            assert l1.attrs[key] == legacy.attrs[key], key
-        assert l1.attrs[str(names.resolution)] == 1200
-        assert legacy.attrs[str(names.resolution)] == 1200
-
-        # Superset attributes: absent in legacy.
-        for key in (str(names.shortname), str(names.crs)):
-            assert key not in legacy.attrs
-    finally:
-        del legacy
-        gc.collect()
 
 
 # --------------------------------------------------------------------------

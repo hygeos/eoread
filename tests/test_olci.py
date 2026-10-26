@@ -11,9 +11,9 @@ Samples (see tests/README.md):
 - OLCI_L2_WRR: S3A OLCI L2 WRR water product (reduced resolution, 600 m).
 
 The samples are local, so full-grid operations (plot, materialized checks)
-are exercised. The legacy v1 reader is kept as the reference implementation
-(eoread/legacy/olci.py); these tests pin the v2 contract instead: schema
-conformance, canonical south-up orientation, lazy loading and flag decoding.
+are exercised. The v1 reader has been removed; these tests pin the v2
+contract: schema conformance, canonical south-up orientation, lazy loading
+and flag decoding.
 """
 
 import gc

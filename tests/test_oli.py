@@ -8,11 +8,10 @@ Samples (see tests/README.md):
   (pan B8 at 15341 x 15621 / 15 m).
 - OLI_L1TP_L9: LC09 L1TP granule, EPSG:32621, 7831 x 7871 pixels at 30 m.
 
-The legacy v1 reader is kept as the reference implementation
-(eoread/legacy/oli.py); these tests pin the v2 contract instead: schema
+The v1 reader has been removed; these tests pin the v2 contract: schema
 conformance, canonical south-up orientation, lazy loading and flag decoding.
 OLI has a documented clean break in eoread.compat (CLEAN_BREAKS): the v2 Rtoa
-drops the legacy /cos(sza) double correction, so no v1 compatibility mapping
+drops the v1 /cos(sza) double correction, so no v1 compatibility mapping
 exists.
 """
 

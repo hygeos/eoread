@@ -8,9 +8,8 @@ Real-data policy (tests/README.md): the sample comes from the registry via
 symlinks holding the 1 km and 500 m Emultic files, the ICARE static grid and
 the NWC/GEO cloud mask.
 
-There is no legacy parity reference: `eoread.legacy.goesng` is unusable (it
-references undefined globals), so the values are pinned against the raw NetCDF
-files instead — the same independent check a legacy comparison would give.
+The v1 GOES-NG reader was unusable (it referenced undefined globals) and is
+removed, so the values are pinned against the raw NetCDF files directly.
 """
 
 import gc

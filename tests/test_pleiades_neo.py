@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance + legacy parity tests for the Pleiades-Neo reader (PMS mode).
+v2 conformance tests for the Pleiades-Neo reader (PMS mode).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
 
-Parity with the legacy reader (eoread.legacy.pleiades_neo) is pinned at two
-fixed windows of pixel coordinates (north-up rows/columns in the legacy
-space). Documented deviations from legacy (see REFACTORING.md):
+Documented deviations from the v1 implementation (see REFACTORING.md):
 
-- south-up orientation: v2 row i carries legacy row ny - 1 - i; windows are
-  therefore compared with the legacy rows flipped.
-- all six spectral bands are kept (sorted by central wavelength); the legacy
-  reader silently dropped the red-edge and deep-blue bands, so value parity
-  is only checked on the four shared labels.
+- south-up orientation: v2 row i carries file row ny - 1 - i.
+- all six spectral bands are kept (sorted by central wavelength); the v1
+  reader silently dropped the red-edge and deep-blue bands.
 - nodata pixels (DN == 0 per the per-file Special_Value tables) become NaN;
-  the legacy rioxarray open kept them as zero data (masked=False default).
-- payload, angles and lat/lon are float32 end to end; legacy mixed float64
-  intermediates, so comparisons use tolerances, never exact equality.
+  a plain rioxarray open keeps them as zero data (masked=False default).
+- payload, angles and lat/lon are float32 end to end (v1 mixed float64
+  intermediates).
 
 The product stores unsigned view/solar azimuths in [0, 360) while the naming
 registry declares [0, 180], so `generic.Test.angles` does not apply to this
@@ -43,26 +39,17 @@ from .conftest import get_sample
 from eoread.compat import v1
 from eoread.readers.pleiades import _DimapBase
 from eoread.readers.pleiades_neo import Level1_PNEO
-from eoread.legacy.pleiades_neo import Level1_PNEO as legacy_pneo
 from eoread.tools import _num, xml_value
 
-# Fixed comparison windows in north-up (file/legacy) rows/columns; both well
-# inside the 2819 x 2780 strip. WIN2 is entirely nodata in this sample and
-# therefore exercises the NaN mask instead of values.
+# Fixed check window in north-up (file) rows/columns; well inside the
+# 2819 x 2780 strip.
 WIN1 = (100, 200)
-WIN2 = (2800, 2700)
-WIN = 5
-
-# float32 rounding tolerances (legacy mixed float64 intermediates).
-PAYLOAD_RTOL = 1e-6
-LATLON_ATOL = 1e-5
-ANGLE_ATOL = 2e-5
 
 
 @pytest.fixture(autouse=True)
 def _gc():
     # Dask graphs contain reference cycles; force a collection after every
-    # test so transient legacy builds do not accumulate across the session.
+    # test so reader datasets are released promptly.
     yield
     gc.collect()
 
@@ -86,11 +73,6 @@ def ds(product_dir):
 # --------------------------------------------------------------------------
 # Shared helpers
 # --------------------------------------------------------------------------
-
-def _window_sels(ny, y0, x0):
-    """(v2 south-up row slice, shared column slice) of a legacy window."""
-    return (slice(ny - 1 - (y0 + WIN - 1), ny - y0), slice(x0, x0 + WIN))
-
 
 def _bilinear(verts, r, c, ny):
     """Independent bilinear lat/lon at v2 pixel (r, c) from the DIMAP corners.
@@ -220,7 +202,7 @@ def test_bands_attrs(product_dir, ds, strip_dim):
 
     order, cwav_expected = _expected_bands_cwav(dim)
     assert list(ds.coords[str(names.bands)].values) == order
-    # All six bands are kept; the legacy reader dropped RE and DB.
+    # All six bands are kept; the v1 reader dropped RE and DB.
     assert set(order) == {'DB', 'B', 'G', 'R', 'RE', 'NIR'}
     assert list(ds.coords[str(names.bgroup)].values) == ['bands_vnir'] * 6
     assert ds.attrs[str(names.crs)] == 'EPSG:4326'
@@ -248,7 +230,7 @@ def test_bands_attrs(product_dir, ds, strip_dim):
     # Central wavelengths: FWHM bounds are already in nm.
     assert ds[str(names.cwav)].dtype == 'float64'
     np.testing.assert_array_equal(ds[str(names.cwav)].values, cwav_expected)
-    # The four bands shared with legacy carry the pinned central wavelengths.
+    # The four bands shared with v1 carry the pinned central wavelengths.
     np.testing.assert_array_equal(
         ds[str(names.cwav)].sel(bands=['B', 'G', 'R', 'NIR']).values,
         [483., 562., 654.5, 828.])
@@ -332,60 +314,6 @@ def test_nodata_mask(ds, strip_dim):
             v2 = ds['Rtoa'].isel(bands=i, **sel).compute().values
             dn = raw.isel(bands=j, **sel).values
             assert np.array_equal(np.isnan(v2), (dn == 0.0)), (label, sel)
-
-
-def _parity_window(ds, legacy, mapping, ny, y0, x0, labels):
-    """Compare one 5x5 legacy window against the v2 south-up image of it.
-
-    NaN positions are checked against the raw DN nodata flags (the legacy
-    reader kept DN == 0 as zero data); values on the unmasked pixels only.
-    """
-    jy, jx = _window_sels(ny, y0, x0)
-    ly, lx = slice(y0, y0 + WIN), slice(x0, x0 + WIN)
-
-    for label in labels:
-        a = ds['Rtoa'].sel(bands=label).isel(y=jy, x=jx).compute().values
-        b = legacy['Rtoa'].sel(bands=label).isel(y=ly, x=lx).compute().values[::-1]
-        raw, j = mapping[label]
-        dn = raw.isel(bands=j, y=jy, x=jx).values
-        m = ~np.isnan(a)
-        assert np.array_equal(np.isnan(a), dn == 0.0), f'Rtoa {label} NaN mask'
-        if m.any():
-            assert np.allclose(a[m], b[m], rtol=PAYLOAD_RTOL, atol=0), \
-                f'Rtoa {label} value mismatch'
-
-    for var in ('latitude', 'longitude'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=LATLON_ATOL), var
-
-    for var in ('sza', 'saa', 'vza', 'vaa'):
-        a = ds[var].isel(y=jy, x=jx).compute().values
-        b = legacy[var].isel(y=ly, x=lx).compute().values[::-1]
-        assert np.allclose(a, b, atol=ANGLE_ATOL), var
-
-
-def test_parity_legacy(ds, product_dir, strip_dim):
-    """Value parity with the legacy reader at both fixed windows."""
-    strip, dim = strip_dim
-    mapping = _raw_band_map(strip, dim)
-    ny = ds.sizes[str(names.rows)]
-    legacy = legacy_pneo(product_dir, chunks=500)
-    try:
-        # The legacy reader dropped RE and DB; parity on the shared labels.
-        shared = set(ds.coords[str(names.bands)].values) \
-            & set(legacy.coords[str(names.bands)].values)
-        assert shared == {'B', 'G', 'R', 'NIR'}
-        _parity_window(ds, legacy, mapping, ny, *WIN1, sorted(shared))
-
-        # WIN2 is entirely nodata in this sample: every v2 band must be masked.
-        jy, jx = _window_sels(ny, *WIN2)
-        for label in ds.coords[str(names.bands)].values:
-            a = ds['Rtoa'].sel(bands=label).isel(y=jy, x=jx).compute().values
-            assert np.isnan(a).all(), f'{label} at WIN2 expected fully nodata'
-    finally:
-        del legacy
-        gc.collect()
 
 
 def test_exit_probe(product_dir, tmp_path):
