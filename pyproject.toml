@@ -3,17 +3,31 @@ name = "eoread"
 authors = [{name = "HYGEOS team"}]
 description = "Modular implementation of satellite data input/output relying on xarray."
 license = "Apache 2.0"
-version = "0.5.0"
-requires-python = "< 3.14"
+version = "2.0.0"
+requires-python = ">= 3.10, < 3.14"
 readme = "README.md"
 dependencies = [
-    "lxml", "pyproj", "pysolar", "pyepr",
-    "rioxarray", "h5netcdf", "h5py", "netcdf4"
+    # v2 runtime (eoread/readers + eoread/transforms):
+    "xarray", "dask", "numpy",
+    "rioxarray", "rasterio",        # MSI / OLI raster inputs
+    "h5netcdf", "h5py", "netcdf4",  # xarray engines (HDF5 / NetCDF inputs)
+    "pyhdf",                        # MODIS HDF4 fallback backend (eoread/hdf4.py)
+    "pyproj",                       # UTM -> geographic transforms
+    # auxiliary runtime used by individual v2 readers:
+    "pandas",            # GEOSAT / PlanetScope / Pleiades(-Neo) metadata
+    "scipy",             # GEOSAT geolocation
+    "python-dateutil",   # GOES-NG / HYPSO / PACE / SGLI time parsing
+    "pysolar",           # GOES-NG sun position
+    "pyepr",             # MERIS (imports as `epr`)
 ]
 
 [project.optional-dependencies]
 git = [
     "core @ git+https://github.com/hygeos/core.git",
+]
+samples = [
+    # optional: enables Reader.get_sample() downloads (lazy import in tools.py)
+    "sand @ git+https://github.com/hygeos/SAND.git",
 ]
 
 [build-system]
@@ -30,10 +44,9 @@ sand = { git = "git+https://github.com/hygeos/SAND.git" }
 
 [tool.pixi.tasks]
 # No-data gate: every module must import and the test suite must collect,
-# without any sample product available. Run in each matrix environment.
+# without any sample product available.
 gate = "python3 scripts/import_smoke.py && pytest tests/ --collect-only -q"
 tests = "pytest tests/"
-reader = "python3 scripts/eval_readers.py"
 docs-build = "quartodoc build --config docs/_quarto.yml"
 docs-render = { cmd = "quarto render docs/", depends-on = ["docs-build"] }
 docs-preview = { cmd = "quarto preview docs/", depends-on = ["docs-build"] }
@@ -55,8 +68,6 @@ griffe = ">=1.0,<2.0"
 
 [tool.pixi.environments]
 default = { features = ["hyp", "sys"], solve-group = "default" }
-# CI matrix: gate also runs against the older supported xarray generation
-xarray-2024 = { features = ["hyp-old", "sys"], solve-group = "xarray-2024" }
 
 [tool.pixi.feature.sys.dependencies]
 libgdal-jp2openjpeg = "*"
@@ -67,8 +78,3 @@ dask = "*"
 scipy = "*"
 numpy = "*"
 
-[tool.pixi.feature.hyp-old.dependencies]
-xarray = "2024.*"
-dask = "*"
-scipy = "*"
-numpy = "*"

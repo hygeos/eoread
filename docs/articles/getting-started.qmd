@@ -13,71 +13,79 @@ hyp add --hygeos eoread
 
 ## Core Concept
 
-Every eoread reader function returns a lazy `xarray.Dataset` backed by dask arrays. Data is only loaded from disk when you explicitly compute or access a variable. This enables efficient out-of-core processing of large satellite products.
+A reader is a **class**, one per (sensor, level), grouped by sensor under `eoread.readers`. Calling it reads the product and returns a lazy `xarray.Dataset` directly — nothing is read from disk or computed at construction:
 
 ```python
-from eoread.legacy.msi import Level1_MSI
+from eoread.readers.msi import Level1C_MSI
 
 # Returns a lazy xarray.Dataset — nothing is read from disk yet
-ds = Level1_MSI("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE")
+ds = Level1C_MSI("S2B_MSIL1C_20250320T104639_N0511_R051_T31UDS_20250320T142408.SAFE",
+                 chunks=1000, resolution=60)
 print(ds)
 ```
+
+Every reader shares the base signature and may add reader-specific options as
+extra keyword arguments with defaults:
+
+```python
+Reader(path, chunks=None, metadata_template=None, verbose=False)
+```
+
+Every returned dataset conforms to the canonical output schema and is validated
+at read time (stamped with a `schema_version` attribute). Unsupported product
+types or versions raise a `ProductError` subclass loudly — never a silent
+fallback.
 
 ## Reading Products
 
 ### Sensor-Specific Readers
 
-Each supported sensor has a dedicated reader function. The naming convention is `Level{level}_{sensor}`:
-
 ```python
-from eoread.legacy.msi import Level1_MSI
-from eoread.legacy.olci import Level1_OLCI, Level2_OLCI
-from eoread.legacy.meris import Level1_MERIS
-from eoread.legacy.oli import Level1_OLI
-from eoread.legacy.modis import Level1_MODIS
-from eoread.legacy.ecostress import Level1C_ECOSTRESS
-from eoread.legacy.pace import Level1B_PACE_OCI
-from eoread.legacy.venus import Level1_VENUS
-from eoread.legacy.sgli import Level1_SGLI
-from eoread.legacy.hypso import Level1_HYPSO
-from eoread.legacy.goesng import Level1_GOESNG
+from eoread.readers.msi import Level1C_MSI, Level2A_MSI
+from eoread.readers.olci import Level1_OLCI, Level2_OLCI
+from eoread.readers.meris import Level1_MERIS
+from eoread.readers.oli import Level1_OLI
+from eoread.readers.modis import Level1B_MODIS
+from eoread.readers.ecostress import Level1C_Ecostress, Level1B_Ecostress, Level2_Ecostress
+from eoread.readers.pace import Level1B_PACE_OCI
+from eoread.readers.venus import Level1C_VENUS, Level2A_VENUS
+from eoread.readers.sgli import Level1B_SGLI
+from eoread.readers.hypso import Level1_HYPSO
+from eoread.readers.goesng import Level1_GOESNG
+from eoread.readers.geosat import Level1_GEOSAT
+from eoread.readers.pleiades import Level1_PLEIADES
+from eoread.readers.pleiades_neo import Level1_PNEO
+from eoread.readers.planetscope import Level1_PLANETSCOPE
 ```
 
-### Auto-Detection
-
-The `Level1()` and `Level2()` functions automatically detect the sensor type from the filename and dispatch to the appropriate reader:
-
-```python
-from eoread.legacy.autodetect import Level1, Level2
-from pathlib import Path
-
-# Automatically detects Sentinel-2 MSI from the filename
-ds = Level1(Path("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE"))
-
-# Automatically detects Sentinel-3 OLCI Level-2
-ds_l2 = Level2(Path("S3A_OL_2_WFR____20231028T094655_00900146_20231028T095035_00100285_0030_0025_0010.SEN3"))
-```
+`eoread.reader.discover_readers()` lists every reader class programmatically.
 
 ## Dataset Variables
 
-All readers produce a consistent set of standard variables:
+All readers emit the canonical variable names from the `core.geo.naming` registry, on the canonical spatial dimensions `y` (rows) and `x` (columns):
 
 | Variable | Description |
 |----------|-------------|
-| `Lttoa` | Top-of-atmosphere radiance |
-| `Rtoa` | Top-of-atmosphere reflectance |
+| `Ltoa` | Top-of-atmosphere radiance (primary payload of MSI L1C, MERIS, …) |
+| `Rtoa` | Top-of-atmosphere reflectance (primary payload of OLCI L2, OLI, VENµS L1C, …) |
+| `BT` | Brightness temperature (thermal payloads) |
+| `LST` | Land surface temperature (ECOSTRESS LSTE; single-layer, no bands dim) |
 | `lat`, `lon` | Latitude/longitude rasters |
 | `sza`, `saa` | Solar zenith and azimuth angles |
 | `vza`, `vaa` | View zenith and azimuth angles |
-| `central_wavelength` | Central wavelength per band |
+| `cwav` | Central wavelength per band (nm), on the `bands` coordinate |
+
+Angle variables may be emitted on a coarse tie-point grid with a `_tie` suffix
+(e.g. MODIS keeps the raw 25 km tie grids). Multi-resolution products carry a
+`bands_group` coordinate identifying each band's native resolution block.
+
+Exactly one payload variable is the declared primary per reader class; the rest
+are extras. No pre-decoded flag masks are stored (see [Quality Flags](#quality-flags)).
 
 ### Example: Inspecting a Dataset
 
 ```python
-from eoread.legacy.msi import Level1_MSI
-
-ds = Level1_MSI("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE",
-                chunks=1000, resolution=60)
+ds = Level1C_MSI("S2B_MSIL1C_...SAFE", chunks=1000, resolution=60)
 
 print(ds.data_vars)
 print(ds.coords)
@@ -86,25 +94,25 @@ print(ds.attrs["metadata"])
 
 ## Chunking
 
-All readers accept a `chunks` parameter to control the spatial block size for dask:
+All readers accept a `chunks` parameter to control the spatial block size for dask (each reader carries a sensible per-sensor default):
 
 ```python
-# Square chunks of 500 pixels (default for most readers)
-ds = Level1_MSI("product.SAFE", chunks=500)
+# Square chunks of 500 pixels
+ds = Level1C_MSI("product.SAFE", chunks=500)
 
 # Different chunk sizes for rows and columns
-ds = Level1_MSI("product.SAFE", chunks=(1000, 500))
+ds = Level1C_MSI("product.SAFE", chunks=(1000, 500))
 ```
 
-> **Tip:** Align chunks with your processing pipeline. For best performance, set chunking as late as possible — after any subsetting operations.
+> **Tip:** Do NOT chunk and then sel — this leads to very poor efficiency. Subset first, and set chunking as late as possible.
 
 ## Subsetting
 
 Since eoread returns standard `xarray.Dataset` objects, you can use all of xarray's subsetting capabilities:
 
 ```python
-# Subset by row/column indices
-sub = ds.isel(rows=slice(500, 1500), columns=slice(400, 1400))
+# Subset by row/column indices (canonical dim names)
+sub = ds.isel(y=slice(500, 1500), x=slice(400, 1400))
 
 # Subset by coordinate values
 sub = ds.sel(lat=slice(45.5, 46.0), lon=slice(3.0, 3.5))
@@ -122,38 +130,33 @@ sub = sub_rect(ds, lat_min=45.0, lon_min=3.0, lat_max=46.0, lon_max=4.0)
 sub = sub_pt(ds, pt_lat=45.5, pt_lon=3.5, rad=10)
 ```
 
-## Resolution Resampling
-
-Some readers support resampling all bands to a common resolution:
-
-```python
-# Sentinel-2: resample all bands to 10m
-ds = Level1_MSI("product.SAFE", resolution=10)
-
-# MODIS: resample all bands to 250m
-ds = Level1_MODIS("MOD021KM.A2023001.0000.hdf", resolution=250)
-```
-
-When `resolution=None`, bands keep their native resolutions and are stored as separate variables.
-
 ## Quality Flags
 
-The `GenericFlags` enumeration provides a sensor-agnostic interface to quality flags:
+No pre-decoded flag masks are stored in the dataset. Readers that support flags
+advertise themselves through `ds.attrs['_flag_reader']` and decode boolean
+masks on demand from the raw flag layers:
 
 ```python
 from eoread.flags import GenericFlags
 
-# Access cloud flag
-cloud_mask = ds.attrs["flags"].getflag(ds, GenericFlags.CLOUD)
-
-# Access land mask
-land_mask = ds.attrs["flags"].getflag(ds, GenericFlags.LAND)
-
-# Access L1 invalid pixels
-invalid_mask = ds.attrs["flags"].getflag(ds, GenericFlags.L1_INVALID)
+# lazy boolean mask of invalid pixels (MSI)
+invalid = Level1C_MSI.getflag(ds, GenericFlags.L1_INVALID)
 ```
 
-Available flags:
+The supported flags vary by reader; `getflag` raises `ValueError` for an
+unsupported flag name. To pack several flags into a single variable for
+blockwise processing:
+
+```python
+from eoread.flags import FlagsInit, GenericFlags
+
+init = FlagsInit(
+    flags={GenericFlags.LAND: 1 << 0, GenericFlags.CLOUD: 1 << 1},
+    dtype="uint16",
+    flag_reader=ds.attrs["_flag_reader"],
+)
+ds = init.map_blocks(ds)   # adds a packed 'flags' variable
+```
 
 | Flag | Description |
 |------|-------------|
@@ -162,40 +165,62 @@ Available flags:
 | `L1_INVALID` | Invalid L1 pixels |
 | `L1_DEGRADED` | Degraded quality pixels |
 
-## Computing Results
+## Metadata Filtering
+
+By default, readers include the full product metadata in `ds.attrs['metadata']`. To reduce memory usage, you can filter it:
+
+```python
+# Only specific metadata branches (nested key paths)
+ds = Level1C_MSI("product.SAFE", metadata_template=[
+    ["General_Info", "Product_Info"],
+    ["Product_Identifier"]
+])
+```
+
+## Computing Results and Output
 
 Data is loaded lazily. To trigger computation:
 
 ```python
 # Compute a single variable
-rtoa_values = ds.Rtoa.compute()
-
-# Compute the entire dataset
-ds_computed = ds.compute()
+ltoa_values = ds.Ltoa.compute()
 
 # Write to NetCDF (triggers computation automatically)
 ds.to_netcdf("output.nc")
 ```
 
-## Metadata Filtering
+The `core.files.to_netcdf` helper adds automatic file naming, temporary files
+and compression.
 
-By default, readers include all metadata in the dataset attributes. To reduce memory usage, you can filter metadata:
+## Sample Products
 
-```python
-# No metadata
-ds = Level1_MSI("product.SAFE", metadata_template=[])
-
-# Only specific metadata keys
-ds = Level1_MSI("product.SAFE", metadata_template=[
-    ["General_Info", "Product_Info", "PROCESSING_BASELINE"],
-    ["Product_Identifier"]
-])
-```
-
-## Version Compatibility
-
-Some readers support a `v1_compat=True` flag to produce output compatible with eoread v1:
+Reader classes declare which sample products they support; `get_sample` resolves
+one of them to an existing path (loud `FileNotFoundError` when none is available):
 
 ```python
-ds = Level1_OLCI("product.SEN3", v1_compat=True)
+from eoread.readers.msi import Level1C_MSI
+
+path = Level1C_MSI.get_sample()          # first resolvable declared sample
+ds = Level1C_MSI(path)
+
+path = Level1_OLCI.get_sample("OLCI_L2_WFR")   # or select an explicit ID
 ```
+
+The test suite runs on these real products only, and skips cleanly when a sample
+is not available.
+
+## Migrating from v1
+
+The pre-v2 readers (`eoread.legacy.*`) and their `Level1()`/`Level2()`
+auto-detection functions were removed in 2.0. To map a v2 dataset back to the
+v1 layout (variable renames and reorganization), use the compatibility
+transform:
+
+```python
+from eoread.compat import v1
+ds_v1 = v1(ds)
+```
+
+A few sensors carry documented **clean breaks** where v2 values intentionally
+differ from legacy (e.g. MODIS radiance formula, OLI solar correction); for
+those, `v1()` raises with the explanation — see `eoread.compat.CLEAN_BREAKS`.

@@ -9,10 +9,10 @@ eoread provides a modular implementation of satellite data input/output built on
 
 ## Features
 
-- **Unified API** — Each sensor has a `Level1_*` (or `Level2_*`) reader function that returns a consistent `xarray.Dataset` with standard variable names.
-- **Lazy loading** — All raster data are backed by dask arrays, enabling out-of-core and parallel processing.
-- **Auto-detection** — The `Level1()` and `Level2()` functions automatically detect the sensor type from the filename and dispatch to the correct reader.
-- **Quality flags** — A `FlagsReaderBase` interface provides sensor-agnostic access to land masks, cloud flags, and data quality indicators.
+- **Unified API** — Each (sensor, level) has a reader class (`Level1C_MSI`, `Level2_OLCI`, …) under `eoread.readers` that returns a consistent `xarray.Dataset` with canonical variable names.
+- **Lazy loading** — All raster data are backed by dask arrays; nothing is computed at construction, enabling out-of-core and parallel processing.
+- **Canonical schema** — Every dataset is validated against the locked output schema at read time (stamped with a `schema_version` attribute); unsupported products fail loudly.
+- **Quality flags on demand** — No pre-decoded masks are stored; readers decode boolean flag layers from the raw data when asked (`getflag`).
 - **Chunking control** — All readers accept a `chunks` parameter for tuning spatial block sizes to match your workload.
 
 ## Supported Sensors
@@ -22,7 +22,7 @@ eoread provides a modular implementation of satellite data input/output built on
 | ESA Sentinel | Sentinel-2 MSI, Sentinel-3 OLCI, MERIS |
 | Landsat | Landsat 8/9 OLI |
 | NASA | MODIS, ECOSTRESS, PACE OCI |
-| Other | VENµS, SGLI, HYPSO-1, GOES-NG, Pleiades, Pleiades Neo, PlanetScope |
+| Other | VENµS, SGLI, HYPSO-1, GOES-NG, GEOSAT, Pleiades, Pleiades Neo, PlanetScope |
 
 ## Installation
 
@@ -33,14 +33,22 @@ hyp add --hygeos eoread
 ## Quick Example
 
 ```python
-from eoread.legacy.autodetect import Level1
-from pathlib import Path
+from eoread.readers.msi import Level1C_MSI
 
-# Auto-detect sensor and read
-l1 = Level1(Path("S2A_MSIL1C_20231028T094350_N0509_R071_T30TUH_20231028T130711.SAFE"))
+# Calling the reader class returns a lazy xarray.Dataset directly
+ds = Level1C_MSI("S2B_MSIL1C_20250320T104639_N0511_R051_T31UDS_20250320T142408.SAFE",
+                 chunks=1000, resolution=60)
 
 # Inspect the dataset
-print(l1)
+print(ds)
 ```
+
+## Migrating from v1
+
+The pre-v2 readers (`eoread.legacy.*`, including the `Level1()`/`Level2()`
+auto-detection functions) were removed in 2.0. Existing chains built on the v1
+layout can still be served from a v2 dataset with `eoread.compat.v1`, which maps
+it back to the legacy variable names and structure (a few sensors carry
+documented clean breaks — see `eoread.compat.CLEAN_BREAKS`).
 
 For more detailed examples, see the [Getting Started](articles/getting-started.qmd) guide.
