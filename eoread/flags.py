@@ -188,7 +188,7 @@ class FlagsInit(BlockProcessor):
         Fully qualified dotted path of the flag provider. It may be a v2
         `Reader` subclass carrying `flag_requires` / `flag_dims_like` /
         `getflag` classmethods (the current form, advertised through the
-        `_flag_reader` dataset attribute), or a legacy `FlagsReaderBase`
+        `_flag_reader` dataset attribute), or an old-style `FlagsReaderBase`
         subclass instantiated with `flag_reader_kwargs`.
 
     flag_reader_kwargs : dict | None, optional
@@ -238,21 +238,14 @@ class FlagsInit(BlockProcessor):
         strict: bool = True,
     ):
         self.flags = flags
-        try:
-            flgreader_cls = import_module(flag_reader)
-        except ModuleNotFoundError:
-            # Legacy readers set _flag_reader to 'eoread.<sensor>.<Class>'; those
-            # modules now live under eoread.legacy (see REFACTORING.md).
-            if not flag_reader.startswith('eoread.'):
-                raise
-            flgreader_cls = import_module(flag_reader.replace('eoread.', 'eoread.legacy.', 1))
+        flgreader_cls = import_module(flag_reader)
         self.flgreader: FlagsReaderBase | None = None
         self._reader_cls = None
         self._available_vars: set[str] | None = None
         # v2 readers decode flags themselves: their flag API consists of
         # classmethods on the reader class, which cannot be instantiated here
-        # (ReaderClass(path) returns the dataset). Legacy flag readers are
-        # still instantiated with their mapping kwargs.
+        # (ReaderClass(path) returns the dataset). Old-style flag readers are
+        # instantiated with their mapping kwargs.
         from .reader import Reader
         if isinstance(flgreader_cls, type) and issubclass(flgreader_cls, Reader):
             self._reader_cls = flgreader_cls

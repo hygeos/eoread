@@ -23,7 +23,7 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   gradient pocket).
 - ECOSTRESS: identity + schema_version strip (all payloads kept their v1
   names). Documented deviation, NOT a break: v2 is south-up where legacy was
-  north-up — v2 row i carries legacy row ny-1-i (pinned by the parity test).
+  north-up — v2 row i carries legacy row ny-1-i (pinned by test_l1c_v1_compat).
   The plain-HDF5 L1B/L2 family has no legacy reference at all.
 - OLCI: identity + schema_version strip — no documented clean break.
 - MODIS: clean break (see ``CLEAN_BREAKS``) — radiance formula fix.

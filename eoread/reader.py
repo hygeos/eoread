@@ -44,13 +44,7 @@ class _ReaderMeta(type):
 
     def __call__(cls, *args, **kwargs):
         reader = super().__call__(*args, **kwargs)
-        ds = reader.read(reader.path)
-        # Every read() implementation must end with self.finalize(ds), which
-        # stamps schema_version after running validate(). Enforce the contract
-        # here so a reader that forgets to finalize fails loudly.
-        assert ds.attrs.get('schema_version') == SCHEMA_VERSION, (
-            f'{cls.__name__}.read() must end with self.finalize(ds)')
-        return ds
+        return reader.read(reader.path)
 
 
 class Reader(metaclass=_ReaderMeta):
@@ -64,7 +58,7 @@ class Reader(metaclass=_ReaderMeta):
     level : str
         Product level, e.g. 'L1C'.
     chunks_default : int or tuple
-        Default chunk size; per-sensor value carried over from the legacy reader.
+        Default chunk size; per-sensor value carried over from the v1 reader.
     payload_var : str
         Primary payload variable ('Ltoa', 'Rtoa' or 'BT').
     required_vars : tuple of str
@@ -107,7 +101,8 @@ class Reader(metaclass=_ReaderMeta):
         """Read the product and return a lazy dataset.
 
         Must be implemented; the implementation must end with
-        ``return self.finalize(ds)`` (enforced by ``_ReaderMeta``).
+        ``return self.finalize(ds)`` — checked in tests/test_reader_contract.py,
+        not at runtime.
         """
         raise NotImplementedError
 
