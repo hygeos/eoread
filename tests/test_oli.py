@@ -22,8 +22,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from xarray import open_dataarray
 
 from core.geo.naming import names
+from core.table import read_xml
 
 from . import generic
 from .conftest import get_sample
@@ -126,6 +128,47 @@ def test_l8_bands(l8):
         ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11']
     groups = l8[str(names.bgroup)].values
     assert list(groups) == ['bands_30m'] * 7 + ['bands_15m'] + ['bands_30m'] * 3
+
+
+def test_l8_native_default(level1_l8, chunks):
+    """Default layout (resolution=None): the v1-compatible native grids — the
+    10 bands at 30 m plus `Panchromatic` on its own 15 m grid, no resampling.
+    """
+    rows, cols = str(names.rows), str(names.columns)
+    ds = Level1_OLI(level1_l8, chunks=chunks)
+
+    assert list(ds.coords['bands'].values) == \
+        ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B9', 'B10', 'B11']
+    groups = ds[str(names.bgroup)].values
+    assert list(groups) == ['bands_30m'] * 10
+    for var in (str(names.ltoa), str(names.rtoa), str(names.bt)):
+        assert ds[var].shape == (10, 7811, 7671)
+
+    pan = ds['Panchromatic']
+    assert pan.dims == (rows + '_pan', cols + '_pan')
+    assert pan.shape == (15621, 15341)
+    assert pan.dtype == np.float32
+
+    # The representative resolution attribute is the multispectral one (v1).
+    assert ds.attrs[str(names.resolution)] == 30
+
+    # Panchromatic is calibrated radiance (RADIANCE_MULT/ADD_BAND_8 * DN + a),
+    # recomputed independently from the raw B8 file and the MTL factors; the
+    # file is north-up, so v2 pan row r carries file row ny_p - 1 - r.
+    b8 = sorted(Path(level1_l8).glob('LC*_B8.TIF'))[0]
+    mtl = read_xml(sorted(Path(level1_l8).glob('LC*_MTL.xml'))[0])
+    resc = mtl['LEVEL1_RADIOMETRIC_RESCALING']
+    raw = open_dataarray(b8, engine='rasterio', mask_and_scale=False).squeeze()
+    r_file, c_file = 7005, 6505
+    dn = int(raw.isel(y=r_file, x=c_file).values)
+    expected = float(resc['RADIANCE_MULT_BAND_8']) * dn \
+        + float(resc['RADIANCE_ADD_BAND_8'])
+    got = pan.isel({rows + '_pan': 15621 - 1 - r_file, cols + '_pan': c_file}).values
+    assert got == pytest.approx(expected, rel=1e-6)
+
+    # The nodata corners (DN = 0) are masked on the pan grid too.
+    zero_win = {rows + '_pan': slice(2000, 2040), cols + '_pan': slice(1800, 1840)}
+    assert np.isnan(pan.isel(zero_win).values).all()
 
 
 def test_l8_cwav(l8):

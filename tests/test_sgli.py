@@ -232,8 +232,8 @@ def test_l1b_rtoa_formula(l1, l1_dir):
             lt = im[f'Lt_{band[:4]}']
             counts = lt.values[np.ix_(r_file, WIN_COLS)]
             expected = (((counts & np.uint16(lt.attrs['Mask']))
-                         * np.float32(lt.attrs['Slope_reflectance'])
-                         + np.float32(lt.attrs['Offset_reflectance'])) / mus)
+                         * lt.attrs['Slope_reflectance']
+                         + lt.attrs['Offset_reflectance']) / mus)
             assert np.allclose(got[band_i], expected, rtol=1e-7), band
     finally:
         tree.close()
@@ -336,8 +336,7 @@ def test_l1b_v1_compat(l1):
     """SGLI is an identity transform: v1 strips schema_version, keeps the rest.
 
     Values differ from the v1 output by the documented fixes (south-up flip,
-    affine scale factors, float32 geometry — see REFACTORING.md); this pins
-    layout.
+    affine scale factors — see REFACTORING.md); this pins layout.
     """
     ds = v1(l1)
     assert 'schema_version' not in ds.attrs

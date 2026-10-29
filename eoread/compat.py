@@ -68,7 +68,8 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   ``Slope*x + Offset`` where legacy applied ``(1+Slope)*x`` (lat/lon doubled,
   centidegree angles inflated ~101x), so geometry and Rtoa (which divides by
   cos of sza) differ from legacy — a confirmed bug fix pinned against the
-  product's raw tie data / counts; float32 geometry per the naming registry;
+  product's raw tie data / counts; no dtype coercion — full-grid geometry and
+  Rtoa land in float64 naturally, the ``*_tie`` fields keep the file's float32;
   ``LAND`` = ``water >= 50`` where legacy's ``~water`` on the uint8
   land-percentage was True on every pixel; ``L1_INVALID`` is the negation of
   QA_flag bit 0 where legacy used the raw value (the file's bit description
@@ -80,16 +81,20 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
 - PLEIADES: identity + schema_version strip (payload kept its v1 name
   ``Rtoa``). Documented deviations, NOT breaks: south-up flip (v2 row i carries
   legacy row ny-1-i); nodata DN==0 becomes NaN where the legacy rioxarray open
-  kept it as zero data; payload/angles/lat-lon are float32 end to end where
-  legacy mixed float64 intermediates.
+  kept it as zero data; no dtype coercion — payload/angles/lat-lon land in
+  float64 naturally (integer DNs become a NaN-capable float at the nodata
+  mask, then the calibration and interpolation chains run in double),
+  matching legacy.
 - PNEO: identity + schema_version strip (payload kept its v1 name ``Rtoa``).
   Documented deviations, NOT breaks: south-up flip (v2 row i carries legacy row
   ny-1-i); all six spectral bands are kept (sorted by central wavelength) where
   the legacy reader silently dropped the red-edge and deep-blue bands; nodata
   DN==0 becomes NaN where legacy kept it as zero data; azimuth angles keep the
   product's unsigned [0, 360) convention (registry declares [0, 180] — a
-  documented registry inconsistency, see OLCI/MSI/MERIS); payload/angles/lat-lon
-  are float32 end to end where legacy mixed float64 intermediates.
+  documented registry inconsistency, see OLCI/MSI/MERIS); no dtype coercion — payload/angles/lat-lon land in
+  float64 naturally (integer DNs become a NaN-capable float at the nodata
+  mask, then the calibration and interpolation chains run in double),
+  matching legacy.
 - GEOSAT: identity + schema_version strip (payload kept its v1 name ``Ltoa``;
   one reader class serves the DE-1 and DE-2 variants). Documented deviations,
   NOT breaks: south-up flip (v2 row i carries legacy row ny-1-i); GEOSAT-2
@@ -146,16 +151,15 @@ CLEAN_BREAKS = {
               'scale * raw + offset)'),
     # OLI L1TP: v2's Rtoa drops the legacy /cos(sza) division — the USGS C2
     # reflectance factors already fold in the solar geometry, so dividing
-    # again was a double correction (REFACTORING.md decision log). The pan
-    # band B8 also moved from separate 'rows_pan'/'columns_pan' dims onto the
-    # single bands grid, and the azimuth angles are folded to the unsigned
-    # [0, 180] canonical range instead of the signed file values. v1() cannot
-    # reproduce the legacy values.
+    # again was a double correction (REFACTORING.md decision log). The default
+    # layout now matches legacy (10 bands at 30 m + separate Panchromatic at
+    # 15 m), but the azimuth angles are folded to the unsigned [0, 180]
+    # canonical range instead of the signed file values. v1() cannot reproduce
+    # the legacy values.
     'OLI': ('v2 Rtoa differs from the legacy values (the /cos(sza) division is '
             'removed: the USGS C2 reflectance factors already include the solar '
-            'correction), band B8 now shares the single bands grid, and the '
-            'azimuth angles are unsigned [0, 180] instead of the signed file '
-            'values'),
+            'correction), and the azimuth angles are unsigned [0, 180] instead '
+            'of the signed file values'),
 }
 
 

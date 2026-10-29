@@ -12,10 +12,12 @@ REFACTORING.md decision log):
 
 - The output is south-up: row 0 is the southern edge of the scene (canonical
   orientation). Legacy outputs were north-up.
-- All 11 bands (B1-B11) share a single grid; the panchromatic band B8 is no
-  longer carried on separate 'rows_pan'/'columns_pan' dims. The `resolution`
-  parameter selects the target grid, 15 m (pan native) or 30 m (multispectral
-  native); the other bands are resampled onto it lazily.
+- The default output matches the legacy layout: the 10 bands at 30 m stay on
+  their native grid and the panchromatic band B8 is carried separately as a
+  `Panchromatic` variable (calibrated radiance) on its own 15 m
+  'rows_pan'/'columns_pan' dims, with no resampling at all
+  (`resolution=None`). Passing `resolution=15` or `30` instead puts every
+  band on a single uniform grid and resamples the others onto it lazily.
 - `Rtoa` is the declared primary payload: REFLECTANCE_MULT * DN +
   REFLECTANCE_ADD, as defined by USGS C2. The legacy reader additionally
   divided by cos(solar zenith angle), double-applying the solar correction
@@ -53,7 +55,9 @@ from eoread.tools import filter_metadata, install_exit_cleanup, spatial_resample
 from eoread.transforms.geometry import latlon_utm
 
 
-#: Supported target resolutions (m); 15 m is the panchromatic native grid.
+#: Uniform-grid target resolutions (m) for `resolution=15`/`30`: 15 m is the
+#: panchromatic native grid, 30 m the multispectral one. The default
+#: `resolution=None` keeps every band on its own native grid (no resampling).
 RESOLUTIONS = (15, 30)
 
 #: USGS Landsat Data Users Handbook (same reference as the legacy reader).
@@ -115,6 +119,11 @@ def _open(path: Path, chunks: dict, mask_nodata: bool = True) -> xr.DataArray:
         warnings.filterwarnings('ignore', message='The specified chunks separate')
         arr = open_dataarray(path, engine='rasterio', mask_and_scale=False,
                              chunks=chunks).squeeze()
+    # squeeze drops the size-1 band dim but leaves its scalar coordinate (and
+    # spatial_ref) behind; they are file artifacts with no canonical meaning.
+    for coord in ('band', 'spatial_ref'):
+        if coord in arr.coords:
+            arr = arr.drop_vars(coord)
 
     if mask_nodata:
         nodata = arr.rio.nodata
@@ -150,10 +159,11 @@ class _OliBase(Reader):
     level = None
     payload_var = None
 
-    def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=15):
-        if resolution not in RESOLUTIONS:
+    def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=None):
+        if resolution is not None and resolution not in RESOLUTIONS:
             raise ValueError(
-                f'OLI {self.level}: unsupported resolution {resolution!r}, expected one of {RESOLUTIONS}')
+                f'OLI {self.level}: unsupported resolution {resolution!r}, '
+                f'expected one of (None, *{RESOLUTIONS})')
         self.resolution = resolution
         super().__init__(path, chunks=chunks, metadata_template=metadata_template, verbose=verbose)
 
@@ -170,10 +180,15 @@ class _OliBase(Reader):
         if self.verbose:
             log.debug(f'Reading OLI {self.level} product {dirname.name}')
 
-        # Reference band of the target resolution (B8 pan at 15 m, B4 red at
-        # 30 m): it defines the output shape and georeferencing; both grids
-        # share the same geographic span.
-        ref_band = 'B8' if self.resolution == 15 else 'B4'
+        # Grids ----------------------------------------------------------------
+        # resolution=None (default): the v1-compatible native layout — the 30 m
+        # bands keep their own grid and B8 pan is carried separately at 15 m;
+        # nothing is resampled. A uniform target resolution picks one reference
+        # band (B8 pan at 15 m, B4 red at 30 m) whose shape and georeferencing
+        # define the single output grid for every band.
+        rows, cols = str(names.rows), str(names.columns)
+        bands = str(names.bands)
+        ref_band = 'B8' if (self.resolution == 15) else 'B4'
         with rasterio.open(_only_file(dirname, f'LC*_{ref_band}.TIF')) as src:
             transform = src.transform
             epsg = src.crs.to_epsg()
@@ -183,19 +198,31 @@ class _OliBase(Reader):
                 f'OLI {self.level}: unexpected non-EPSG CRS {src.crs!s} in {ref_band}.TIF')
         crs = f'EPSG:{epsg}'
 
+        # Panchromatic grid (B8, 15 m); the main lat/lon and angles stay on
+        # the 30 m reference grid, as in legacy.
+        rows_pan = cols_pan = None
+        ny_p = nx_p = 0
+        if self.resolution is None:
+            rows_pan, cols_pan = rows + '_pan', cols + '_pan'
+            b8 = list(dirname.glob('LC*_B8.TIF'))
+            if len(b8) == 1:
+                with rasterio.open(b8[0]) as src:
+                    ny_p, nx_p = int(src.height), int(src.width)
+
         resc = mtl['LEVEL1_RADIOMETRIC_RESCALING']
         therm = mtl['LEVEL1_THERMAL_CONSTANTS']
 
-        rows, cols = str(names.rows), str(names.columns)
-        bands = str(names.bands)
         shape = {rows: ny, cols: nx}
 
         # Radiometry ----------------------------------------------------------
         # One lazy DN read per band, shared by the Ltoa/Rtoa/BT graphs. USGS
         # C2 calibration factors from the MTL; the reflectance factors (B1-B9)
-        # already fold in the solar geometry, so no cos(sza) division.
+        # already fold in the solar geometry, so no cos(sza) division. In the
+        # native layout (resolution=None) each band stays on its own grid and
+        # is not resampled; B8 becomes the separate `Panchromatic` variable.
         ltoa_parts, rtoa_parts, bt_parts = [], [], []
         kept_bands = []
+        pan_ltoa = None
         for band, native_res in _BANDS:
             num = int(band[1:])
             matches = list(dirname.glob(f'LC*_{band}.TIF'))
@@ -204,7 +231,14 @@ class _OliBase(Reader):
                 continue
             dn = _open(matches[0], self.chunks)
             dn = dn.rename(x=cols, y=rows)
-            dn = dn.assign_coords({rows: np.arange(dn.sizes[rows]), cols: np.arange(dn.sizes[cols])})
+            if self.resolution is None and native_res == 15:
+                # Native layout: the pan band lives on its own grid.
+                dn = dn.rename({rows: rows_pan, cols: cols_pan})
+                dn = dn.assign_coords(
+                    {rows_pan: np.arange(dn.sizes[rows_pan]),
+                     cols_pan: np.arange(dn.sizes[cols_pan])})
+            else:
+                dn = dn.assign_coords({rows: np.arange(dn.sizes[rows]), cols: np.arange(dn.sizes[cols])})
 
             ltoa = (dn * float(resc[f'RADIANCE_MULT_BAND_{num}'])
                     + float(resc[f'RADIANCE_ADD_BAND_{num}'])).astype('float32')
@@ -224,36 +258,43 @@ class _OliBase(Reader):
             else:
                 bt = _all_nan(dn)
 
-            # Resample onto the target grid and pin the payload dtype; the
-            # interpolation branch returns swapped dim labels (see
-            # spatial_resample).
-            resampled = []
-            for arr in (ltoa, rtoa, bt):
-                arr = spatial_resample(arr, shape, self.chunks).transpose(rows, cols)
-                if arr.dtype != np.float32:
-                    arr = arr.astype('float32')
-                resampled.append(arr)
-            ltoa, rtoa, bt = resampled
+            if self.resolution is None and native_res == 15:
+                # Legacy carried the pan radiance as a separate 2D variable.
+                pan_ltoa = ltoa
+            else:
+                # Resample onto the target grid and pin the payload dtype; the
+                # interpolation branch returns swapped dim labels (see
+                # spatial_resample).
+                resampled = []
+                for arr in (ltoa, rtoa, bt):
+                    arr = spatial_resample(arr, shape, self.chunks).transpose(rows, cols)
+                    if arr.dtype != np.float32:
+                        arr = arr.astype('float32')
+                    resampled.append(arr)
+                ltoa, rtoa, bt = resampled
 
-            ltoa_parts.append(ltoa)
-            rtoa_parts.append(rtoa)
-            bt_parts.append(bt)
-            kept_bands.append((band, native_res))
+                ltoa_parts.append(ltoa)
+                rtoa_parts.append(rtoa)
+                bt_parts.append(bt)
+                kept_bands.append((band, native_res))
 
-        if not kept_bands:
+        if not kept_bands and pan_ltoa is None:
             raise ProductError(f'OLI {self.level}: no band data file found in {dirname}')
 
         ds = xr.Dataset()
-        for var, parts in ((str(names.ltoa), ltoa_parts),
-                           (str(names.rtoa), rtoa_parts),
-                           (str(names.bt), bt_parts)):
-            ds[var] = xr.DataArray(da.stack([a.data for a in parts]), dims=(bands, rows, cols))
+        if kept_bands:
+            for var, parts in ((str(names.ltoa), ltoa_parts),
+                               (str(names.rtoa), rtoa_parts),
+                               (str(names.bt), bt_parts)):
+                ds[var] = xr.DataArray(da.stack([a.data for a in parts]), dims=(bands, rows, cols))
+        if pan_ltoa is not None:
+            ds['Panchromatic'] = pan_ltoa
 
-        # Viewing/solar angles: int16 rasters in 0.01 degrees on the 30 m grid,
-        # resampled onto the target grid (smooth fields, linear is fine).
-        # USGS stores the azimuths signed (negative east of the meridian); the
-        # canonical schema keeps the unsigned [0, 180] angle, so fold them on
-        # the native grid before resampling.
+        # Viewing/solar angles: int16 rasters in 0.01 degrees on the 30 m grid;
+        # resampled onto the target grid only in uniform-grid mode (smooth
+        # fields, linear is fine). USGS stores the azimuths signed (negative
+        # east of the meridian); the canonical schema keeps the unsigned [0, 180]
+        # angle, so fold them on the native grid before resampling.
         for tag, name, unsigned in (('SZA', str(names.sza), False),
                                     ('SAA', str(names.saa), True),
                                     ('VZA', str(names.vza), False),
@@ -264,18 +305,22 @@ class _OliBase(Reader):
             arr = (arr / 100.0).astype('float32')
             if unsigned:
                 arr = np.abs(arr)
-            arr = spatial_resample(arr, shape, self.chunks).transpose(rows, cols)
-            if arr.dtype != np.float32:
-                arr = arr.astype('float32')
+            if self.resolution is not None:
+                arr = spatial_resample(arr, shape, self.chunks).transpose(rows, cols)
+                if arr.dtype != np.float32:
+                    arr = arr.astype('float32')
             ds[name] = arr
 
         # QA_PIXEL kept raw uint16 on the pixel grid (decoded on demand by
-        # the reader's getflag); nearest-neighbour so the bit patterns survive.
+        # the reader's getflag); nearest-neighbour resampling in uniform-grid
+        # mode so the bit patterns survive.
         qa = _open(_only_file(dirname, 'LC*_QA_PIXEL.TIF'), self.chunks,
                    mask_nodata=False)
         qa = qa.rename(x=cols, y=rows)
         qa = qa.assign_coords({rows: np.arange(qa.sizes[rows]), cols: np.arange(qa.sizes[cols])})
-        ds['QA_PIXEL'] = spatial_resample(qa, shape, self.chunks, 'repeat').transpose(rows, cols)
+        if self.resolution is not None:
+            qa = spatial_resample(qa, shape, self.chunks, 'repeat')
+        ds['QA_PIXEL'] = qa.transpose(rows, cols)
 
         # Pixel geolocation from the reference file's affine transform; lazy.
         # `e` is passed signed: for these north-up files it is negative, so the
@@ -285,9 +330,18 @@ class _OliBase(Reader):
             float(transform.a), float(transform.e), nx, ny, self.chunks))
 
         # Canonical orientation: row 0 is the southern edge (the granule files
-        # are north-up).
-        ds = ds.isel({rows: slice(None, None, -1)})
-        ds = ds.assign_coords({rows: np.arange(ny), cols: np.arange(nx)})
+        # are north-up); the pan grid flips with it. Both grids flip in one
+        # Dataset.isel: assigning a pre-flipped Panchromatic back into the
+        # dataset would re-align it against the ascending y_pan coordinate and
+        # silently undo the flip.
+        flip = {rows: slice(None, None, -1)}
+        if pan_ltoa is not None:
+            flip[rows_pan] = slice(None, None, -1)
+        ds = ds.isel(flip)
+        coords = {rows: np.arange(ny), cols: np.arange(nx)}
+        if pan_ltoa is not None:
+            coords.update({rows_pan: np.arange(ny_p), cols_pan: np.arange(nx_p)})
+        ds = ds.assign_coords(coords)
 
         # Spectral coordinates: band labels, central wavelengths and the
         # resolution-based band groups (as for MSI/MODIS).
@@ -310,7 +364,9 @@ class _OliBase(Reader):
             str(names.product_name): str(pc['LANDSAT_PRODUCT_ID']),
             str(names.input_directory): str(dirname),
             str(names.datetime): f"{ia['DATE_ACQUIRED']}T{ia['SCENE_CENTER_TIME']}",
-            str(names.resolution): self.resolution,
+            # Native layout: the representative (multispectral) resolution, as
+            # in legacy; uniform-grid mode carries the requested one.
+            str(names.resolution): 30 if self.resolution is None else self.resolution,
             str(names.shortname): str(pc['PROCESSING_LEVEL']),
             str(names.crs): crs,
             'user_guide': _USER_GUIDE,

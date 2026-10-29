@@ -21,8 +21,11 @@ Deviations from legacy (see REFACTORING.md):
   orientation). The file stores lines in acquisition order, so granules on a
   descending ground track come out north-up and are flipped; ascending
   granules are already south-up.
-- Geometry fields are float32 per the naming registry (the linear
-  interpolation weights are float64, so legacy emitted float64).
+- No dtype is ever coerced: each variable keeps whatever type its read and
+  arithmetic naturally produce — float32 for the tie-point fields (file-
+  stored float32/int16 with float32 scale factors) and float64 for the
+  full-grid geometry and `Rtoa` (float64 interpolation weights / cos(sza)),
+  as in legacy.
 - ``shortname`` / ``crs`` attributes added; ``datetime`` normalized to ISO
   from the product's non-ISO ``Scene_center_time`` attribute (same instant).
 - The legacy ``add_ancillary_data`` option is dropped: the Ancillary_data
@@ -141,48 +144,70 @@ class Level1B_SGLI(Reader):
         for dst in TIE_VARS.values():
             assert int(ds[dst].attrs['Resampling_interval']) == delta, \
                 f'{dst}: unexpected tie-point spacing'
-            slope = np.float32(ds[dst].attrs['Slope'])
-            offset = np.float32(ds[dst].attrs['Offset'])
-            ds[dst] = (slope * ds[dst] + offset).astype('float32')
+            # No cast: the file stores tie data as float32/int16 with
+            # float32 attrs, so the affine transform stays in float32.
+            ds[dst] = (ds[dst].attrs['Slope'] * ds[dst] + ds[dst].attrs['Offset'])
 
         # Tie coordinates in pixel units (tie line i sits at row i*delta); the
         # interpolation targets are the full-grid pixel positions.
         ds[cols + '_tie'] = np.arange(ds.sizes[cols + '_tie']) * delta
         ds[rows + '_tie'] = np.arange(ds.sizes[rows + '_tie']) * delta
 
+        # Chunk and orient the bands first so every full-grid variable below
+        # can share one spatial chunking (the dataset contract requires
+        # consistent chunks along shared dims). Chunk before the flip: a
+        # negative-step slice on the lazy h5netcdf arrays silently returns
+        # empty selections instead of raising (same trap as the tie fields
+        # above). The dask-level row reversal keeps each block on the file's
+        # row lattice (it reverses the block order); do NOT re-chunk to the
+        # unflipped grid afterwards — with ny % chunk != 0 it is offset from
+        # the file lattice and every block would straddle two file blocks
+        # (2x the HDF5 reads).
+        imdata = imdata.chunk(self.chunks)
+        if north_up:
+            imdata = imdata.isel({rows: slice(None, None, -1)})
+        first_band = next(iter(imdata.data_vars))
+        spatial_chunks = {rows: imdata[first_band].chunks[0],
+                          cols: imdata[first_band].chunks[1]}
+
         for tie_name, name in TIE_TO_FULL.items():
             a = ds[tie_name].rename({rows + '_tie': rows, cols + '_tie': cols})
             # The interpolation branch returns the historical swapped layout;
-            # transpose back to (rows, columns). float32 per the naming
-            # registry: the linear weights are float64.
+            # transpose back to (rows, columns). The linear weights are
+            # float64, so cast back to the tie data's float32 — legacy's
+            # spatial_resample did the same (its output was float32). Re-chunk
+            # onto the bands' file-aligned grid (in-memory re-partition only):
+            # a dask elementwise op on mismatched chunks refines to the union
+            # grid, which would pull Lt off its file-aligned blocks in the
+            # reflectance division below.
             ds[name] = spatial_resample(a, shape, chunks=self.chunks) \
-                             .transpose(rows, cols).astype('float32')
+                              .transpose(rows, cols).astype('float32') \
+                              .chunk(spatial_chunks)
 
         # TOA reflectance: per-band counts -> reflectance, stacked on bands
-        # (per-band chunks, as in legacy's merge output).
-        # Chunk before the flip: a negative-step slice on the lazy h5netcdf
-        # arrays silently returns empty selections instead of raising (same
-        # trap as the tie fields above). The dask-level row reversal then
-        # reverses the block order, so re-chunk to restore chunk boundaries
-        # consistent with the interpolated full-grid fields.
-        imdata = imdata.chunk(self.chunks)
-        if north_up:
-            imdata = imdata.isel({rows: slice(None, None, -1)}).chunk(self.chunks)
-
+        # (per-band chunks, as in legacy's merge output). mus shares the
+        # bands' chunking by construction (angles re-chunked above), so the
+        # division stays block-aligned.
         mus = da.cos(da.radians(ds[str(names.sza)]))
+
         parts = []
         first_attrs = None
         for band in ds[bands].values:
             lt = imdata[f'Lt_{band[:4]}']
             if first_attrs is None:
                 first_attrs = dict(lt.attrs)
+            # No cast: counts * float32 attrs stay float32, and mus is
+            # float32 (angles cast above), so reflectance lands in float32,
+            # as in legacy.
             part = (((lt & np.uint16(lt.attrs['Mask']))
-                     * np.float32(lt.attrs['Slope_reflectance'])
-                     + np.float32(lt.attrs['Offset_reflectance'])) / mus)
+                     * lt.attrs['Slope_reflectance']
+                     + lt.attrs['Offset_reflectance']) / mus)
             part.attrs = {}
             parts.append(part)
-        ds[str(names.rtoa)] = xr.concat(parts, dim=bands).chunk(
-            {bands: 1, **self.chunks})
+        # No re-chunk after the concat: the parts already carry the bands'
+        # file-aligned chunks (one per band), and chunking back to the
+        # unflipped grid would offset every block from the file lattice.
+        ds[str(names.rtoa)] = xr.concat(parts, dim=bands)
         # Legacy's merge kept the first band's attributes (including its raw
         # lowercase-free `Unit`); reflectance is dimensionless and gets no
         # `unit` attribute of its own.

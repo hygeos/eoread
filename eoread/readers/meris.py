@@ -166,22 +166,33 @@ class Level1_MERIS(Reader):
         rows, cols, bands = str(names.rows), str(names.columns), str(names.bands)
         ds = xr.Dataset()
 
-        # 1. Native 2D fields, lazily through the locked EPR API
+        # 1. Native 2D fields, lazily through the locked EPR API. Explicit
+        #    chunks + meta on every band: without them dask probes each band
+        #    with an empty slice at graph construction to infer the dtype, and
+        #    _EPRBand maps a zero-size window to a full-scene epr read — 32
+        #    full-band reads per build. Legacy passed both.
+        cy = self.chunks[rows]
+        cx = self.chunks[cols]
         for name in band_names:
             if name.startswith('radiance_'):
                 continue  # stacked below onto the bands dim
             band = prod.get_band(name)
-            ds[name] = xr.DataArray(da.array(_EPRBand(band, lock)),
-                                    dims=(rows, cols)).chunk(self.chunks)
+            eb = _EPRBand(band, lock)
+            ds[name] = xr.DataArray(
+                da.from_array(eb, chunks=(cy, cx), meta=np.empty((0, 0), dtype=eb.dtype)),
+                dims=(rows, cols))
             if band.unit is not None:
                 ds[name].attrs['unit'] = band.unit
             ds[name].attrs['description'] = str(band.description)
 
-        # 2. Ltoa: the radiance bands stacked in product order
-        arrays = [da.array(_EPRBand(prod.get_band(n), lock)) for n in radiance_names]
+        # 2. Ltoa: the radiance bands stacked in product order (per-band chunks)
+        arrays = []
+        for n in radiance_names:
+            eb = _EPRBand(prod.get_band(n), lock)
+            arrays.append(da.from_array(eb, chunks=(cy, cx),
+                                        meta=np.empty((0, 0), dtype=eb.dtype)))
         ltoa = xr.DataArray(da.stack(arrays), dims=(bands, rows, cols))
-        ds[str(names.ltoa)] = ltoa.chunk({bands: 1, rows: self.chunks[rows],
-                                          cols: self.chunks[cols]})
+        ds[str(names.ltoa)] = ltoa.chunk({bands: 1, rows: cy, cols: cx})
         first = prod.get_band(radiance_names[0])
         if first.unit is not None:
             ds[str(names.ltoa)].attrs['unit'] = first.unit

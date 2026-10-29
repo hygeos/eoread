@@ -11,8 +11,7 @@ Documented deviations from the v1 implementation (see REFACTORING.md):
 - south-up orientation: v2 row i carries file row ny - 1 - i.
 - nodata pixels (DN == 0 per the DIMAP Special_Value table) become NaN; a
   plain rioxarray open keeps them as zero data (masked=False default).
-- payload, angles and lat/lon are float32 end to end (v1 mixed float64
-  intermediates).
+- payload, angles and lat/lon are float64 end to end, as in v1.
 """
 
 import gc
@@ -72,9 +71,8 @@ def _bilinear(verts, r, c, ny):
 
     The DIMAP vertices are in file space (row 0 = north); v2 row r carries
     file row ny - 1 - r, which is where the corner grid is evaluated. The
-    corner values are re-derived in float64 (the reader stores them as
-    float32) and the plain bilinear form is evaluated with targets clipped to
-    the corner span, as the reader does; the two must agree within float32
+    plain bilinear form is evaluated in float64 with targets clipped to the
+    corner span, as the reader does; the two must agree within float64
     rounding.
     """
     tl, tr, bl, br = sorted(verts, key=lambda v: (int(v['ROW']), int(v['COL'])))
@@ -186,7 +184,7 @@ def test_angles_ground_truth(ds, strip_dim):
 
     v2 row r carries file row ny - 1 - r; the Top / Center / Bottom entries
     sit at file rows 0, (ny-1)/2, ny-1, so the expected values are the raw
-    DIMAP numbers cast to float32 (bit-exact).
+    DIMAP numbers cast to float64 (bit-exact).
     """
     _, dim = strip_dim
     ny = ds.sizes[str(names.rows)]
@@ -196,10 +194,10 @@ def test_angles_ground_truth(ds, strip_dim):
     for r, idx in ((ny - 1, 0), (ny // 2, 1), (0, 2)):
         e = vals[idx]
         expected = {
-            'sza': np.float32(90.0 - float(xml_value(e['Solar_Incidences']['SUN_ELEVATION']))),
-            'saa': np.float32(float(xml_value(e['Solar_Incidences']['SUN_AZIMUTH']))),
-            'vza': np.float32(float(xml_value(e['Acquisition_Angles']['VIEWING_ANGLE']))),
-            'vaa': np.float32(float(xml_value(e['Acquisition_Angles']['AZIMUTH_ANGLE']))),
+            'sza': np.float64(90.0 - float(xml_value(e['Solar_Incidences']['SUN_ELEVATION']))),
+            'saa': np.float64(float(xml_value(e['Solar_Incidences']['SUN_AZIMUTH']))),
+            'vza': np.float64(float(xml_value(e['Acquisition_Angles']['VIEWING_ANGLE']))),
+            'vaa': np.float64(float(xml_value(e['Acquisition_Angles']['AZIMUTH_ANGLE']))),
         }
         for var, exp in expected.items():
             got = ds[var].isel(y=r, x=[0, 100, -1]).compute().values
@@ -219,7 +217,7 @@ def test_latlon_bilinear(ds, strip_dim):
 
     # The sample's footprint vertices sit exactly on the raster corners
     # (ROW 1..ny, COL 1..nx), so the v2 south-west / north-east pixels carry
-    # the BL / TR vertex values up to one float32 ulp (~5e-6 deg).
+    # the BL / TR vertex values essentially exactly (float64 end to end).
     tl, tr, bl, br = sorted(verts, key=lambda v: (int(v['ROW']), int(v['COL'])))
     assert abs(ds['latitude'].isel(y=0, x=0).values - float(bl['LAT'])) < 1e-5
     assert abs(ds['longitude'].isel(y=0, x=0).values - float(bl['LON'])) < 1e-5

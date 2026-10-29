@@ -106,8 +106,11 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
         var = ds[str(name)]
         if tuple(var.dims) != grid_dims:
             errors.append(f'{name}: dims are {tuple(var.dims)}, expected {grid_dims}')
-        if name.dtype and var.dtype != np.dtype(name.dtype):
-            errors.append(f'{name}: dtype is {var.dtype}, expected {name.dtype}')
+        # The registry dtype is the expected precision; float64 is also
+        # accepted: readers whose legacy v1 output was double (PLEIADES, PNEO,
+        # SGLI) keep float64 end to end for v1 compatibility (REFACTORING.md).
+        if name.dtype and var.dtype not in (np.dtype(name.dtype), np.dtype('float64')):
+            errors.append(f'{name}: dtype is {var.dtype}, expected {name.dtype} or float64')
 
     # --- payload ------------------------------------------------------------
     present = [p for p in PAYLOADS if p in ds]

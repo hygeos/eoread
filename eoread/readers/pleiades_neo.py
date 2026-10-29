@@ -17,8 +17,9 @@ REFACTORING.md decision log):
   legacy reader silently dropped the red-edge and blue bands.
 - Nodata pixels (DN == 0 per the per-file Special_Value tables) become NaN;
   the legacy rioxarray open kept them as zero data (masked=False default).
-- The payload, tie angles and lat/lon are float32 end to end; the legacy
-  reader mixed float64 intermediates.
+- No dtype is ever coerced: each variable keeps whatever type its xarray
+  read and arithmetic naturally produce (in practice float64 for the
+  payload, angles and lat/lon, matching the legacy reader).
 - `datetime` uses the ISO-8601 'T' separator (legacy used a space between
   date and time).
 """
@@ -70,6 +71,6 @@ class Level1_PNEO(_DimapBase):
         cwav = np.array([(float(_num(spec[b]['FWHM']['MIN']))
                           + float(_num(spec[b]['FWHM']['MAX']))) / 2
                          for b in bands], dtype='float64')
-        gains = np.array([float(_num(refl[b]['GAIN'])) for b in bands], dtype='float32')
-        bias = np.array([_num(refl[b]['BIAS'], default=0.0) for b in bands], dtype='float32')
+        gains = np.array([float(_num(refl[b]['GAIN'])) for b in bands])
+        bias = np.array([_num(refl[b]['BIAS'], default=0.0) for b in bands])
         return cwav, gains, bias

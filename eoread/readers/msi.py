@@ -14,10 +14,11 @@ REFACTORING.md decision log):
   orientation). Legacy outputs were north-up.
 - L1C payload is `Ltoa` (TOA radiance) carrying a `unit` attribute; legacy
   misnamed it `Rtoa` without unit (`eoread.compat.v1` renames it back).
-- L2A keeps band B8 (legacy dropped it), reads each band at its finest
-  available resolution before resampling onto the target grid (legacy read the
-  pre-downsampled file of the target resolution), and builds the band table
-  from the files actually read — fixing the legacy mislabel of B11 as 'B10'.
+- L2A keeps band B8 (legacy dropped it) and, like legacy, reads each band from
+  the product's own pre-downsampled file at the requested resolution when one
+  exists; bands without a file at that resolution fall back to the finest
+  available file, resampled onto the target grid. The band table is built from
+  the files actually read — fixing the legacy mislabel of B11 as 'B10'.
 - B10 is absent from baseline-5 products; missing bands are skipped with a log
   message, never dropped by name.
 - `resolution=None` (native per-band resolutions) is not supported yet; pass
@@ -354,8 +355,10 @@ class Level1C_MSI(_MSIBase):
     payload_var = str(names.ltoa)
     sample_products = ('MSI_L1C',)
     xml_root = 'MTD_MSIL1C.xml'
-    # Legacy parity: calibration stays float64 (the registry sets no dtype on Ltoa).
-    payload_dtype = 'float64'
+    # Native payload dtype: the JP2 decodes to float32 and the calibration
+    # arithmetic keeps it there (NEP 50 scalar ops); legacy emitted float32.
+    # Do not upcast — a float64 Ltoa doubles the full-compute peak RSS.
+    payload_dtype = 'float32'
 
     def _quantification(self, product_image: dict) -> float:
         return float(_val(product_image['QUANTIFICATION_VALUE']))
@@ -410,17 +413,27 @@ class Level2A_MSI(_MSIBase):
         return offsets
 
     def _find_band_file(self, granule_dir: Path, band: str, meta_res: int):
-        """Finest of IMG_DATA/R{10,20,60}m containing the band, or None."""
+        """Band file for the target grid, or None.
+
+        Prefers the product's own R{target}m file — it is the official raster
+        for that grid and needs no resampling (legacy did the same); falls back
+        to the finest available of IMG_DATA/R{10,20,60}m, which the caller then
+        resamples onto the target grid.
+        """
         img = granule_dir / 'IMG_DATA'
         pattern = f'*_{_padded_band(band)}_*.jp2'
-        for res in RESOLUTIONS:  # finest first
+        # Target resolution first, then finest available.
+        for res in (self.resolution, *RESOLUTIONS):
             d = img / f'R{res}m'
             if not d.is_dir():
                 continue
             matches = list(d.glob(pattern))
             assert len(matches) <= 1, f'ambiguous band files for {band} in {d}: {matches}'
             if matches:
-                if res != meta_res:
+                # Anomaly check: file at neither the band's native resolution
+                # nor the requested one (normal pre-downsampled products match
+                # one of the two and stay silent).
+                if res != meta_res and res != self.resolution:
                     log.warning(f'MSI L2A: band {band} read from R{res}m, metadata says {meta_res} m')
                 return matches[0]
         return None

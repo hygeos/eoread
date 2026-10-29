@@ -14,9 +14,9 @@ REFACTORING.md decision log):
   orientation). Legacy outputs were north-up.
 - Nodata pixels (DN == 0 per the DIMAP Special_Value table) become NaN; the
   legacy rioxarray open kept them as zero data (masked=False default).
-- The payload, tie angles and lat/lon are float32 end to end; the legacy
-  reader mixed float64 intermediates (rtoa was computed in float64 from
-  float32 calibration values).
+- No dtype is ever coerced: each variable keeps whatever type its xarray
+  read and arithmetic naturally produce (in practice float64 for the
+  payload, angles and lat/lon, matching the legacy reader).
 - `datetime` uses the ISO-8601 'T' separator (legacy used a space between
   date and time).
 """
@@ -100,7 +100,7 @@ def _angle_block(block, block_info, pts, vals):
     r0 = block_info[0]['array-location'][0][0]
     rows = np.arange(r0, r0 + block.shape[0], dtype='float64')
     prof = np.interp(rows, pts, vals)
-    return np.repeat(prof[:, None], block.shape[1], axis=1).astype('float32')
+    return np.repeat(prof[:, None], block.shape[1], axis=1)
 
 
 class _DimapBase(Reader):
@@ -182,9 +182,9 @@ class _DimapBase(Reader):
         assert rows[0] < rows[-1] and cols[0] < cols[-1], 'footprint corners are not ordered'
 
         lat_g = np.array([[float(tl['LAT']), float(tr['LAT'])],
-                          [float(bl['LAT']), float(br['LAT'])]], dtype='float32')
+                          [float(bl['LAT']), float(br['LAT'])]])
         lon_g = np.array([[float(tl['LON']), float(tr['LON'])],
-                          [float(bl['LON']), float(br['LON'])]], dtype='float32')
+                          [float(bl['LON']), float(br['LON'])]])
 
         # Targets clipped to the corner span: legacy interpolated with
         # bounds='clip' and the corners can fall slightly outside the grid.
@@ -192,8 +192,8 @@ class _DimapBase(Reader):
         tx = np.clip(np.arange(nx), cols[0], cols[-1]).astype('float64')
         chunks = (self.chunks[str(names.rows)], self.chunks[str(names.columns)])
 
-        lat = _blockwise_interp(lat_g, (rows, cols), (ty, tx), chunks).astype('float32')
-        lon = _blockwise_interp(lon_g, (rows, cols), (ty, tx), chunks).astype('float32')
+        lat = _blockwise_interp(lat_g, (rows, cols), (ty, tx), chunks)
+        lon = _blockwise_interp(lon_g, (rows, cols), (ty, tx), chunks)
         return lat, lon
 
     def _angles(self, dim: dict, ny: int, nx: int) -> tuple:
@@ -212,8 +212,11 @@ class _DimapBase(Reader):
         def profile(parent: str, key: str, transform):
             values = np.array([transform(float(xml_value(e[parent][key])))
                                for e in vals], dtype='float64')
+            # np.interp always returns float64 (C double), so no conversion
+            # happens; the dtype kwarg only reports that to dask's graph,
+            # which cannot probe _angle_block itself (it needs block_info).
             return da.map_blocks(_angle_block, dummy, pts=pts, vals=values,
-                                 dtype='float32')
+                                 dtype='float64')
 
         sza = profile('Solar_Incidences', 'SUN_ELEVATION', lambda v: 90.0 - v)
         saa = profile('Solar_Incidences', 'SUN_AZIMUTH', float)
@@ -246,9 +249,10 @@ class _DimapBase(Reader):
         for coord in ('x', 'y', 'spatial_ref'):
             if coord in arr.coords:
                 arr = arr.drop_vars(coord)
-        # Cast before masking: .where on an integer array would promote to
-        # float64 and break the all-float32 chain.
-        return arr.astype('float32')
+        # No cast: the DN keeps its file dtype until _mask_nodata, whose
+        # .where promotes it to a NaN-capable float (float32 for 16-bit
+        # data); the calibration division then lands in float64, as in legacy.
+        return arr
 
     @staticmethod
     def _nodata_values(display: dict) -> list[float]:
@@ -346,11 +350,11 @@ class _DimapBase(Reader):
     # ---------------------------------------------------- subclass hooks
 
     def _open_payload(self, strip: Path, dim: dict) -> tuple[xr.DataArray, list]:
-        """Return (DN DataArray (bands, y, x) float32, band labels)."""
+        """Return (masked DN DataArray (bands, y, x), band labels)."""
         raise NotImplementedError
 
     def _band_table(self, dim: dict, bands: list) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Return (cwav float64, gains float32, bias float32) in `bands` order."""
+        """Return (cwav, gains, bias) arrays in `bands` order."""
         raise NotImplementedError
 
 
@@ -389,6 +393,6 @@ class Level1_PLEIADES(_DimapBase):
         # 4-decimal um bounds (e.g. (0.5475, 0.5625) -> 555.0, not 554.999...).
         cwav = np.array([0.5 * (float(_num(s['MIN'])) * 1000 + float(_num(s['MAX'])) * 1000)
                          for s in spec], dtype='float64')
-        gains = np.array([float(_num(s['GAIN'])) for s in refl], dtype='float32')
-        bias = np.array([_num(s['BIAS'], default=0.0) for s in refl], dtype='float32')
+        gains = np.array([float(_num(s['GAIN'])) for s in refl])
+        bias = np.array([_num(s['BIAS'], default=0.0) for s in refl])
         return cwav, gains, bias
