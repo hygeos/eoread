@@ -7,9 +7,10 @@ One class per level over a shared sensor base (REFACTORING.md, §4):
     >>> from eoread.readers.olci import Level1_OLCI        # doctest: +SKIP
     >>> ds = Level1_OLCI('S3A_OL_1_EFR____....SEN3')    # doctest: +SKIP
 
-Level 1 (EFR) carries TOA radiance for the 21 acquisition bands; `Rtoa` is a
-declared extra computed lazily from the payload, the tie-point solar zenith
-angle and the per-pixel solar flux. Level 2 (WFR/WRR water products) carries
+Level 1 (EFR full / ERR reduced resolution) carries TOA radiance for the 21
+acquisition bands; `Rtoa` is a declared extra computed lazily from the payload,
+the tie-point solar zenith angle and the per-pixel solar flux. Level 2
+(WFR/WRR water products) carries
 water-leaving reflectance `rho_w` on the 16-band ocean subset plus the
 log10-scaled uncertainty and the derived OC products; it has no flag reader
 (the WQSF bit definitions are not in the core registry).
@@ -98,6 +99,9 @@ class _OlciBase(Reader):
     Per-level hooks set by the subclasses: `level`, `payload_var`,
     `_band_suffix` ('radiance' or 'reflectance'), `flags`, `required_vars`,
     `VARIANTS` and `_level_token` (the 'Level N' string expected in textInfo).
+
+    Constructor option `engine` (default 'netcdf4') selects the xarray I/O
+    backend for every open — see `__init__` for the rationale.
     """
 
     sensor = 'OLCI'
@@ -111,6 +115,20 @@ class _OlciBase(Reader):
     VARIANTS = {}
     _band_suffix = None
     _level_token = None
+
+    def __init__(self, path, chunks=None, metadata_template=None, verbose=False,
+                 engine='netcdf4'):
+        # `engine` selects the xarray I/O backend for every open in this
+        # reader. Default 'netcdf4': on these per-band .nc files it measures
+        # 4.6x (WFR) / 7.0x (WRR) faster than h5netcdf for a full compute and
+        # is the engine the v1 reader effectively used. Pass
+        # engine='h5netcdf' when the process must stay on a single libhdf5
+        # copy — i.e. it also uses h5py-based readers or writers (SGLI, HYPSO,
+        # ECOSTRESS, PACE, GOESNG): netCDF4's bundled libhdf5 poisons their
+        # dimension-scale operations (REFACTORING.md, dual-libhdf5 decision).
+        super().__init__(path, chunks=chunks, metadata_template=metadata_template,
+                         verbose=verbose)
+        self.engine = engine
 
     def read(self, path: Path) -> xr.Dataset:
         dirname = Path(path)
@@ -149,10 +167,8 @@ class _OlciBase(Reader):
         })
 
         # 2. Geolocation --------------------------------------------------------
-        # All opens pin engine='h5netcdf': the netCDF4 stack is broken in the
-        # supported environments, and co-loading its bundled libhdf5 copy
-        # breaks h5netcdf dimension-scale writes (see REFACTORING.md).
-        geo = xr.open_dataset(dirname / 'geo_coordinates.nc', chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
+        # Every open in this reader uses engine=self.engine (see __init__).
+        geo = xr.open_dataset(dirname / 'geo_coordinates.nc', chunks=nc, engine=self.engine).rename(_GRID_RENAME)
         ac_factor = int(geo.attrs['ac_subsampling_factor'])
         al_factor = int(geo.attrs['al_subsampling_factor'])
         ds[str(names.lat)] = geo['latitude'].astype('float32')
@@ -288,7 +304,7 @@ class _OlciBase(Reader):
         coordinates (arange x subsampling factor); the grid/tie alignment is
         checked loudly. `var_map` renames the file variables on the way in.
         """
-        tie = xr.open_dataset(path, engine='h5netcdf').rename(var_map)
+        tie = xr.open_dataset(path, engine=self.engine).rename(var_map)
         tie = tie.assign_coords(
             tie_rows=np.arange(tie.sizes['tie_rows']) * al_factor,
             tie_columns=np.arange(tie.sizes['tie_columns']) * ac_factor,
@@ -306,7 +322,7 @@ class _OlciBase(Reader):
     def _meteo(self, ds: xr.Dataset, path: Path, ac_factor: int, al_factor: int,
                chunks: dict) -> xr.Dataset:
         """Interpolate the meteorological tie points to the full grid (lazy)."""
-        tie = xr.open_dataset(path, engine='h5netcdf')
+        tie = xr.open_dataset(path, engine=self.engine)
         tie = tie.assign_coords(
             tie_rows=np.arange(tie.sizes['tie_rows']) * al_factor,
             tie_columns=np.arange(tie.sizes['tie_columns']) * ac_factor,
@@ -351,7 +367,7 @@ class _OlciBase(Reader):
             # duplicate-dimension variable, not part of the output
             drop_variables='relative_spectral_covariance',
             chunks=nc,
-            engine='h5netcdf',
+            engine=self.engine,
         ).rename(_GRID_RENAME)
         index = [int(b[2:]) - 1 for b in labels]
         if any(i < 0 or i >= inst.sizes[str(names.bands)] for i in index):
@@ -411,18 +427,20 @@ class _OlciBase(Reader):
 
 
 class Level1_OLCI(_OlciBase):
-    """Sentinel-3 OLCI level-1 full-resolution (EFR) product, 300 m.
+    """Sentinel-3 OLCI level-1 product: EFR full resolution (300 m) or ERR
+    reduced resolution (600 m).
 
-    Payload `Ltoa` (TOA radiance, true file units mW.m-2.sr-1.nm-1) on the 21
-    acquisition bands; declared extra `Rtoa` = pi * Ltoa / (cos(sza) * F0),
-    computed lazily from the tie-point solar zenith angle and the per-pixel
-    solar flux. Quality flags decode through `Level1_OLCI.getflag` (LAND and
-    L1_INVALID from the `quality_flags` bit field).
+    Both variants carry payload `Ltoa` (TOA radiance, true file units
+    mW.m-2.sr-1.nm-1) on the 21 acquisition bands; declared extra `Rtoa` =
+    pi * Ltoa / (cos(sza) * F0), computed lazily from the tie-point solar
+    zenith angle and the per-pixel solar flux. Quality flags decode through
+    `Level1_OLCI.getflag` (LAND and L1_INVALID from the `quality_flags` bit
+    field).
     """
 
     level = 'L1'
     payload_var = str(names.ltoa)
-    sample_products = ('OLCI_L1_EFR',)
+    sample_products = ('OLCI_L1_EFR', 'OLCI_L1_ERR')
     required_vars = (str(names.rtoa), 'quality_flags')
     flags = True
     _band_suffix = 'radiance'
@@ -430,18 +448,21 @@ class Level1_OLCI(_OlciBase):
 
     #: Product types of the OLCI L1 family, keyed for `detect_variant`. Only
     #: entries verified against a real sample are listed; an unknown
-    #: productType (e.g. an ERR granule) raises `UnsupportedProductType` at
-    #: open time.
+    #: productType raises `UnsupportedProductType` at open time.
     VARIANTS = {
         'EFR': dict(
             detect={'field': 'productType', 'value': 'OL_1_EFR___'},
             resolution=300,
         ),
+        'ERR': dict(
+            detect={'field': 'productType', 'value': 'OL_1_ERR___'},
+            resolution=600,
+        ),
     }
 
     def _read_payload(self, ds: xr.Dataset, dirname: Path, labels: list,
                       files: dict, nc: dict) -> xr.Dataset:
-        arrays = [xr.open_dataarray(files[b], chunks=nc, engine='h5netcdf')
+        arrays = [xr.open_dataarray(files[b], chunks=nc, engine=self.engine)
                   .rename(_GRID_RENAME) for b in labels]
         ltoa = xr.concat(arrays, dim=str(names.bands))
         ds[str(names.ltoa)] = ltoa
@@ -453,7 +474,7 @@ class Level1_OLCI(_OlciBase):
     def _level_layers(self, ds: xr.Dataset, dirname: Path, nc: dict,
                       platform: str) -> xr.Dataset:
         # Quality flags (decoded on demand via Level1_OLCI.getflag)
-        qf = xr.open_dataset(dirname / 'qualityFlags.nc', chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
+        qf = xr.open_dataset(dirname / 'qualityFlags.nc', chunks=nc, engine=self.engine).rename(_GRID_RENAME)
         ds['quality_flags'] = qf['quality_flags']
 
         # Declared extra: TOA reflectance, kept lazy. Assigned as a plain
@@ -539,7 +560,7 @@ class Level2_OLCI(_OlciBase):
                       files: dict, nc: dict) -> xr.Dataset:
         rhos, uncs = [], []
         for band in labels:
-            f = xr.open_dataset(files[band], chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
+            f = xr.open_dataset(files[band], chunks=nc, engine=self.engine).rename(_GRID_RENAME)
             rhos.append(f[f'{band}_reflectance'])
             uncs.append(f[f'{band}_reflectance_unc'])
         ds[str(names.rho_w)] = xr.concat(rhos, dim=str(names.bands))
@@ -556,9 +577,9 @@ class Level2_OLCI(_OlciBase):
                 ('chl_nn.nc', 'CHL_NN', 'chl_nn'),
                 ('chl_oc4me.nc', 'CHL_OC4ME', 'chl_oc4me'),
                 ('wqsf.nc', 'WQSF', 'wqsf')):
-            f = xr.open_dataset(dirname / filename, chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
+            f = xr.open_dataset(dirname / filename, chunks=nc, engine=self.engine).rename(_GRID_RENAME)
             ds[out] = f[var]
-        aer = xr.open_dataset(dirname / 'w_aer.nc', chunks=nc, engine='h5netcdf').rename(_GRID_RENAME)
+        aer = xr.open_dataset(dirname / 'w_aer.nc', chunks=nc, engine=self.engine).rename(_GRID_RENAME)
         for var in ('A865', 'T865'):
             ds[var] = aer[var]
         return ds

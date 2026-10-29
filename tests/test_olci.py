@@ -6,6 +6,8 @@ v2 conformance tests for the OLCI readers (Phase 3).
 Samples (see tests/README.md):
 - OLCI_L1_EFR: S3A OLCI L1 EFR granule, 4091 x 4865 pixels, 21 acquisition
   bands, low-latitude ocean scene.
+- OLCI_L1_ERR: S3A OLCI L1 ERR granule (reduced resolution, 600 m),
+  14979 x 1217 pixels, 21 acquisition bands.
 - OLCI_L2_WFR: S3A OLCI L2 WFR water product (same frame grid, 16-band ocean
   subset).
 - OLCI_L2_WRR: S3A OLCI L2 WRR water product (reduced resolution, 600 m).
@@ -30,6 +32,13 @@ from .conftest import get_sample
 from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
 from eoread.readers.olci import Level1_OLCI, Level2_OLCI
+
+# The suite is a single process and must stay on one libhdf5 copy: opening
+# OLCI files through netCDF4 here would poison the h5netcdf dimension-scale
+# operations of every other reader test running later in the session
+# (REFACTORING.md, dual-libhdf5 decision). The production default is
+# 'netcdf4' (see _OlciBase.__init__); the suite pins 'h5netcdf'.
+_ENGINE = 'h5netcdf'
 
 
 def _check_angles(ds):
@@ -78,6 +87,11 @@ def level1_olci():
 
 
 @pytest.fixture(scope='session')
+def level1_olci_err():
+    return _readable(get_sample(Level1_OLCI, 'OLCI_L1_ERR'))
+
+
+@pytest.fixture(scope='session')
 def level2_olci():
     return _readable(get_sample(Level2_OLCI, 'OLCI_L2_WFR'))
 
@@ -94,17 +108,22 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_olci, chunks):
-    return Level1_OLCI(level1_olci, chunks=chunks)
+    return Level1_OLCI(level1_olci, chunks=chunks, engine=_ENGINE)
+
+
+@pytest.fixture
+def l1_err(level1_olci_err, chunks):
+    return Level1_OLCI(level1_olci_err, chunks=chunks, engine=_ENGINE)
 
 
 @pytest.fixture
 def l2(level2_olci, chunks):
-    return Level2_OLCI(level2_olci, chunks=chunks)
+    return Level2_OLCI(level2_olci, chunks=chunks, engine=_ENGINE)
 
 
 @pytest.fixture
 def l2_wrr(level2_olci_wrr, chunks):
-    return Level2_OLCI(level2_olci_wrr, chunks=chunks)
+    return Level2_OLCI(level2_olci_wrr, chunks=chunks, engine=_ENGINE)
 
 
 # ===========================================================================
@@ -112,7 +131,7 @@ def l2_wrr(level2_olci_wrr, chunks):
 # ===========================================================================
 
 def test_l1_instantiation(level1_olci, chunks):
-    Level1_OLCI(level1_olci, chunks=chunks)
+    Level1_OLCI(level1_olci, chunks=chunks, engine=_ENGINE)
 
 
 def test_l1_main(l1):
@@ -141,17 +160,17 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_subset(level1_olci, chunks):
-    ds = Level1_OLCI(level1_olci, chunks=chunks)
+    ds = Level1_OLCI(level1_olci, chunks=chunks, engine=_ENGINE)
     generic.Test.subset(ds)
 
 
 def test_l1_plot(request, level1_olci):
-    ds = Level1_OLCI(level1_olci)
+    ds = Level1_OLCI(level1_olci, engine=_ENGINE)
     generic.plot(request, ds, 'Oa09', poi={'x': 1000, 'y': 3000})
 
 
 def test_l1_time(chunks, level1_olci):
-    params = {'path': level1_olci, 'chunks': chunks}
+    params = {'path': level1_olci, 'chunks': chunks, 'engine': _ENGINE}
     generic.Test.execution_time(Level1_OLCI, params)
 
 
@@ -217,7 +236,113 @@ def test_l1_v1_compat(l1):
 
 def test_l1_rejects_level2(level2_olci):
     with pytest.raises(UnsupportedProductType):
-        Level1_OLCI(level2_olci)
+        Level1_OLCI(level2_olci, engine=_ENGINE)
+
+
+# ===========================================================================
+# Level 1 (ERR reduced resolution, 600 m)
+# ===========================================================================
+
+def test_l1err_instantiation(level1_olci_err, chunks):
+    Level1_OLCI(level1_olci_err, chunks=chunks, engine=_ENGINE)
+
+
+def test_l1err_main(l1_err):
+    generic.Test.main(l1_err, angle_data=True)
+
+
+def test_l1err_conformance(l1_err):
+    generic.Test.v2_conformance(l1_err, primary='Ltoa')
+
+
+def test_l1err_latlon(l1_err):
+    # The swath is a tilted parallelogram: no flat-projection invariance.
+    generic.Test.latlon(l1_err, flat_proj=False)
+
+
+def test_l1err_angles(l1_err):
+    _check_angles(l1_err)
+
+
+def test_l1err_lazy_load(l1_err):
+    generic.Test.lazy_load(l1_err)
+
+
+def test_l1err_flagreader(l1_err):
+    generic.Test.flagreader(l1_err)
+
+
+def test_l1err_subset(level1_olci_err, chunks):
+    ds = Level1_OLCI(level1_olci_err, chunks=chunks, engine=_ENGINE)
+    generic.Test.subset(ds)
+
+
+def test_l1err_plot(request, level1_olci_err):
+    ds = Level1_OLCI(level1_olci_err, engine=_ENGINE)
+    generic.plot(request, ds, 'Oa09', poi={'x': 600, 'y': 7500})
+
+
+def test_l1err_time(chunks, level1_olci_err):
+    params = {'path': level1_olci_err, 'chunks': chunks, 'engine': _ENGINE}
+    generic.Test.execution_time(Level1_OLCI, params)
+
+
+def test_l1err_bands(l1_err):
+    expected = [f'Oa{i:02d}' for i in range(1, 22)]
+    assert list(l1_err.coords[str(names.bands)]) == expected
+
+
+def test_l1err_attrs(l1_err):
+    # ERR is the reduced-resolution L1 product (600 m), not EFR's 300 m.
+    assert l1_err.attrs[str(names.resolution)] == 600
+    assert l1_err.attrs[str(names.sensor)] == 'OLCI'
+    assert l1_err.attrs[str(names.platform)] == 'Sentinel-3A'
+    assert l1_err.attrs[str(names.shortname)] == 'OL_1_ERR___'
+    assert l1_err.attrs[str(names.crs)] == 'EPSG:4326'
+    # SRF getter, loud on unknown platforms (REFACTORING.md decision log)
+    assert l1_err.attrs['_srf_getter'] == 'eotools.srf.get_SRF_olci'
+    assert l1_err.attrs['_srf_getter_arg'] == 'sentinel3_1_olci'
+
+
+def test_l1err_orientation(l1_err):
+    """Canonical output is south-up, west-to-east (row 0 = southern edge)."""
+    rows, cols = str(names.rows), str(names.columns)
+    cx = l1_err.sizes[cols] // 2
+    lat_first = float(l1_err[str(names.lat)].isel({rows: 0, cols: cx}).values)
+    lat_last = float(l1_err[str(names.lat)].isel({rows: -1, cols: cx}).values)
+    assert lat_first < lat_last
+    cy = l1_err.sizes[rows] // 2
+    lon_first = float(l1_err[str(names.lon)].isel({rows: cy, cols: 0}).values)
+    lon_last = float(l1_err[str(names.lon)].isel({rows: cy, cols: -1}).values)
+    assert lon_first < lon_last
+
+
+def test_l1err_rtoa_lazy(l1_err):
+    """Rtoa computes lazily and stays consistent with Ltoa on a central window."""
+    rows, cols = str(names.rows), str(names.columns)
+    ny, nx = l1_err.sizes[rows], l1_err.sizes[cols]
+    win = {rows: slice(ny // 2 - 10, ny // 2 + 10),
+           cols: slice(nx // 2 - 10, nx // 2 + 10)}
+    ltoa = l1_err[str(names.ltoa)].isel({str(names.bands): [4], **win}).values
+    rtoa = l1_err[str(names.rtoa)].isel({str(names.bands): [4], **win}).values
+    assert np.all(np.isfinite(rtoa))
+    mask = ltoa > 0
+    assert mask.any()
+    assert np.all(rtoa[mask] > 0)
+    # Per-pixel wavelength of Oa05 (central wavelength ~510 nm): the detector
+    # gather must land inside the band.
+    wav = float(l1_err[str(names.wav)].isel({str(names.bands): [4], **win}).mean())
+    assert 490 < wav < 530
+
+
+def test_l1err_v1_compat(l1_err):
+    old = v1(l1_err)
+    # OLCI has no documented clean break: the mapping is an identity apart
+    # from the schema version, which v1 datasets did not carry.
+    assert 'schema_version' not in old.attrs
+    assert str(names.ltoa) in old
+    assert str(names.rtoa) in old
+    assert 'schema_version' in l1_err.attrs
 
 
 # ===========================================================================
@@ -229,7 +354,7 @@ _L2_BANDS = [f'Oa{i:02d}' for i in list(range(1, 13)) + [16, 17, 18, 21]]
 
 
 def test_l2_instantiation(level2_olci, chunks):
-    Level2_OLCI(level2_olci, chunks=chunks)
+    Level2_OLCI(level2_olci, chunks=chunks, engine=_ENGINE)
 
 
 def test_l2_main(l2):
@@ -255,17 +380,17 @@ def test_l2_lazy_load(l2):
 
 
 def test_l2_subset(level2_olci, chunks):
-    ds = Level2_OLCI(level2_olci, chunks=chunks)
+    ds = Level2_OLCI(level2_olci, chunks=chunks, engine=_ENGINE)
     generic.Test.subset(ds)
 
 
 def test_l2_plot(request, level2_olci):
-    ds = Level2_OLCI(level2_olci)
+    ds = Level2_OLCI(level2_olci, engine=_ENGINE)
     generic.plot(request, ds, 'Oa11', poi={'x': 1000, 'y': 3000})
 
 
 def test_l2_time(chunks, level2_olci):
-    params = {'path': level2_olci, 'chunks': chunks}
+    params = {'path': level2_olci, 'chunks': chunks, 'engine': _ENGINE}
     generic.Test.execution_time(Level2_OLCI, params)
 
 
@@ -321,9 +446,9 @@ def test_l2wrr_bands(l2_wrr):
 
 def test_l2_rejects_level1(level1_olci):
     with pytest.raises(UnsupportedProductType):
-        Level2_OLCI(level1_olci)
+        Level2_OLCI(level1_olci, engine=_ENGINE)
 
 
 def test_not_an_olci_product(tmp_path):
     with pytest.raises(ProductError):
-        Level1_OLCI(tmp_path)
+        Level1_OLCI(tmp_path, engine=_ENGINE)
