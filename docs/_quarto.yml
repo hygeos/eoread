@@ -79,6 +79,7 @@ quartodoc:
         - readers.ecostress
         - readers.geosat
         - readers.goesng
+        - readers.hico
         - readers.hypso
         - readers.meris
         - readers.modis
@@ -89,6 +90,7 @@ quartodoc:
         - readers.planetscope
         - readers.pleiades
         - readers.pleiades_neo
+        - readers.prisma
         - readers.sgli
         - readers.venus
 

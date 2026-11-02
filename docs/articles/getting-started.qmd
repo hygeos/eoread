@@ -46,16 +46,18 @@ from eoread.readers.olci import Level1_OLCI, Level2_OLCI
 from eoread.readers.meris import Level1_MERIS
 from eoread.readers.oli import Level1_OLI
 from eoread.readers.modis import Level1B_MODIS
-from eoread.readers.ecostress import Level1C_Ecostress, Level1B_Ecostress, Level2_Ecostress
+from eoread.readers.ecostress import Level1C_ECOSTRESS, Level1B_ECOSTRESS, Level2_ECOSTRESS
 from eoread.readers.pace import Level1B_PACE_OCI
 from eoread.readers.venus import Level1C_VENUS, Level2A_VENUS
 from eoread.readers.sgli import Level1B_SGLI
-from eoread.readers.hypso import Level1_HYPSO
-from eoread.readers.goesng import Level1_GOESNG
+from eoread.readers.hypso import Level1B_HYPSO
+from eoread.readers.goesng import Level1B_GOESNG
 from eoread.readers.geosat import Level1_GEOSAT
 from eoread.readers.pleiades import Level1_PLEIADES
 from eoread.readers.pleiades_neo import Level1_PNEO
 from eoread.readers.planetscope import Level1_PLANETSCOPE
+from eoread.readers.hico import Level1B_HICO
+from eoread.readers.prisma import Level1_PRISMA
 ```
 
 `eoread.reader.discover_readers()` lists every reader class programmatically.
@@ -208,6 +210,12 @@ path = Level1_OLCI.get_sample("OLCI_L2_WFR")   # or select an explicit ID
 
 The test suite runs on these real products only, and skips cleanly when a sample
 is not available.
+
+Some samples are also registered as downloadable from their provider: when the
+local path is missing, `get_sample` fetches the product through SAND into the
+local cache (`~/.cache/eoread/samples`) and resolves it from there — install
+the `samples` extra to enable this. A failed download degrades to the same loud
+error as a missing sample.
 
 ## Migrating from v1
 

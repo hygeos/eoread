@@ -21,8 +21,8 @@ eoread provides a modular implementation of satellite data input/output built on
 |----------|----------|
 | ESA Sentinel | Sentinel-2 MSI, Sentinel-3 OLCI, MERIS |
 | Landsat | Landsat 8/9 OLI |
-| NASA | MODIS, ECOSTRESS, PACE OCI |
-| Other | VENµS, SGLI, HYPSO-1, GOES-NG, GEOSAT, Pleiades, Pleiades Neo, PlanetScope |
+| NASA | MODIS, ECOSTRESS, PACE OCI, HICO |
+| Other | VENµS, SGLI, HYPSO-1, PRISMA, GOES-NG, GEOSAT, Pleiades, Pleiades Neo, PlanetScope |
 
 ## Installation
 
