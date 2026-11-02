@@ -58,10 +58,10 @@ _samples: dict[str, Sample] = {
     # Sentinel-2 MSI
     'MSI_L1C': Sample(
         _CEPH / 'SENTINEL-2-MSI' / 'S2B_MSIL1C_20250320T104639_N0511_R051_T31UDS_20250320T142408.SAFE',
-        'Sentinel-2 MSI L1C'),
+        'Sentinel-2 MSI L1C',
     'MSI_L2A': Sample(
         _CEPH / 'SENTINEL-2-MSI' / 'S2B_MSIL2A_20250930T102739_N0511_R108_T31TFJ_20250930T142814.SAFE',
-        'Sentinel-2 MSI L2A'),
+        'Sentinel-2 MSI L2A',
 
     # Sentinel-3 OLCI
     # The Ceph copy of the 2016 EFR granule is not traversable (missing
@@ -95,7 +95,7 @@ _samples: dict[str, Sample] = {
     # ECOSTRESS
     'ECOSTRESS_L1C': Sample(
         _CEPH / 'ECOSTRESS' / 'ECOv002_L1CG_RAD_28710_008_20230730T032333_0710_01.h5',
-        'ECOSTRESS L1C radiance'),
+        'ECOSTRESS L1C radiance',
     'ECOSTRESS_L1B': Sample(
         _CEPH / 'ECOSTRESS' / 'ECOSTRESS_L1B_RAD_03753_010_20190305T052421_0601_02.h5',
         'ECOSTRESS L1B radiance'),

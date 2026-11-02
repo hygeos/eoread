@@ -61,11 +61,11 @@ NAV_VARS = {
 }
 
 
-class Level1_HYPSO(Reader):
+class Level1B_HYPSO(Reader):
     """HYPSO-1 L1B hyperspectral radiance product."""
 
     sensor = 'HYPSO-1 Hyperspectral Imager'
-    level = 'L1'
+    level = 'L1B'
     chunks_default = 500
     payload_var = str(names.ltoa)
     sample_products = ('HYPSO_L1',)

@@ -36,9 +36,9 @@ from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import ProductError, UnsupportedProductType
 from eoread.readers.ecostress import (
-    Level1B_Ecostress,
-    Level1C_Ecostress,
-    Level2_Ecostress,
+    Level1B_ECOSTRESS,
+    Level1C_ECOSTRESS,
+    Level2_ECOSTRESS,
 )
 from eoread.readers.msi import Level1C_MSI
 
@@ -54,22 +54,22 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def level1_ecostress():
-    return get_sample(Level1C_Ecostress)
+    return get_sample(Level1C_ECOSTRESS)
 
 
 @pytest.fixture(scope='session')
 def level1b_ecostress():
-    return get_sample(Level1B_Ecostress)
+    return get_sample(Level1B_ECOSTRESS)
 
 
 @pytest.fixture(scope='session')
 def level2_ecostress():
-    return get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V001')
+    return get_sample(Level2_ECOSTRESS, 'ECOSTRESS_L2_V001')
 
 
 @pytest.fixture(scope='session')
 def level2_ecostress_v002():
-    path = get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
+    path = get_sample(Level2_ECOSTRESS, 'ECOSTRESS_L2_V002')
     # The v002 LSTE product carries no per-pixel lat/lon: it is only readable
     # with its paired L1B_GEO file next to it. Skip cleanly when the staged
     # sample lacks that companion rather than erroring in every dependent test.
@@ -91,22 +91,22 @@ def chunks(request):
 
 @pytest.fixture
 def l1(level1_ecostress, chunks):
-    return Level1C_Ecostress(level1_ecostress, chunks=chunks)
+    return Level1C_ECOSTRESS(level1_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l1b(level1b_ecostress, chunks):
-    return Level1B_Ecostress(level1b_ecostress, chunks=chunks)
+    return Level1B_ECOSTRESS(level1b_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l2(level2_ecostress, chunks):
-    return Level2_Ecostress(level2_ecostress, chunks=chunks)
+    return Level2_ECOSTRESS(level2_ecostress, chunks=chunks)
 
 
 @pytest.fixture
 def l2_v002(level2_ecostress_v002, chunks):
-    return Level2_Ecostress(level2_ecostress_v002, chunks=chunks)
+    return Level2_ECOSTRESS(level2_ecostress_v002, chunks=chunks)
 
 
 def _window(ds, rows=slice(200, 400), cols=slice(500, 700)):
@@ -139,7 +139,7 @@ def _exit_probe(cls, sample, tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_l1c_instantiation(level1_ecostress, chunks):
-    Level1C_Ecostress(level1_ecostress, chunks=chunks)
+    Level1C_ECOSTRESS(level1_ecostress, chunks=chunks)
 
 
 def test_l1c_main(l1):
@@ -165,7 +165,7 @@ def test_l1c_lazy_payload(level1_ecostress):
     graph must be strictly smaller than one full grid (the only ndarrays the
     reader embeds are the 5-element calibration tables).
     """
-    ds = Level1C_Ecostress(level1_ecostress)
+    ds = Level1C_ECOSTRESS(level1_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds[str(names.ltoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -180,7 +180,7 @@ def test_l1c_exit_clean_stderr(level1_ecostress, tmp_path):
     interpreter at finalization; that path must come back clean (same guard
     as test_msi.py's rasterio regression).
     """
-    _exit_probe(Level1C_Ecostress, level1_ecostress, tmp_path)
+    _exit_probe(Level1C_ECOSTRESS, level1_ecostress, tmp_path)
 
 
 def test_l1c_flagreader(l1):
@@ -188,22 +188,22 @@ def test_l1c_flagreader(l1):
 
 
 def test_l1c_subset(level1_ecostress, chunks):
-    ds = Level1C_Ecostress(level1_ecostress, chunks=chunks, metadata_template=[])
+    ds = Level1C_ECOSTRESS(level1_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l1c_plot(request, level1_ecostress):
-    ds = Level1C_Ecostress(level1_ecostress)
+    ds = Level1C_ECOSTRESS(level1_ecostress)
     generic.plot(request, ds, '4', poi={'x': 1000, 'y': 3000})
 
 
 def test_l1c_time(level1_ecostress, chunks):
     params = {'path': level1_ecostress, 'chunks': chunks}
-    generic.Test.execution_time(Level1C_Ecostress, params)
+    generic.Test.execution_time(Level1C_ECOSTRESS, params)
 
 
 def test_l1c_v1_compat(level1_ecostress):
-    ds = Level1C_Ecostress(level1_ecostress)
+    ds = Level1C_ECOSTRESS(level1_ecostress)
     old = v1(ds)
     # No variable renames for ECOSTRESS: the payload keeps its canonical name
     assert 'Ltoa' in old
@@ -212,13 +212,13 @@ def test_l1c_v1_compat(level1_ecostress):
 
 def test_l1c_missing_path(tmp_path):
     with pytest.raises(AssertionError):
-        Level1C_Ecostress(tmp_path / 'missing.h5')
+        Level1C_ECOSTRESS(tmp_path / 'missing.h5')
 
 
 def test_l1c_foreign_product(level1_msi):
     """Pointing the reader at a non-HDF-EOS5 product must raise ProductError."""
     with pytest.raises(ProductError):
-        Level1C_Ecostress(level1_msi)
+        Level1C_ECOSTRESS(level1_msi)
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +254,7 @@ def test_l1b_lazy_payload(level1b_ecostress):
     graph must be strictly smaller than one full grid (the only ndarrays the
     reader embeds are the 5-element wavelength table).
     """
-    ds = Level1B_Ecostress(level1b_ecostress)
+    ds = Level1B_ECOSTRESS(level1b_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds[str(names.ltoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -263,7 +263,7 @@ def test_l1b_lazy_payload(level1b_ecostress):
 
 
 def test_l1b_exit_clean_stderr(level1b_ecostress, tmp_path):
-    _exit_probe(Level1B_Ecostress, level1b_ecostress, tmp_path)
+    _exit_probe(Level1B_ECOSTRESS, level1b_ecostress, tmp_path)
 
 
 def test_l1b_flagreader(l1b):
@@ -274,17 +274,17 @@ def test_l1b_flagreader(l1b):
 
 
 def test_l1b_subset(level1b_ecostress, chunks):
-    ds = Level1B_Ecostress(level1b_ecostress, chunks=chunks, metadata_template=[])
+    ds = Level1B_ECOSTRESS(level1b_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l1b_time(level1b_ecostress, chunks):
     params = {'path': level1b_ecostress, 'chunks': chunks}
-    generic.Test.execution_time(Level1B_Ecostress, params)
+    generic.Test.execution_time(Level1B_ECOSTRESS, params)
 
 
 def test_l1b_v1_compat(level1b_ecostress):
-    ds = Level1B_Ecostress(level1b_ecostress)
+    ds = Level1B_ECOSTRESS(level1b_ecostress)
     old = v1(ds)
     # No variable renames for ECOSTRESS: the payload keeps its canonical name.
     assert 'Ltoa' in old
@@ -305,12 +305,12 @@ def test_l1b_sanity(l1b):
 def test_l1b_foreign_product(level2_ecostress):
     """A LSTE file is not a L1B product: loud raise at open time."""
     with pytest.raises(UnsupportedProductType):
-        Level1B_Ecostress(level2_ecostress)
+        Level1B_ECOSTRESS(level2_ecostress)
 
 
 def test_l1b_missing_path(tmp_path):
     with pytest.raises(AssertionError):
-        Level1B_Ecostress(tmp_path / 'missing.h5')
+        Level1B_ECOSTRESS(tmp_path / 'missing.h5')
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +340,7 @@ def test_l2_lazy_load(l2):
 
 def test_l2_lazy_payload(level2_ecostress):
     """Construction must not materialize full-resolution rasters."""
-    ds = Level2_Ecostress(level2_ecostress)
+    ds = Level2_ECOSTRESS(level2_ecostress)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
     for value in ds['LST'].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
@@ -349,7 +349,7 @@ def test_l2_lazy_payload(level2_ecostress):
 
 
 def test_l2_exit_clean_stderr(level2_ecostress, tmp_path):
-    _exit_probe(Level2_Ecostress, level2_ecostress, tmp_path)
+    _exit_probe(Level2_ECOSTRESS, level2_ecostress, tmp_path)
 
 
 def test_l2_flagreader(l2):
@@ -359,17 +359,17 @@ def test_l2_flagreader(l2):
 
 
 def test_l2_subset(level2_ecostress, chunks):
-    ds = Level2_Ecostress(level2_ecostress, chunks=chunks, metadata_template=[])
+    ds = Level2_ECOSTRESS(level2_ecostress, chunks=chunks, metadata_template=[])
     generic.Test.subset(ds)
 
 
 def test_l2_time(level2_ecostress, chunks):
     params = {'path': level2_ecostress, 'chunks': chunks}
-    generic.Test.execution_time(Level2_Ecostress, params)
+    generic.Test.execution_time(Level2_ECOSTRESS, params)
 
 
 def test_l2_v1_compat(level2_ecostress):
-    ds = Level2_Ecostress(level2_ecostress)
+    ds = Level2_ECOSTRESS(level2_ecostress)
     old = v1(ds)
     assert 'LST' in old
     assert 'schema_version' not in old.attrs
@@ -393,24 +393,24 @@ def test_l2_cloud_flag_raises(l2):
     sub = l2.isel({str(names.rows): slice(100, 300),
                    str(names.columns): slice(200, 400)}).compute()
     with pytest.raises(ValueError):
-        Level2_Ecostress.getflag(sub, GenericFlags.CLOUD)
+        Level2_ECOSTRESS.getflag(sub, GenericFlags.CLOUD)
 
 
 def test_l2_foreign_product():
     """A CLOUD product is not a LSTE product: loud raise at open time."""
     # The v002 LSTE staging ships the CLOUD sibling (the v001 sample does not);
     # this test only needs the file path, not a readable LSTE+GEO pair.
-    lste = get_sample(Level2_Ecostress, 'ECOSTRESS_L2_V002')
+    lste = get_sample(Level2_ECOSTRESS, 'ECOSTRESS_L2_V002')
     cloud = lste.with_name(lste.name.replace('L2_LSTE', 'L2_CLOUD'))
     if not cloud.exists():
         pytest.skip(f'missing CLOUD sibling {cloud.name}')
     with pytest.raises(UnsupportedProductType):
-        Level2_Ecostress(cloud)
+        Level2_ECOSTRESS(cloud)
 
 
 def test_l2_missing_path(tmp_path):
     with pytest.raises(AssertionError):
-        Level2_Ecostress(tmp_path / 'missing.h5')
+        Level2_ECOSTRESS(tmp_path / 'missing.h5')
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +441,7 @@ def test_l2_v002_flagreader(l2_v002):
     # The reader itself is the flag provider, and it must see the v002
     # cloud layer.
     assert l2_v002.attrs['_flag_reader'] == (
-        'eoread.readers.ecostress.Level2_Ecostress')
+        'eoread.readers.ecostress.Level2_ECOSTRESS')
     sub = l2_v002.isel({str(names.rows): slice(100, 300),
                         str(names.columns): slice(200, 400)})
     generic.Test.flagreader(sub)
@@ -472,7 +472,7 @@ def test_l2_v002_sanity(l2_v002):
 
 
 def test_l2_v002_time(level2_ecostress_v002):
-    generic.Test.execution_time(Level2_Ecostress, {'path': level2_ecostress_v002})
+    generic.Test.execution_time(Level2_ECOSTRESS, {'path': level2_ecostress_v002})
 
 
 # ---------------------------------------------------------------------------
@@ -482,4 +482,4 @@ def test_l2_v002_time(level2_ecostress_v002):
 def test_l1c_rejects_plain_product(level2_ecostress):
     """The HDF-EOS5 L1C reader must reject the plain-HDF5 products."""
     with pytest.raises(UnsupportedProductType):
-        Level1C_Ecostress(level2_ecostress)
+        Level1C_ECOSTRESS(level2_ecostress)

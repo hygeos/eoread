@@ -5,14 +5,14 @@ ECOSTRESS readers.
 Two PGE container families are handled by two sensor bases (one class per
 level, REFACTORING.md §4):
 
-- `Level1C_Ecostress` — HDF-EOS5 gridded radiance products.
-- `Level1B_Ecostress`, `Level2_Ecostress` — plain-HDF5 swath products (the
+- `Level1C_ECOSTRESS` — HDF-EOS5 gridded radiance products.
+- `Level1B_ECOSTRESS`, `Level2_ECOSTRESS` — plain-HDF5 swath products (the
   v001 L1B/L2 maquette and the v002 L2 LSTE product). These carry no
   per-pixel lat/lon: each reader pairs its input file with the sibling
   L1B_GEO file for the geolocation layers (see `_EcostressPlainBase`).
 
-    >>> from eoread.readers.ecostress import Level1C_Ecostress  # doctest: +SKIP
-    >>> ds = Level1C_Ecostress('ECOv002_L1CG_RAD_...h5')    # doctest: +SKIP
+    >>> from eoread.readers.ecostress import Level1C_ECOSTRESS  # doctest: +SKIP
+    >>> ds = Level1C_ECOSTRESS('ECOv002_L1CG_RAD_...h5')    # doctest: +SKIP
 
 The ECOSTRESS level-1 radiance products of the PGE promise a single output
 contract (TOA radiance + brightness temperature, water/cloud/data-quality
@@ -256,7 +256,7 @@ class _EcostressBase(Reader):
         raise ValueError(f'Unsupported ECOSTRESS L1C flag: {flag_name!r}')
 
 
-class Level1C_Ecostress(_EcostressBase):
+class Level1C_ECOSTRESS(_EcostressBase):
     """ECOSTRESS level-1C gridded radiance product (70 m grid).
 
     The PGE labels its radiance products 'L1C' + G/T: ECO_L1CG_RAD
@@ -549,7 +549,7 @@ class _EcostressPlainBase(Reader):
         return ds.assign_coords({rows: np.arange(ny), cols: np.arange(nx)})
 
 
-class Level1B_Ecostress(_EcostressPlainBase):
+class Level1B_ECOSTRESS(_EcostressPlainBase):
     """ECOSTRESS level-1B swath radiance product (v001 PGE, 70 m).
 
     'L1B' is the official v001-PGE family name (ECOSTRESS_L1B_RAD / _L1B_GEO)
@@ -655,7 +655,7 @@ class Level1B_Ecostress(_EcostressPlainBase):
             'carries no cloud layer')
 
 
-class Level2_Ecostress(_EcostressPlainBase):
+class Level2_ECOSTRESS(_EcostressPlainBase):
     """ECOSTRESS level-2 land surface temperature and emissivity (LSTE).
 
     The input is the LSTE file; the paired L1B_GEO file must sit next to it

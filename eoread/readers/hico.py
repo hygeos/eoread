@@ -2,8 +2,8 @@
 """
 ISS HICO (Hyperspectral Imager for the Coastal Ocean) reader, level L1B.
 
-    >>> from eoread.readers.hico import Level1_HICO       # doctest: +SKIP
-    >>> ds = Level1_HICO('H2014069115230.L1B_ISS.nc')     # doctest: +SKIP
+    >>> from eoread.readers.hico import Level1B_HICO       # doctest: +SKIP
+    >>> ds = Level1B_HICO('H2014069115230.L1B_ISS.nc')     # doctest: +SKIP
 
 HICO is a hyperspectral imaging spectrometer that flew on the International
 Space Station (2011-2018). The OB.DAAC Level-1B "ISS" products are netCDF-4
@@ -68,7 +68,7 @@ HICO_BANDS = [
 ]
 
 
-class Level1_HICO(Reader):
+class Level1B_HICO(Reader):
     """ISS/HICO Level-1B product (OB.DAAC "L1B_ISS" tiles).
 
     Reads the TOA radiance cube (``Lt``, CF-decoded at open) and the

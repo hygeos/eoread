@@ -37,7 +37,7 @@ from eoread.readers.hico import HICO_BANDS, Level1_HICO
 # the HICO file through netCDF4 here would poison the h5netcdf dimension-scale
 # operations of every other reader test running later in the session
 # (REFACTORING.md, dual-libhdf5 decision). The production default is
-# 'netcdf4' (see Level1_HICO.__init__); the suite pins 'h5netcdf'.
+# 'netcdf4' (see Level1B_HICO.__init__); the suite pins 'h5netcdf'.
 _ENGINE = 'h5netcdf'
 
 
@@ -71,12 +71,12 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def hico_dir():
-    return get_sample(Level1_HICO)
+    return get_sample(Level1B_HICO)
 
 
 @pytest.fixture(scope='session')
 def hico(hico_dir):
-    return Level1_HICO(hico_dir, chunks=500, engine=_ENGINE)
+    return Level1B_HICO(hico_dir, chunks=500, engine=_ENGINE)
 
 
 @pytest.fixture(params=[500, (400, 600)])
@@ -89,7 +89,7 @@ def chunks(request):
 # --------------------------------------------------------------------------
 
 def test_l1_instantiation(hico_dir, chunks):
-    Level1_HICO(hico_dir, chunks=chunks, engine=_ENGINE)
+    Level1B_HICO(hico_dir, chunks=chunks, engine=_ENGINE)
 
 
 def test_l1_main(hico):
@@ -128,7 +128,7 @@ def test_l1_flagreader(hico):
 
 
 def test_l1_subset(hico_dir):
-    ds = Level1_HICO(hico_dir, chunks=500, engine=_ENGINE)
+    ds = Level1B_HICO(hico_dir, chunks=500, engine=_ENGINE)
     generic.Test.subset(ds)
 
 
@@ -200,7 +200,7 @@ def test_l1_attributes(hico, hico_dir):
     assert a[str(names.crs)] == 'EPSG:4326'
     assert a['_srf_getter'] == 'eotools.srf.get_SRF_NASA'
     assert a['_srf_getter_arg'] == 'iss_hico'
-    assert a['_flag_reader'] == 'eoread.readers.hico.Level1_HICO'
+    assert a['_flag_reader'] == 'eoread.readers.hico.Level1B_HICO'
 
 
 def test_l1_v1_compat(hico):
@@ -220,4 +220,4 @@ def test_l1_rejects_non_l1b(hico_dir, tmp_path):
     target = tmp_path / 'H2014069115230.L1_ISS.nc'
     bad.to_netcdf(target, engine=_ENGINE)
     with pytest.raises(UnsupportedProductType):
-        Level1_HICO(target, engine=_ENGINE)
+        Level1B_HICO(target, engine=_ENGINE)

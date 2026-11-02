@@ -25,7 +25,7 @@ from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.reader import ProductError
-from eoread.readers.hypso import Level1_HYPSO
+from eoread.readers.hypso import Level1B_HYPSO
 
 #: Pinned pixel in canonical (south-up) coordinates.
 WIN = (400, 300)
@@ -43,7 +43,7 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def sample():
-    return get_sample(Level1_HYPSO)
+    return get_sample(Level1B_HYPSO)
 
 
 @pytest.fixture(params=[500, (400, 600)])
@@ -53,7 +53,7 @@ def chunks(request):
 
 @pytest.fixture
 def ds(sample, chunks):
-    return Level1_HYPSO(sample, chunks=chunks)
+    return Level1B_HYPSO(sample, chunks=chunks)
 
 
 def _raw(sample):
@@ -65,7 +65,7 @@ def _raw(sample):
 # ===========================================================================
 
 def test_instantiation(sample):
-    Level1_HYPSO(sample)
+    Level1B_HYPSO(sample)
 
 
 def test_main(ds):
@@ -199,4 +199,4 @@ def test_angles(ds):
 
 def test_missing_path(tmp_path):
     with pytest.raises(ProductError, match='does not exist'):
-        Level1_HYPSO(tmp_path / 'missing.nc')
+        Level1B_HYPSO(tmp_path / 'missing.nc')

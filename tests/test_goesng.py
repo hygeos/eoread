@@ -28,7 +28,7 @@ from .conftest import get_sample
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import ProductError
-from eoread.readers.goesng import BANDS, CWAV, Level1_GOESNG
+from eoread.readers.goesng import BANDS, CWAV, Level1B_GOESNG
 
 #: Pinned comparison window in canonical (south-up) rows/columns; well inside
 #: the full disk and on valid, cloud-free-ish pixels.
@@ -52,7 +52,7 @@ def _gc():
 
 @pytest.fixture(scope='session')
 def sample():
-    return get_sample(Level1_GOESNG)
+    return get_sample(Level1B_GOESNG)
 
 
 @pytest.fixture(params=[1000, (400, 600)])
@@ -62,12 +62,12 @@ def chunks(request):
 
 @pytest.fixture
 def ds(sample, chunks):
-    return Level1_GOESNG(sample, chunks=chunks)
+    return Level1B_GOESNG(sample, chunks=chunks)
 
 
 @pytest.fixture
 def ds_cloud(sample):
-    return Level1_GOESNG(sample, cloudmask=True)
+    return Level1B_GOESNG(sample, cloudmask=True)
 
 
 def _raw_1km(sample):
@@ -118,7 +118,7 @@ def _staged_dir(tmp_path, sample, *, bands_500m=True, aux=True, cma=False):
 # ===========================================================================
 
 def test_instantiation(sample):
-    Level1_GOESNG(sample)
+    Level1B_GOESNG(sample)
 
 
 def test_main(ds):
@@ -317,7 +317,7 @@ def test_flagreader(ds):
 def test_cloud_flag(ds_cloud):
     sub = ds_cloud.isel({str(names.rows): slice(5000, 5050),
                          str(names.columns): slice(5000, 5050)}).compute()
-    cloud = Level1_GOESNG.getflag(sub, GenericFlags.CLOUD)
+    cloud = Level1B_GOESNG.getflag(sub, GenericFlags.CLOUD)
     assert cloud.dtype == bool
     np.testing.assert_array_equal(cloud.values, sub['cloud'].values == 1)
 
@@ -333,7 +333,7 @@ def test_cloud_flag_requires_mask(ds):
     sub = ds.isel({str(names.rows): slice(5000, 5010),
                    str(names.columns): slice(5000, 5010)}).compute()
     with pytest.raises(ValueError, match='cloudmask=True'):
-        Level1_GOESNG.getflag(sub, GenericFlags.CLOUD)
+        Level1B_GOESNG.getflag(sub, GenericFlags.CLOUD)
 
 
 # ===========================================================================
@@ -342,29 +342,29 @@ def test_cloud_flag_requires_mask(ds):
 
 def test_missing_path(tmp_path):
     with pytest.raises(ProductError, match='does not exist'):
-        Level1_GOESNG(tmp_path / 'missing.nc')
+        Level1B_GOESNG(tmp_path / 'missing.nc')
 
 
 def test_wrong_product(tmp_path, sample):
     wrong = tmp_path / 'not_a_goes_product.nc'
     wrong.symlink_to(sample)
     with pytest.raises(ProductError, match='Emultic1kmNC4'):
-        Level1_GOESNG(wrong)
+        Level1B_GOESNG(wrong)
 
 
 def test_missing_500m(tmp_path, sample):
     path = _staged_dir(tmp_path, sample, bands_500m=False)
     with pytest.raises(ProductError, match='500 m file'):
-        Level1_GOESNG(path)
+        Level1B_GOESNG(path)
 
 
 def test_missing_aux(tmp_path, sample):
     path = _staged_dir(tmp_path, sample, aux=False)
     with pytest.raises(ProductError, match='no auxiliary grid'):
-        Level1_GOESNG(path)
+        Level1B_GOESNG(path)
 
 
 def test_cloudmask_missing_cma(tmp_path, sample):
     path = _staged_dir(tmp_path, sample, cma=False)
     with pytest.raises(ProductError, match='CMA file'):
-        Level1_GOESNG(path, cloudmask=True)
+        Level1B_GOESNG(path, cloudmask=True)

@@ -402,7 +402,7 @@ class Level1B_MODIS(_ModisBase):
     set in the raw `gflags`).
     """
 
-    level = 'L1'
+    level = 'L1B'
     payload_var = str(names.ltoa)
     sample_products = ('MODIS_L1_AQUA',)
     required_vars = (str(names.rtoa), 'gflags')

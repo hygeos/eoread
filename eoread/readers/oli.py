@@ -403,6 +403,9 @@ class _OliBase(Reader):
 class Level1_OLI(_OliBase):
     """Landsat-8/9 OLI-TIRS level 1TP; primary payload `Rtoa` (USGS C2 TOA reflectance)."""
 
-    level = 'L1TP'
+    # The USGS product level is L1TP, but the class name stays Level1_OLI by
+    # user decision; the L1TP designation is carried by the sample IDs and the
+    # docstring.
+    level = 'L1'
     payload_var = str(names.rtoa)
     sample_products = ('OLI_L1TP_L8', 'OLI_L1TP_L9')

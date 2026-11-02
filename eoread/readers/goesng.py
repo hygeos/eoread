@@ -76,11 +76,11 @@ def _scaled_reflectance(var: xr.DataArray) -> xr.DataArray:
     return (var / 100.).astype('float32')
 
 
-class Level1_GOESNG(Reader):
+class Level1B_GOESNG(Reader):
     """GOES-NG ABI level L1b reflectance (ICARE/CMS ``Emultic`` composition)."""
 
     sensor = 'ABI'
-    level = 'L1'
+    level = 'L1B'
     chunks_default = 1000
     payload_var = str(names.rtoa)
     sample_products = ('GOESNG_L1',)
