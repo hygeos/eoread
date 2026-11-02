@@ -106,6 +106,24 @@ def _grid(mtd):
                       ['Group_Geopositioning_List']['Group_Geopositioning'])
 
 
+def _expected_crs(mtd):
+    """UTM CRS expected from the MTD's geographic corners (tile-agnostic).
+
+    Derived independently of the product's declared `HORIZONTAL_CS_CODE`:
+    the UTM zone follows from the corner longitudes, the hemisphere prefix
+    (326/327) from the corner latitudes.  Works for any tile — the Ceph
+    sample is VILAINE (EPSG:32630), the downloadable one BOMBETOK
+    (EPSG:32738).
+    """
+    corners = mtd['Geoposition_Informations']['Geopositioning'] \
+              ['Global_Geopositioning']
+    keys = ('lowerLeft', 'lowerRight', 'upperLeft', 'upperRight')
+    lon = sum(float(corners[k]['LON']) for k in keys) / 4
+    lat = sum(float(corners[k]['LAT']) for k in keys) / 4
+    zone = int((lon + 180) // 6) + 1
+    return f'EPSG:{326 if lat >= 0 else 327}{zone}'
+
+
 def _bilinear(grid, rows, cols, ny, nx):
     """Bilinear interpolation of a 2x2 tie grid at pixel corners.
 
@@ -155,7 +173,8 @@ def _latlon_pyproj_check(ds, mtd):
     X = ulx + xdim / 2 + xdim * WIN_COLS
     Y = uly + ydim / 2 + ydim * WIN_ROWS
     xx, yy = np.meshgrid(X, Y)
-    lon, lat = Transformer.from_crs('EPSG:32630', 'EPSG:4326', always_xy=True).transform(xx, yy)
+    lon, lat = Transformer.from_crs(_expected_crs(mtd), 'EPSG:4326',
+                                    always_xy=True).transform(xx, yy)
     j = (ny - 1 - WIN_ROWS).tolist()
     c = WIN_COLS.tolist()
     got_lat = ds['latitude'].isel(y=j, x=c).compute().values
@@ -250,7 +269,8 @@ def test_l1_plot(request, l1):
 def test_l1_bands_attrs(l1, l1_mtd):
     assert list(l1.coords[str(names.bands)].values) == [f'B{i}' for i in range(1, 13)]
     assert list(l1.coords[str(names.bgroup)].values) == ['bands_vnir'] * 12
-    assert l1.attrs[str(names.crs)] == 'EPSG:32630'
+    # CRS derived from the MTD geographic corners: valid for any tile
+    assert l1.attrs[str(names.crs)] == _expected_crs(l1_mtd)
     pid = str(_val(l1_mtd['Product_Characteristics']['PRODUCT_ID']))
     assert l1.attrs[str(names.shortname)] == pid
     assert l1.attrs[str(names.product_name)] == pid
@@ -362,7 +382,8 @@ def test_l2_subset(l2_dir, chunks):
 def test_l2_bands_attrs(l2, l2_mtd):
     assert list(l2.coords[str(names.bands)].values) == [f'B{i}' for i in range(1, 13)]
     assert list(l2.coords[str(names.bgroup)].values) == ['bands_vnir'] * 12
-    assert l2.attrs[str(names.crs)] == 'EPSG:32630'
+    # CRS derived from the MTD geographic corners: valid for any tile
+    assert l2.attrs[str(names.crs)] == _expected_crs(l2_mtd)
     pid = str(_val(l2_mtd['Product_Characteristics']['PRODUCT_ID']))
     assert l2.attrs[str(names.shortname)] == pid
     assert l2.attrs[str(names.product_name)] == pid
