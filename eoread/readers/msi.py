@@ -21,8 +21,13 @@ REFACTORING.md decision log):
   the files actually read — fixing the legacy mislabel of B11 as 'B10'.
 - B10 is absent from baseline-5 products; missing bands are skipped with a log
   message, never dropped by name.
-- `resolution=None` (native per-band resolutions) is not supported yet; pass
-  one of 10, 20 or 60.
+- `resolution=None` keeps every band on its own native grid (no resampling):
+  the payloads are the stacks `Ltoa_10m` / `Ltoa_20m` / `Ltoa_60m` (`Rtoa_*m`
+  for L2A), each on its own `(bands_{res}m, y_{res}m, x_{res}m)` grid with a
+  per-group `cwav_{res}m` table; lat/lon and the tie-point angles live on the
+  canonical `y`/`x` reference grid at 60 m. The finest (10 m) stack is the
+  declared primary payload, and the `resolution` attribute carries that
+  reference resolution.
 """
 
 import warnings
@@ -51,8 +56,14 @@ USER_GUIDE = ('https://sentinels.copernicus.eu/documents/247904/685211/'
 _PLATFORMS = {'S2A': 'Sentinel-2A', 'S2B': 'Sentinel-2B', 'S2C': 'Sentinel-2C'}
 _SRF_ARGS = {'S2A': 'sentinel2_1_msi', 'S2B': 'sentinel2_2_msi', 'S2C': 'sentinel2_3_msi'}
 
-#: Target resolutions supported in v2 (native per-resolution mode is deferred).
+#: Uniform-grid target resolutions (m); `resolution=None` keeps every band on
+#: its own native grid (multi-resolution layout, see the module docstring).
 RESOLUTIONS = (10, 20, 60)
+
+#: Reference grid of the native layout: lat/lon and tie-point angles live on
+#: the coarsest resolution (the legacy angle grid); per-payload resolutions
+#: are encoded in the variable and dim names.
+_NATIVE_GEOM_RES = max(RESOLUTIONS)
 
 
 def _val(node):
@@ -127,13 +138,18 @@ class _MSIBase(Reader):
     payload_dtype = None
 
     def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=10):
-        if resolution is None:
+        if resolution is not None and resolution not in RESOLUTIONS:
             raise ValueError(
-                'MSI: resolution=None (native per-band resolutions) is not supported yet; '
-                f'pass one of {RESOLUTIONS}')
-        if resolution not in RESOLUTIONS:
-            raise ValueError(f'MSI: unsupported resolution {resolution!r}, expected one of {RESOLUTIONS}')
+                f'MSI: unsupported resolution {resolution!r}, expected one of (*{RESOLUTIONS}, None)')
         self.resolution = resolution
+        # Native layout (resolution=None): the canonical y/x grid carries the
+        # geometry at the reference resolution, and the finest (10 m) stack is
+        # the declared primary payload.
+        if resolution is None:
+            self._geom_res = _NATIVE_GEOM_RES
+            self.payload_var = f'{self.payload_var}_10m'
+        else:
+            self._geom_res = resolution
         super().__init__(path, chunks=chunks, metadata_template=metadata_template, verbose=verbose)
 
     # ------------------------------------------------------------------ read
@@ -171,13 +187,21 @@ class _MSIBase(Reader):
         geo = self._geocode_node(geocoding, 'Geoposition')
         ny, nx = int(size['NROWS']), int(size['NCOLS'])
 
-        # 1. Payload: read, calibrate and resample every band onto the target grid
-        arrays, kept = self._read_bands(granule_dir, product_image, baseline, bands, band_res, (ny, nx))
+        # 1. Payload
+        if self.resolution is None:
+            # Native layout: every band stays on its own native grid (no
+            # resampling); the payloads are per-resolution stacks on separate
+            # dims and the canonical y/x grid carries only the geometry.
+            groups = self._read_native_bands(granule_dir, product_image, baseline, bands, band_res)
+            ds = self._native_payloads(groups, bands, cwvl)
+        else:
+            # Read, calibrate and resample every band onto the target grid.
+            arrays, kept = self._read_bands(granule_dir, product_image, baseline, bands, band_res, (ny, nx))
 
-        ds = xr.Dataset()
-        stack = da.stack([arr.data for arr in arrays])
-        ds[self.payload_var] = ((str(names.bands), str(names.rows), str(names.columns)),
-                                stack.astype(self.payload_dtype))
+            ds = xr.Dataset()
+            stack = da.stack([arr.data for arr in arrays])
+            ds[self.payload_var] = ((str(names.bands), str(names.rows), str(names.columns)),
+                                    stack.astype(self.payload_dtype))
 
         # 2. Geolocation (row 0 = north, as in the product)
         crs = str(_val(geocoding['HORIZONTAL_CS_CODE']))
@@ -185,25 +209,38 @@ class _MSIBase(Reader):
                         float(geo['XDIM']), float(geo['YDIM']), nx, ny, self.chunks)
         ds = ds.assign(ll)
 
-        # 3. Tie-point angles interpolated onto the full grid
+        # 3. Tie-point angles interpolated onto the reference grid
         tile_angles = xmlgranule['Geometric_Info']['Tile_Angles']
         grids = tile_angles.get('Viewing_Incidence_Angles_Grids')
         if isinstance(grids, dict):
             grids = [grids]
         ds = self._read_angles(ds, tile_angles['Sun_Angles_Grid'], grids or [], (ny, nx))
 
-        # 4. Canonical orientation: row 0 = southern edge (single vertical flip)
-        ds = ds.isel(y=slice(None, None, -1))
-        ds = ds.assign_coords({
-            str(names.rows): np.arange(ny),
-            str(names.columns): np.arange(nx),
-        })
+        # 4. Canonical orientation: row 0 = southern edge (single vertical flip).
+        # Every grid flips in one joint isel — assigning a pre-flipped variable
+        # back into the dataset would re-align it against its ascending
+        # coordinate and silently undo the flip (see OLI's pan grid).
+        flip = {str(names.rows): slice(None, None, -1)}
+        if self.resolution is None:
+            for res in groups:
+                flip[f'{str(names.rows)}_{res}m'] = slice(None, None, -1)
+        ds = ds.isel(flip)
+        coords = {str(names.rows): np.arange(ny), str(names.columns): np.arange(nx)}
+        if self.resolution is None:
+            for res in groups:
+                rows_dim = f'{str(names.rows)}_{res}m'
+                cols_dim = f'{str(names.columns)}_{res}m'
+                coords[rows_dim] = np.arange(ds.sizes[rows_dim])
+                coords[cols_dim] = np.arange(ds.sizes[cols_dim])
+        ds = ds.assign_coords(coords)
 
-        # 5. Spectral coordinates
-        ds[str(names.cwav)] = (str(names.bands), np.array([cwvl[i] for i in kept], dtype='float64'))
-        ds = ds.assign_coords({str(names.bands): [bands[i] for i in kept]})
-        ds[str(names.bgroup)] = (str(names.bands), [f'bands_{band_res[i]}m' for i in kept])
-        ds = ds.set_coords(str(names.bgroup))
+        # 5. Spectral coordinates (uniform layout only; the native groups carry
+        # their own labels and cwav tables, assigned in _native_payloads)
+        if self.resolution is not None:
+            ds[str(names.cwav)] = (str(names.bands), np.array([cwvl[i] for i in kept], dtype='float64'))
+            ds = ds.assign_coords({str(names.bands): [bands[i] for i in kept]})
+            ds[str(names.bgroup)] = (str(names.bands), [f'bands_{band_res[i]}m' for i in kept])
+            ds = ds.set_coords(str(names.bgroup))
 
         # 6. Curated attributes (legacy parity + schema requirements)
         if self.metadata_template is None:
@@ -217,7 +254,10 @@ class _MSIBase(Reader):
             str(names.product_name): safe.name,
             str(names.input_directory): str(safe.parent),
             str(names.datetime): str(_val(xmlgranule['General_Info']['SENSING_TIME'])),
-            str(names.resolution): self.resolution,
+            # Reference-grid resolution (uniform mode: the requested one; native
+            # mode: the coarsest grid — per-payload resolutions live in the
+            # variable and dim names).
+            str(names.resolution): self._geom_res,
             str(names.shortname): str(_val(xmlroot['General_Info']['Product_Info']['PRODUCT_TYPE'])),
             str(names.crs): crs,
             'user_guide': USER_GUIDE,
@@ -232,11 +272,11 @@ class _MSIBase(Reader):
     # --------------------------------------------------------------- helpers
 
     def _geocode_node(self, geocoding: dict, key: str) -> dict:
-        """Return the Size / Geoposition entry matching the target resolution."""
+        """Return the Size / Geoposition entry matching the reference grid."""
         for node in geocoding.get(key) or ():
-            if str(node['attributes']['resolution']) == str(self.resolution):
+            if str(node['attributes']['resolution']) == str(self._geom_res):
                 return node
-        raise ProductError(f'MSI {self.level}: no {key} node for resolution {self.resolution} m')
+        raise ProductError(f'MSI {self.level}: no {key} node for resolution {self._geom_res} m')
 
     def _read_bands(self, granule_dir: Path, product_image: dict, baseline: float,
                     bands: list, band_res: list, shape: tuple):
@@ -254,30 +294,8 @@ class _MSIBase(Reader):
             if path is None:
                 log.info(f'MSI {self.level}: no data file for band {band}, skipping')
                 continue
-            # Open already chunked so band data stays lazy end to end: the
-            # backend decodes per window at compute time and no full-resolution
-            # array is ever materialized at construction. Dims are still the
-            # backend's raw 'y'/'x' here; they are renamed below.
-            with warnings.catch_warnings():
-                # xarray's chunk normalizer warns when our chunk boundaries fall
-                # inside the file's stored tiles (JP2 block layout). This is a
-                # one-shot windowed read and the user-facing chunk spec takes
-                # precedence over tile alignment, so the hint is pure noise here.
-                warnings.filterwarnings(
-                    'ignore', category=UserWarning,
-                    message='The specified chunks separate the stored chunks')
-                arr = open_dataarray(
-                    path, engine='rasterio',
-                    chunks={'y': self.chunks[str(names.rows)], 'x': self.chunks[str(names.columns)]},
-                ).squeeze()
-            arr = arr.rename(x=str(names.columns), y=str(names.rows))
-            # Pixel-index coordinates (the upsample path of spatial_resample reads them)
-            arr = arr.assign_coords({
-                str(names.rows): np.arange(arr.sizes[str(names.rows)]),
-                str(names.columns): np.arange(arr.sizes[str(names.columns)]),
-            })
-            # Calibrate, then resample onto the target grid (all lazy)
-            arr = (arr + offsets[i]) / quantif
+            arr = self._open_calibrated(path, i, offsets, quantif)
+            # Resample onto the target grid (all lazy)
             arr = spatial_resample(arr, {str(names.rows): shape[0], str(names.columns): shape[1]}, self.chunks)
             # The upsample path of spatial_resample returns the grid with swapped
             # axis labels; restore the canonical (rows, columns) order. No-op for
@@ -290,6 +308,96 @@ class _MSIBase(Reader):
         install_exit_cleanup()
         return arrays, kept
 
+    def _open_calibrated(self, path: Path, i: int, offsets: list, quantif: float):
+        """Open one band file lazily and calibrate it; dims (y, x), north-up.
+
+        Shared by the uniform-grid and native read paths.
+        """
+        # Open already chunked so band data stays lazy end to end: the
+        # backend decodes per window at compute time and no full-resolution
+        # array is ever materialized at construction. Dims are still the
+        # backend's raw 'y'/'x' here; they are renamed below.
+        with warnings.catch_warnings():
+            # xarray's chunk normalizer warns when our chunk boundaries fall
+            # inside the file's stored tiles (JP2 block layout). This is a
+            # one-shot windowed read and the user-facing chunk spec takes
+            # precedence over tile alignment, so the hint is pure noise here.
+            warnings.filterwarnings(
+                'ignore', category=UserWarning,
+                message='The specified chunks separate the stored chunks')
+            arr = open_dataarray(
+                path, engine='rasterio',
+                chunks={'y': self.chunks[str(names.rows)], 'x': self.chunks[str(names.columns)]},
+            ).squeeze()
+        arr = arr.rename(x=str(names.columns), y=str(names.rows))
+        # Pixel-index coordinates (the upsample path of spatial_resample reads them)
+        arr = arr.assign_coords({
+            str(names.rows): np.arange(arr.sizes[str(names.rows)]),
+            str(names.columns): np.arange(arr.sizes[str(names.columns)]),
+        })
+        return (arr + offsets[i]) / quantif
+
+    def _native_band_file(self, granule_dir: Path, band: str, meta_res: int):
+        """Band file for the native layout (default: the uniform-grid lookup).
+
+        The flat L1C layout is already at native resolution, so its lookup
+        applies as-is; L2A overrides to read each band's own R{res}m file.
+        """
+        return self._find_band_file(granule_dir, band, meta_res)
+
+    def _read_native_bands(self, granule_dir: Path, product_image: dict, baseline: float,
+                           bands: list, band_res: list) -> dict:
+        """Read and calibrate every band at its own native resolution.
+
+        No resampling: each band stays on the grid of its data file. Returns
+        {res: (arrays, kept)}: per-resolution calibrated DataArrays with dims
+        (y, x), row 0 = tile top (north-up), and their metadata indices.
+        """
+        quantif = self._quantification(product_image)
+        offsets = self._offsets(product_image, baseline, len(bands))
+
+        groups = {}
+        for i, band in enumerate(bands):
+            path = self._native_band_file(granule_dir, band, band_res[i])
+            if path is None:
+                log.info(f'MSI {self.level}: no native data file for band {band}, skipping')
+                continue
+            arrays, kept = groups.setdefault(band_res[i], ([], []))
+            arrays.append(self._open_calibrated(path, i, offsets, quantif))
+            kept.append(i)
+
+        assert any(kept for _, kept in groups.values()), \
+            f'MSI {self.level}: no band data file found under {granule_dir}'
+        install_exit_cleanup()
+        return groups
+
+    def _native_payloads(self, groups: dict, bands: list, cwvl: list) -> xr.Dataset:
+        """Assemble the native per-resolution payload stacks (north-up).
+
+        Each group becomes one payload variable `{Ltoa,Rtoa}_{res}m` on its own
+        (bands_{res}m, y_{res}m, x_{res}m) grid with scientific band labels
+        sorted by ascending central wavelength and a per-group `cwav_{res}m`
+        table. Pixel-index coordinates are assigned after the south-up flip in
+        read(). The dims are relabeled from (y, x) at assignment time.
+        """
+        pv = type(self).payload_var  # 'Ltoa' / 'Rtoa'; the instance attr is the 10 m primary
+        rows, cols = str(names.rows), str(names.columns)
+        ds = xr.Dataset()
+        for res in RESOLUTIONS:
+            if res not in groups:
+                continue
+            arrays, kept = groups[res]
+            # Ascending central wavelength within the group (stable; the
+            # metadata order already is).
+            sel = sorted(range(len(kept)), key=lambda k: cwvl[kept[k]])
+            bdim = f'bands_{res}m'
+            ds[f'{pv}_{res}m'] = ((bdim, f'{rows}_{res}m', f'{cols}_{res}m'),
+                                  da.stack([arrays[k].data for k in sel]).astype(self.payload_dtype))
+            ds[f'cwav_{res}m'] = (bdim, np.array([cwvl[kept[k]] for k in sel], dtype='float64'))
+            ds[f'cwav_{res}m'].attrs['unit'] = 'nm'
+            ds = ds.assign_coords({bdim: [bands[kept[k]] for k in sel]})
+        return ds
+
     def _read_angles(self, ds: xr.Dataset, sun: dict, grids: list, shape: tuple) -> xr.Dataset:
         """Read the sun and viewing tie-point grids and interpolate them to (y, x)."""
         ny, nx = shape
@@ -301,14 +409,14 @@ class _MSIBase(Reader):
         tie_vars[str(names.vza)] = vza_tie
         tie_vars[str(names.vaa)] = vaa_tie
 
-        # Tie-point pixel positions in target-resolution space: the metadata gives
+        # Tie-point pixel positions in reference-grid space: the metadata gives
         # an explicit grid step (m); fall back to spanning the tile when absent.
         step_r = _val(sun['Zenith'].get('ROW_STEP'))
         step_c = _val(sun['Zenith'].get('COL_STEP'))
         nr, nc = tie_vars[str(names.sza)].shape
         if step_r is not None and step_c is not None:
-            tie_rows = np.arange(nr) * (float(step_r) / self.resolution)
-            tie_cols = np.arange(nc) * (float(step_c) / self.resolution)
+            tie_rows = np.arange(nr) * (float(step_r) / self._geom_res)
+            tie_cols = np.arange(nc) * (float(step_c) / self._geom_res)
         else:
             tie_rows = np.linspace(0, ny - 1, nr)
             tie_cols = np.linspace(0, nx - 1, nc)
@@ -437,3 +545,12 @@ class Level2A_MSI(_MSIBase):
                     log.warning(f'MSI L2A: band {band} read from R{res}m, metadata says {meta_res} m')
                 return matches[0]
         return None
+
+    def _native_band_file(self, granule_dir: Path, band: str, meta_res: int):
+        # Native layout: the band's own R{res}m file, no fallback and no
+        # resampling (the uniform-grid lookup prefers the target grid instead).
+        d = granule_dir / 'IMG_DATA' / f'R{meta_res}m'
+        pattern = f'*_{_padded_band(band)}_*.jp2'
+        matches = list(d.glob(pattern)) if d.is_dir() else []
+        assert len(matches) <= 1, f'ambiguous band files for {band} in {d}: {matches}'
+        return matches[0] if matches else None

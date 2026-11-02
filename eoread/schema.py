@@ -11,6 +11,11 @@ Band rules checked here (see REFACTORING.md, §10): band labels are scientific
 names (letter first; never wavelengths or bare numbers — the wavelength lives
 in `cwav`), and the bands dimension is sorted by ascending central wavelength.
 
+The single exception to the one-payload rule is the multi-resolution native
+layout (MSI `resolution=None`): one payload per resolution group, named
+`Ltoa_{res}m` / `Rtoa_{res}m`, each living on its own `(bands_{res}m, y_{res}m,
+x_{res}m)` grid with a per-group `cwav_{res}m` table; the finest group is the
+declared primary payload. The same band rules apply to each group's band dim.
 
 `validate()` collects every violation and raises a single `SchemaError` listing
 them all, so a reader port fails loudly with the full picture at once.
@@ -36,6 +41,15 @@ _BAND_LABEL_RE = re.compile(r'[A-Za-z][A-Za-z0-9_]*\Z')
 #: Tolerance (nm) for the ascending-cwav check: pure float noise; readers sort
 #: by cwav, so a real inversion is orders of magnitude larger than this.
 _CWAV_ORDER_TOL = 1e-9
+
+#: Multi-resolution native layout payloads: {Ltoa,Rtoa}_{res}m, one per
+#: resolution group (MSI resolution=None).
+_NATIVE_PAYLOAD_RE = re.compile(rf'^({str(names.ltoa)}|{str(names.rtoa)})_(\d+)m\Z')
+
+#: Native-layout grid dims: a canonical prefix (bands / rows / columns) plus
+#: one common resolution suffix, e.g. bands_10m / y_10m / x_10m.
+_NATIVE_GRID_DIM_RE = re.compile(
+    rf'^(bands|{str(names.rows)}|{str(names.columns)})_(\d+)m\Z')
 
 
 class SchemaError(ValueError):
@@ -129,24 +143,97 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
 
     # --- payload ------------------------------------------------------------
     present = [p for p in PAYLOADS if p in ds]
-    if primary is None:
-        if len(present) != 1:
-            errors.append(f'expected exactly one of {PAYLOADS} as payload, got {present}')
+    # Multi-resolution native layout (MSI resolution=None): one payload per
+    # resolution group on its own (bands_{res}m, y_{res}m, x_{res}m) grid.
+    # Detected by name; the groups cannot coexist with a canonical payload and
+    # must all belong to one family (Ltoa or Rtoa).
+    native = sorted(v for v in ds.data_vars if _NATIVE_PAYLOAD_RE.match(str(v)))
+    if native:
+        if present:
+            errors.append(f'native payloads {native} cannot coexist with canonical payloads {present}')
+        if len({p.split('_', 1)[0] for p in native}) != 1:
+            errors.append(f'native payloads mix payload families: {native}')
+        if primary is not None and str(primary) not in native:
+            errors.append(f'primary payload {str(primary)!r} is not one of the native payloads {native}')
     else:
-        primary = str(primary)
-        if primary not in PAYLOADS:
-            raise ValueError(f"invalid primary payload {primary!r}, must be one of {PAYLOADS}")
-        if primary not in present:
-            errors.append(f'missing declared primary payload {primary}')
-    for p in present:
+        if primary is None:
+            if len(present) != 1:
+                errors.append(f'expected exactly one of {PAYLOADS} as payload, got {present}')
+        else:
+            primary = str(primary)
+            if primary not in PAYLOADS:
+                raise ValueError(f"invalid primary payload {primary!r}, must be one of {PAYLOADS}")
+            if primary not in present:
+                errors.append(f'missing declared primary payload {primary}')
+
+    for p in [*present, *native]:
         var = ds[p]
-        # Single-layer payloads (e.g. LST) carry no bands dimension.
-        expected_dims = ((str(names.bands),) if str(names.bands) in var.dims
-                         else ()) + grid_dims
-        if tuple(var.dims) != expected_dims:
-            errors.append(f'{p}: dims are {tuple(var.dims)}, expected {expected_dims}')
+        dims = tuple(var.dims)
+        if str(names.bands) in dims:
+            expected_dims = (str(names.bands),) + grid_dims
+        elif _NATIVE_PAYLOAD_RE.match(p):
+            # Native group payload: the three dim prefixes must match the
+            # canonical ones and carry one common resolution suffix.
+            parts = [_NATIVE_GRID_DIM_RE.match(d) for d in dims]
+            if len(dims) == 3 and all(parts) \
+                    and tuple(x.group(1) for x in parts) == ('bands', str(names.rows), str(names.columns)) \
+                    and len({x.group(2) for x in parts}) == 1:
+                expected_dims = dims
+            else:
+                errors.append(
+                    f'{p}: dims are {dims}, expected (bands, y, x) or a consistent '
+                    f'native grid (bands_{{res}}m, y_{{res}}m, x_{{res}}m)')
+                continue
+        else:
+            # Single-layer payloads (e.g. LST) carry no bands dimension.
+            expected_dims = grid_dims
+        if dims != expected_dims:
+            errors.append(f'{p}: dims are {dims}, expected {expected_dims}')
         # No unit check: payload units are only set when the product metadata
         # states one (readers never invent a unit).
+
+    # Native layouts: each group's band dim carries scientific labels and a
+    # per-group cwav table, with the same rules as the canonical bands dim.
+    for res in sorted({m.group(2) for m in map(_NATIVE_PAYLOAD_RE.match, native)}):
+        bdim, cvar = f'bands_{res}m', f'cwav_{res}m'
+        labels = None
+        if bdim not in ds:
+            errors.append(f'missing coordinate {bdim!r}: band labels are mandatory')
+        else:
+            bcoord = ds[bdim]
+            labels = [str(v) for v in bcoord.values]
+            if not _is_string_dtype(bcoord.dtype):
+                errors.append(f'{bdim}: coordinate should carry band names (string dtype), got {bcoord.dtype}')
+            else:
+                bad = [l for l in labels if not _BAND_LABEL_RE.match(l)]
+                if bad:
+                    errors.append(
+                        f'{bdim}: band labels must be scientific names '
+                        f'(letter first, then [A-Za-z0-9_]), got wavelength-like or '
+                        f'number-only labels: {bad[:8]}')
+                if len(set(labels)) != bcoord.size:
+                    errors.append(f'{bdim}: band labels are not unique')
+        if cvar not in ds:
+            errors.append(f'missing required variable {cvar!r}')
+        else:
+            cw = ds[cvar]
+            if tuple(cw.dims) != (bdim,):
+                errors.append(f'{cvar}: dims are {tuple(cw.dims)}, expected ({bdim},)')
+            elif not np.issubdtype(cw.dtype, np.floating):
+                errors.append(f'{cvar}: dtype is {cw.dtype}, expected a floating point type')
+            else:
+                vals = cw.values
+                if not np.all(np.isfinite(vals)) or np.any(vals <= 0):
+                    errors.append(f'{cvar}: values must be finite and strictly positive')
+                elif labels is not None:
+                    inv = np.flatnonzero(np.diff(vals) < -_CWAV_ORDER_TOL)
+                    if inv.size:
+                        i = int(inv[0])
+                        errors.append(
+                            f'{cvar}: bands must be sorted by ascending '
+                            f'central wavelength; first inversion at index {i} '
+                            f'({labels[i]}: {vals[i]:g} nm -> {labels[i + 1]}: '
+                            f'{vals[i + 1]:g} nm)')
 
     # --- bands --------------------------------------------------------------
     if str(names.bands) in ds.dims or str(names.bands) in ds:

@@ -64,6 +64,85 @@ def l2(level2_msi, chunks, resolution):
     return Level2A_MSI(level2_msi, chunks=chunks, resolution=resolution)
 
 
+#: Standard Sentinel-2 band -> native resolution (m) table.
+_BAND_RES = {'B1': 60, 'B2': 10, 'B3': 10, 'B4': 10, 'B5': 20, 'B6': 20, 'B7': 20,
+             'B8': 10, 'B8A': 20, 'B8AO': 60, 'B9': 60, 'B10': 60, 'B11': 20, 'B12': 20}
+
+
+def _meta_bands(ds):
+    """Product-declared band labels, in metadata (ascending-cwav) order."""
+    specs = ds.attrs['metadata']['General_Info']['Product_Image_Characteristics'] \
+        ['Spectral_Information_List']['Spectral_Information']
+    return [s['attributes']['physicalBand'] for s in specs]
+
+
+def _assert_native_layout(ds, family, exact_meta=True):
+    """Structural checks of the native (resolution=None) payload layout.
+
+    With `exact_meta` (L1C: every declared band must have a file) the groups
+    cover exactly the product band table; otherwise (L2A: bands may be absent
+    from the product, e.g. B10) they must stay within it.
+    """
+    # No uniform-layout variables; the per-group payloads carry the spectral data.
+    assert str(names.bands) not in ds.dims and str(names.cwav) not in ds
+    meta = _meta_bands(ds)
+    seen = []
+    for res in (10, 20, 60):
+        pv, bdim, cv = f'{family}_{res}m', f'bands_{res}m', f'cwav_{res}m'
+        if bdim not in ds:
+            assert pv not in ds and cv not in ds
+            continue
+        # Payload stack on its own (bands, y, x) grid with pixel-index coords.
+        var = ds[pv]
+        assert var.dims == (bdim, f'y_{res}m', f'x_{res}m')
+        assert list(ds[f'y_{res}m'].values) == list(range(var.sizes[f'y_{res}m']))
+        assert list(ds[f'x_{res}m'].values) == list(range(var.sizes[f'x_{res}m']))
+        # Scientific labels, all at this resolution, in metadata (ascending-cwav)
+        # order.
+        labels = list(ds[bdim].values)
+        seen.extend(labels)
+        assert all(_BAND_RES[b] == res for b in labels), \
+            f'{bdim}: {labels} not all at {res} m'
+        assert labels == [b for b in meta if b in set(labels)], \
+            f'{bdim}: {labels} not in metadata order'
+        # Per-group cwav table: finite, positive, strictly ascending.
+        cw = ds[cv]
+        assert cw.dims == (bdim,) and cw.attrs.get('unit') == 'nm'
+        vals = cw.values
+        assert np.all(np.isfinite(vals)) and np.all(vals > 0)
+        assert np.all(np.diff(vals) > 0), f'{cv}: not ascending'
+    # The groups never invent bands; L1C drops none.
+    assert set(seen) <= set(meta)
+    if exact_meta:
+        assert sorted(seen) == sorted(meta)
+    # Geometry on the canonical reference grid at the coarsest resolution.
+    assert ds.attrs[str(names.resolution)] == 60
+    for v in (str(names.lat), str(names.lon), str(names.sza), str(names.saa),
+              str(names.vza), str(names.vaa)):
+        assert ds[v].dims == (str(names.rows), str(names.columns)), v
+
+
+def _native_parity(reader_cls, path):
+    """Native band values must be bit-identical to a uniform read at the same resolution."""
+    ds = reader_cls(path, resolution=None)
+    family = 'Ltoa' if reader_cls is Level1C_MSI else 'Rtoa'
+    for res in (10, 20, 60):
+        bdim = f'bands_{res}m'
+        if bdim not in ds:
+            continue
+        uni = reader_cls(path, resolution=res)
+        try:
+            for label in ds[bdim].values:
+                a = ds[f'{family}_{res}m'].sel({bdim: label}).isel(
+                    **{f'y_{res}m': slice(1000, 1200), f'x_{res}m': slice(1000, 1200)}).compute()
+                b = uni[family].sel(bands=label).isel(
+                    y=slice(1000, 1200), x=slice(1000, 1200)).compute()
+                assert np.array_equal(a, b), \
+                    f'{label}: native and res-{res} values differ'
+        finally:
+            del uni
+
+
 ################################################################################
 # Level-1C
 ################################################################################
@@ -167,8 +246,24 @@ def test_l1_v1_compat(level1_msi):
 
 
 def test_l1_resolution_none(level1_msi):
-    with pytest.raises(ValueError, match='resolution=None'):
-        Level1C_MSI(level1_msi, resolution=None)
+    """Native layout (resolution=None): per-resolution stacks on their own grids."""
+    ds = Level1C_MSI(level1_msi, resolution=None)
+    # No uniform-layout payload; the finest stack is the declared primary.
+    assert 'Ltoa' not in ds and 'Ltoa_10m' in ds
+    _assert_native_layout(ds, 'Ltoa')
+
+
+def test_l1_native_parity(level1_msi):
+    """Native bands must be bit-identical to a uniform read at the same resolution."""
+    _native_parity(Level1C_MSI, level1_msi)
+
+
+def test_l1_native_v1_compat(level1_msi):
+    """Native stacks get the same Ltoa->Rtoa rename as the uniform payload."""
+    ds = Level1C_MSI(level1_msi, resolution=None)
+    old = v1(ds)
+    assert 'Ltoa_10m' not in old and 'Rtoa_10m' in old
+    assert 'schema_version' not in old.attrs
 
 
 ################################################################################
@@ -206,5 +301,26 @@ def test_l2_bands(l2):
 
 
 def test_l2_resolution_none(level2_msi):
-    with pytest.raises(ValueError, match='resolution=None'):
-        Level2A_MSI(level2_msi, resolution=None)
+    """Native layout for L2A: the sample's exact per-resolution grouping."""
+    ds = Level2A_MSI(level2_msi, resolution=None)
+    # No uniform-layout payload; the finest stack is the declared primary.
+    assert 'Rtoa' not in ds and 'Rtoa_10m' in ds
+    _assert_native_layout(ds, 'Rtoa', exact_meta=False)
+    # Baseline-5 L2A sample (test_l2_bands): B10/B8AO absent; exact groups from
+    # the standard Sentinel-2 band/resolution table.
+    assert list(ds['bands_10m'].values) == ['B2', 'B3', 'B4', 'B8']
+    assert list(ds['bands_20m'].values) == ['B5', 'B6', 'B7', 'B8A', 'B11', 'B12']
+    assert list(ds['bands_60m'].values) == ['B1', 'B9']
+
+
+def test_l2_native_parity(level2_msi):
+    """Native bands must be bit-identical to a uniform read at the same resolution."""
+    _native_parity(Level2A_MSI, level2_msi)
+
+
+def test_l2_native_v1_compat(level2_msi):
+    """L2A native stacks keep their Rtoa names; schema_version is stripped."""
+    ds = Level2A_MSI(level2_msi, resolution=None)
+    old = v1(ds)
+    assert 'Rtoa_10m' in old and 'Ltoa_10m' not in old
+    assert 'schema_version' not in old.attrs

@@ -15,12 +15,18 @@ in `CLEAN_BREAKS` with an explanation.
 Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
 
 - MSI: rename ``Ltoa`` → ``Rtoa`` (v1 misnamed TOA radiance) + schema_version
-  strip. Documented deviations, NOT breaks: the L2A band labels are corrected
-  where legacy's blind pops mislabeled B11 as 'B10' (coordinate values — this
-  transform never touches coordinates); lat/lon stored float32 per the naming
-  registry; tie-point angles differ from legacy within the documented
-  interpolation tolerance (max |Δ| ~1e-3°, localized to the steepest azimuth
-  gradient pocket).
+  strip; the native-layout stacks (resolution=None, L1C only) are renamed the
+  same way (``Ltoa_10m``/``Ltoa_20m``/``Ltoa_60m`` → ``Rtoa_*m``). Documented
+  deviations, NOT breaks: the L2A band labels are corrected where legacy's blind
+  pops mislabeled B11 as 'B10' (coordinate values — this transform never touches
+  coordinates); lat/lon stored float32 per the naming registry; tie-point angles
+  differ from legacy within the documented interpolation tolerance (max |Δ| ~1e-3°,
+  localized to the steepest azimuth gradient pocket). Native-layout deviations:
+  lat/lon and tie-point angles live on the canonical y/x at the 60 m reference
+  grid (legacy split them — 10 m lat/lon on plain y/x, angles on y_60m/x_60m);
+  each group's band labels are scientific names in ascending-cwav order (legacy
+  used bare numbers in metadata order); the per-group ``cwav_{res}m`` tables are
+  a v2 superset (legacy native mode had no cwav).
 - ECOSTRESS: identity + schema_version strip (all payloads kept their v1
   names). Documented deviation, NOT a break: v2 is south-up where legacy was
   north-up — v2 row i carries legacy row ny-1-i (pinned by test_l1c_v1_compat);
@@ -161,7 +167,11 @@ from core.geo.naming import names
 #: Only entries whose name actually changed between v1 and v2.
 _V1_RENAMES = {
     # MSI L1C: the payload is TOA radiance; v1 misnamed it Rtoa (see REFACTORING.md §5).
-    'MSI': {str(names.ltoa): str(names.rtoa)},
+    # The native-layout stacks (resolution=None) are renamed the same way.
+    'MSI': {str(names.ltoa): str(names.rtoa),
+            f'{str(names.ltoa)}_10m': f'{str(names.rtoa)}_10m',
+            f'{str(names.ltoa)}_20m': f'{str(names.rtoa)}_20m',
+            f'{str(names.ltoa)}_60m': f'{str(names.rtoa)}_60m'},
 }
 
 # MSI L2A band labels: the legacy reader built its band lists with blind pops
