@@ -24,9 +24,10 @@ Deviations from the v1 implementation (removed in 2.0):
   fields are flipped together once.
 - ``Ltoa`` is float32 (v1 kept the file's uint16 counts). Integer
   radiance is preserved exactly by the cast.
-- Band labels are the 0-based band indices as strings (v1 attempted
-  ``bands.data.astype(str)`` on a coordinate that does not exist); the
-  wavelengths are the ``cwav`` coordinate (from the file's own table).
+- Band labels are scientific indices (``B001``..., 1-based; v1 attempted
+  ``bands.data.astype(str)`` on a coordinate that does not exist and fell
+  back to 0-based index strings); the wavelengths are the ``cwav``
+  coordinate (from the file's own table).
 - ``datetime`` is normalized to ISO from the file's ``date_aquired`` (v1
   kept the raw string; modern products use ``timestamp_acquired``).
 - ``sensor``/``platform`` come from ``instrument_id``/``sat_id`` when the
@@ -104,7 +105,7 @@ class Level1B_HYPSO(Reader):
         ds = xr.Dataset({self.payload_var: lt.chunk({bands: 1, rows: cy, cols: cx})})
 
         # Canonical spectral coordinates; the bands dim has no coordinate in the
-        # file, so use the 0-based band indices as labels and the file's own
+        # file, so use scientific index labels (B001...) and the file's own
         # wavelength table (attribute or variable) as cwav.
         wavelengths = self._wavelengths(tree, products, path.name)
         nbands = ds.sizes[bands]
@@ -112,7 +113,7 @@ class Level1B_HYPSO(Reader):
             raise ProductError(
                 f'HYPSO L1: {len(wavelengths)} wavelengths for {nbands} bands '
                 f'in {path.name}')
-        ds = ds.assign_coords({bands: np.arange(nbands).astype(str)})
+        ds = ds.assign_coords({bands: [f'B{i + 1:03d}' for i in range(nbands)]})
         ds[str(names.cwav)] = (bands, np.asarray(wavelengths, dtype='float64'))
         ds[str(names.cwav)].attrs['unit'] = 'nm'
         ds[str(names.bgroup)] = (bands, ['bands_vnir'] * nbands)

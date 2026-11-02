@@ -176,9 +176,9 @@ class _EcostressBase(Reader):
             str(names.columns): np.arange(nx),
         })
 
-        # 5. Band labels: the integer suffixes become string coordinates ------
+        # 5. Band labels: the integer suffixes become scientific names ------
         ds = ds.assign_coords({
-            str(names.bands): ds[str(names.bands)].values.astype(str),
+            str(names.bands): [f'B{int(str(v))}' for v in ds[str(names.bands)].values],
             str(names.bgroup): (str(names.bands), ['bands_ir'] * nbands),
         })
 
@@ -437,11 +437,11 @@ class _EcostressPlainBase(Reader):
         # 3. Orientation: canonical south-up, west-to-east --------------------
         ds = self._orient(ds)
 
-        # 4. Band labels: the integer suffixes become string coordinates ------
+        # 4. Band labels: the integer suffixes become scientific names ------
         if str(names.bands) in ds.dims:
             nbands = ds.sizes[str(names.bands)]
             ds = ds.assign_coords({
-                str(names.bands): ds[str(names.bands)].values.astype(str),
+                str(names.bands): [f'B{int(str(v))}' for v in ds[str(names.bands)].values],
                 str(names.bgroup): (str(names.bands), ['bands_ir'] * nbands),
             })
 

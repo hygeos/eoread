@@ -237,7 +237,8 @@ class Level1_MERIS(Reader):
         assert len(cwav) == nb_bands, \
             f'BAND_WAVELEN has {len(cwav)} entries, expected {nb_bands}'
         ds[str(names.cwav)] = (bands, cwav)
-        ds = ds.assign_coords({bands: [str(i + 1) for i in range(nb_bands)]})
+        # Scientific band names: the official MERIS band numbers B1..B15.
+        ds = ds.assign_coords({bands: [f'B{i + 1}' for i in range(nb_bands)]})
         ds[str(names.bgroup)] = (bands, ['bands_vnir'] * nb_bands)
         ds = ds.set_coords(str(names.bgroup))
 

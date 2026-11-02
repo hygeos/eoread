@@ -155,7 +155,7 @@ def test_l1_subset(l1_dir):
 
 
 def test_l1_plot(request, l1):
-    generic.plot(request, l1, '4')
+    generic.plot(request, l1, 'B4')
 
 
 # --------------------------------------------------------------------------
@@ -164,7 +164,8 @@ def test_l1_plot(request, l1):
 
 def test_l1_bands_cwav(l1):
     nb = 15
-    assert list(l1.coords[str(names.bands)].values) == [str(i + 1) for i in range(nb)]
+    # Official MERIS band names: B1..B15.
+    assert list(l1.coords[str(names.bands)].values) == [f'B{i + 1}' for i in range(nb)]
     assert list(l1.coords[str(names.bgroup)].values) == ['bands_vnir'] * nb
     cwav = l1[str(names.cwav)].values
     assert cwav.dtype == np.float64

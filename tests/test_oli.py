@@ -123,11 +123,13 @@ def test_l8_time(level1_l8, chunks):
 
 
 def test_l8_bands(l8):
-    # All 11 bands on one grid; the pan band B8 is no longer split off.
+    # All 11 bands on one grid; the pan band B8 is no longer split off. The
+    # bands dim is sorted by ascending central wavelength, so B8 (590 nm)
+    # interleaves between B3 and B4 and B9 (1373 nm) precedes B6/B7.
     assert list(l8.coords['bands'].values) == \
-        ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11']
+        ['B1', 'B2', 'B3', 'B8', 'B4', 'B5', 'B9', 'B6', 'B7', 'B10', 'B11']
     groups = l8[str(names.bgroup)].values
-    assert list(groups) == ['bands_30m'] * 7 + ['bands_15m'] + ['bands_30m'] * 3
+    assert list(groups) == ['bands_30m'] * 3 + ['bands_15m'] + ['bands_30m'] * 7
 
 
 def test_l8_native_default(level1_l8, chunks):
@@ -137,8 +139,9 @@ def test_l8_native_default(level1_l8, chunks):
     rows, cols = str(names.rows), str(names.columns)
     ds = Level1_OLI(level1_l8, chunks=chunks)
 
+    # Ascending central wavelength: B9 (1373 nm) precedes B6/B7 (NIR/SWIR).
     assert list(ds.coords['bands'].values) == \
-        ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B9', 'B10', 'B11']
+        ['B1', 'B2', 'B3', 'B4', 'B5', 'B9', 'B6', 'B7', 'B10', 'B11']
     groups = ds[str(names.bgroup)].values
     assert list(groups) == ['bands_30m'] * 10
     for var in (str(names.ltoa), str(names.rtoa), str(names.bt)):

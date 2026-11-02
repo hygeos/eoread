@@ -27,7 +27,9 @@ REFACTORING.md decision log):
   units.
 - Central wavelengths come from a per-mission table keyed by band label
   (legacy assigned one bare positional list to the sorted bands dim); the pan
-  band, excluded from the legacy bands dim, is included here.
+  band, excluded from the legacy bands dim, is included here. The bands dim is
+  sorted by ascending central wavelength, so the pan band interleaves between
+  B3 and B4 instead of following the band-number order.
 - `QA_PIXEL` is kept raw uint16 on the pixel grid and decoded on demand by
   the reader's `getflag` into a boolean L1_INVALID; the legacy reader exposed the
   raw unbooleaned bitmask and also read QA_RADSAT, which has no consumer in v2.
@@ -280,6 +282,17 @@ class _OliBase(Reader):
 
         if not kept_bands and pan_ltoa is None:
             raise ProductError(f'OLI {self.level}: no band data file found in {dirname}')
+
+        # Canonical band order: ascending central wavelength (schema rule); the
+        # band-number order of _BANDS is only the read order. Stable sort, so
+        # equal wavelengths would keep their file order.
+        if kept_bands:
+            order = sorted(range(len(kept_bands)),
+                           key=lambda k: spec['cwvl'][kept_bands[k][0]])
+            kept_bands = [kept_bands[k] for k in order]
+            ltoa_parts = [ltoa_parts[k] for k in order]
+            rtoa_parts = [rtoa_parts[k] for k in order]
+            bt_parts = [bt_parts[k] for k in order]
 
         ds = xr.Dataset()
         if kept_bands:

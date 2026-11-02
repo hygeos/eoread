@@ -8,12 +8,11 @@ PACE OCI (Ocean Color Instrument) reader, level L1B.
 The product is a NetCDF-4 data tree with the ``geolocation_data``,
 ``sensor_band_parameters`` and ``observation_data`` groups. The payload
 ``Rtoa`` concatenates the blue / red / SWIR top-of-atmosphere reflectance
-cubes; band labels are the integer-truncated central wavelengths,
-deduplicated on first occurrence and then sorted by their string label — a
-legacy quirk kept for parity (the old reader's comment says "increasing
-wavelength" but the sort key is the label, so four-digit SWIR labels come
-first). The dedup is also required by the canonical schema (band labels must
-be unique): 291 raw bands down to 289.
+cubes. Band selection keeps the legacy one: duplicates on the integer-
+truncated central wavelength are dropped, first occurrence kept (291 raw
+bands down to 289). Band labels are scientific indices (``B001``...) and the
+bands are sorted by ascending central wavelength; the legacy reader sorted by
+its string labels instead, which put the four-digit SWIR bands first.
 
 Differences from the legacy v1 reader (documented deviations, see the
 REFACTORING.md decision log):
@@ -121,16 +120,17 @@ class Level1B_PACE_OCI(Reader):
              ('blue_wavelength', 'red_wavelength', 'SWIR_wavelength')],
             dim=bands)
 
-        # Band labels: integer-truncated wavelengths. Duplicates are dropped
-        # (first occurrence kept) and the bands sorted by their string label —
-        # a legacy quirk: four-digit SWIR labels come first (291 raw bands
-        # down to 289; also required for unique band labels).
-        ds = ds.assign_coords({bands: ds[str(names.cwav)].astype(int).astype(str)})
-        labels = ds[bands].values
+        # Band selection (legacy parity): duplicates on the integer-truncated
+        # central wavelength are dropped, first occurrence kept (291 raw bands
+        # down to 289). Scientific index labels, ascending cwav order.
+        cw = ds[str(names.cwav)].values
+        trunc = [str(int(w)) for w in cw]
         seen = set()
-        kept = [i for i, w in enumerate(labels) if w not in seen and not seen.add(w)]
-        order = sorted(kept, key=lambda i: labels[i])
+        kept = [i for i, w in enumerate(trunc) if w not in seen and not seen.add(w)]
+        order = sorted(kept, key=lambda i: cw[i])
         ds = ds.isel({bands: order})
+        ds = ds.assign_coords(
+            {bands: [f'B{i + 1:03d}' for i in range(len(order))]})
 
         # Canonical spatial dimensions; per-band chunks (v2 convention) plus
         # the requested spatial chunking.

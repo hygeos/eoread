@@ -24,9 +24,12 @@ Documented breaks from v1 (see REFACTORING.md):
 - datetime is the acquisition start parsed from the granule filename; the file
   only carries a time-of-day range and the production datetime, which v1
   stored as the product datetime;
-- band labels are the file-native float values rendered as strings ('1.0',
-  ..., '13.5', '14.5', ...); cwav comes from the ATBD v7 measured central
-  wavelengths (nm), aligned by construction.
+- band labels are scientific names: MODIS band numbers as ``B1``...``B36``,
+  with the high-gain TDI pairs '13.5'/'14.5' as ``B13HG``/``B14HG`` (the
+  file-native values remain the internal wavelength-table lookup keys);
+  bands are sorted by ascending cwav (file block order is not wavelength-
+  ordered); cwav comes from the ATBD v7 measured central wavelengths (nm),
+  aligned by construction.
 """
 
 import re
@@ -281,10 +284,21 @@ class _ModisBase(Reader):
         if units:
             ds[str(names.ltoa)].attrs['unit'] = str(units)
 
+        # Public band labels: MODIS band numbers as 'B<N>'; the high-gain TDI
+        # pairs 13.5/14.5 become B13HG/B14HG (the file-native values remain
+        # the internal _CWVL lookup keys). Bands are sorted by ascending
+        # central wavelength (file block order is not wavelength-ordered);
+        # the stable sort keeps each 13/B13HG and 14/B14HG pair adjacent.
+        pub = {'13.5': 'B13HG', '14.5': 'B14HG'}
+        labels_pub = [pub.get(l, f'B{int(float(l))}') for l in labels_all]
+        cw_arr = np.array([_CWVL[l] for l in labels_all], 'f8')
+        order = np.argsort(cw_arr, kind='stable')
+        ds[str(names.ltoa)] = ds[str(names.ltoa)].isel({bands: order})
+        ds[str(names.rtoa)] = ds[str(names.rtoa)].isel({bands: order})
         ds = ds.assign_coords({
-            bands: labels_all,
-            str(names.cwav): (bands, np.array([_CWVL[l] for l in labels_all], 'f8')),
-            str(names.bgroup): (bands, groups_all),
+            bands: [labels_pub[i] for i in order],
+            str(names.cwav): (bands, cw_arr[order]),
+            str(names.bgroup): (bands, [groups_all[i] for i in order]),
         })
         ds[str(names.cwav)].attrs['unit'] = 'nm'
 

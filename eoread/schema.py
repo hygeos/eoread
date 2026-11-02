@@ -7,10 +7,16 @@ Every v2 reader must emit a dataset conforming to the locked canonical schema
 `core.geo.naming.names`, the single source of truth; this module only *checks*
 and never rewrites data.
 
+Band rules checked here (see REFACTORING.md, §10): band labels are scientific
+names (letter first; never wavelengths or bare numbers — the wavelength lives
+in `cwav`), and the bands dimension is sorted by ascending central wavelength.
+
+
 `validate()` collects every violation and raises a single `SchemaError` listing
 them all, so a reader port fails loudly with the full picture at once.
 """
 
+import re
 from datetime import datetime
 
 import numpy as np
@@ -21,6 +27,15 @@ from core.geo.naming import names
 
 #: Version stamped on datasets by `Reader.finalize()`
 SCHEMA_VERSION = '2.0'
+
+#: Band labels must be scientific names ('B1', 'Oa01', 'VN01', 'coastal_blue'),
+#: never wavelengths or bare numbers ('442nm', '353', '13.5'): the wavelength
+#: belongs in `cwav`. Letter first, then letters/digits/underscores.
+_BAND_LABEL_RE = re.compile(r'[A-Za-z][A-Za-z0-9_]*\Z')
+
+#: Tolerance (nm) for the ascending-cwav check: pure float noise; readers sort
+#: by cwav, so a real inversion is orders of magnitude larger than this.
+_CWAV_ORDER_TOL = 1e-9
 
 
 class SchemaError(ValueError):
@@ -139,10 +154,18 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
             errors.append(f'missing coordinate {names.bands!s}: band labels are mandatory')
         else:
             bcoord = ds[str(names.bands)]
+            labels = [str(v) for v in bcoord.values]
             if not _is_string_dtype(bcoord.dtype):
                 errors.append(f'{names.bands}: coordinate should carry band names (string dtype), got {bcoord.dtype}')
-            elif len(set(bcoord.values)) != bcoord.size:
-                errors.append(f'{names.bands}: band labels are not unique')
+            else:
+                bad = [l for l in labels if not _BAND_LABEL_RE.match(l)]
+                if bad:
+                    errors.append(
+                        f'{names.bands}: band labels must be scientific names '
+                        f'(letter first, then [A-Za-z0-9_]), got wavelength-like or '
+                        f'number-only labels: {bad[:8]}')
+                if len(set(labels)) != bcoord.size:
+                    errors.append(f'{names.bands}: band labels are not unique')
             if str(names.cwav) not in ds:
                 errors.append(f'missing required variable {names.cwav!s}')
             else:
@@ -155,6 +178,15 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
                     vals = cw.values
                     if not np.all(np.isfinite(vals)) or np.any(vals <= 0):
                         errors.append(f'{names.cwav}: values must be finite and strictly positive')
+                    else:
+                        inv = np.flatnonzero(np.diff(vals) < -_CWAV_ORDER_TOL)
+                        if inv.size:
+                            i = int(inv[0])
+                            errors.append(
+                                f'{names.cwav}: bands must be sorted by ascending '
+                                f'central wavelength; first inversion at index {i} '
+                                f'({labels[i]}: {vals[i]:g} nm -> {labels[i + 1]}: '
+                                f'{vals[i + 1]:g} nm)')
             if str(names.bgroup) in ds:
                 bg = ds[str(names.bgroup)]
                 if tuple(bg.dims) != (str(names.bands),):

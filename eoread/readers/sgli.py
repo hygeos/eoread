@@ -28,6 +28,11 @@ Deviations from legacy (see REFACTORING.md):
   as in legacy.
 - ``shortname`` / ``crs`` attributes added; ``datetime`` normalized to ISO
   from the product's non-ISO ``Scene_center_time`` attribute (same instant).
+- Band labels keep the product's stored-channel names with the parentheses of
+  the sub-band code turned into an underscore (``VN01(S06)`` → ``VN01_S06``);
+  the canonical schema rejects other punctuation in band labels. The raw names
+  remain in the ``metadata`` attribute, and the stored order is kept — it is
+  already ascending central wavelength.
 - The legacy ``add_ancillary_data`` option is dropped: the Ancillary_data
   group is instrument telemetry with no consumer in eoread.
 """
@@ -131,7 +136,13 @@ class Level1B_SGLI(Reader):
             geom = geom.isel({rows + '_tie': slice(None, None, -1)})
 
         ds = xr.Dataset()
-        ds = ds.assign_coords({bands: metadata['Stored_channels'].split(',')})
+        # Band labels: the product's stored-channel names carry a parenthesized
+        # sub-band code ('VN01(S06)'); the canonical schema requires scientific
+        # names (letters, digits, underscore), so the parens become an
+        # underscore. The raw names stay in the metadata attribute.
+        channels = [c.replace('(', '_').replace(')', '')
+                    for c in metadata['Stored_channels'].split(',')]
+        ds = ds.assign_coords({bands: channels})
         ds = ds.assign({str(names.cwav): ((bands,),
                                           np.array(SGLI_CENTRAL_WAVELENGTHS,
                                                    dtype='float32'))})

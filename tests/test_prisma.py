@@ -178,28 +178,32 @@ def test_l1_subset(prisma_scene):
 # --------------------------------------------------------------------------
 
 def test_l1_bands(prisma, prisma_l1):
-    # Band labels are the int-truncated central wavelengths (v1 convention),
-    # ascending within each spectral group, invalid bands dropped
+    # Scientific index labels; bands sorted by ascending central wavelength.
+    # The two groups overlap in wavelength (VNIR up to ~977 nm, SWIR from
+    # ~943 nm), so the stable merge-sort interleaves them at the boundary;
+    # invalid bands are dropped.
     with h5py.File(prisma_l1, 'r') as f:
         expected = {}
         for key in ('vnir', 'swir'):
             cw = np.asarray(f.attrs[f'List_Cw_{key.title()}'], dtype='float64')
             idx = np.where(cw > 0)[0][::-1]
-            expected[key] = [str(int(c)) for c in cw[idx]]
-    labels = list(prisma.bands.values)
-    assert labels == expected['vnir'] + expected['swir']
-    assert len(labels) == len(set(labels)), 'band labels must be unique'
-
-    bgroups = prisma[str(names.bgroup)].values
-    # Groups are contiguous blocks: all VNIR before all SWIR
-    assert list(bgroups) == ['bands_vnir'] * len(expected['vnir']) + \
-        ['bands_swir'] * len(expected['swir'])
+            expected[key] = [c for c in cw[idx]]
+    all_cw = np.concatenate([expected['vnir'], expected['swir']]).astype('float32')
+    nb = all_cw.size
+    assert list(prisma.bands.values) == [f'B{i + 1:03d}' for i in range(nb)]
 
     cwav = prisma['cwav'].values
     assert cwav.dtype == np.dtype('float32')
-    for group in ('bands_vnir', 'bands_swir'):
-        sel = cwav[bgroups == group]
-        assert (np.diff(sel) > 0).all(), f'cwav not ascending within {group}'
+    # Globally ascending (the stable sort of the concatenated group tables).
+    assert (np.diff(cwav) >= 0).all(), 'cwav not globally ascending'
+    np.testing.assert_array_equal(cwav, np.sort(all_cw, kind='stable'))
+
+    bgroups = prisma[str(names.bgroup)].values
+    # Each band keeps its group of origin through the merge-sort.
+    order = np.argsort(all_cw, kind='stable')
+    expected_bg = (['bands_vnir'] * len(expected['vnir'])
+                   + ['bands_swir'] * len(expected['swir']))
+    assert list(bgroups) == [expected_bg[i] for i in order]
 
 
 def test_l1_units(prisma):
@@ -217,16 +221,30 @@ def test_l1_raw_parity(prisma, prisma_l1):
     y0, y1 = 100, 130          # rows (not flipped in this scene)
     r0, r1 = 300, 340          # raw column window in the native layout
     with h5py.File(prisma_l1, 'r') as f:
+        # Output band tables per group (ascending cwav, invalid dropped), as
+        # in the reader; the global label is the stable merge-sort position.
+        groups_cw = {}
+        for key in ('vnir', 'swir'):
+            cw = np.asarray(f.attrs[f'List_Cw_{key.title()}'], dtype='float64')
+            idx = np.where(cw > 0)[0][::-1]
+            groups_cw[key] = (cw, idx)
+        all_cw = np.concatenate([groups_cw[k][0][groups_cw[k][1]].astype('float32')
+                                 for k in ('vnir', 'swir')])
+        order = np.argsort(all_cw, kind='stable')
+
+        # Global output position of the middle band of each group.
+        n_vnir = len(groups_cw['vnir'][1])
+        mid = {'vnir': n_vnir // 2, 'swir': n_vnir + len(groups_cw['swir'][1]) // 2}
+
         for key in ('vnir', 'swir'):
             Key = key.upper()
-            cw = np.asarray(f.attrs[f'List_Cw_{key.title()}'], dtype='float64')
+            cw, idx = groups_cw[key]
             scale = float(np.asarray(f.attrs[f'ScaleFactor_{key.title()}']).item())
             offset = float(np.asarray(f.attrs[f'Offset_{key.title()}']).item())
             cube = f[f'HDFEOS/SWATHS/PRS_L1_HCO/Data Fields/{Key}_Cube']
 
-            idx = np.where(cw > 0)[0][::-1]
             file_idx = int(idx[len(idx) // 2])   # middle output band of the group
-            label = str(int(cw[file_idx]))
+            label = f'B{int(np.flatnonzero(order == mid[key])[0]) + 1:03d}'
 
             # v2 column j carries raw column nx-1-j, so the raw window
             # [r0, r1) maps to v2 x in [nx-r1, nx-r0) with reversed order.
@@ -326,16 +344,17 @@ def test_raw_invalid_masking(tmp_path):
     """Raw fill value (65535) must be masked to NaN in the raw domain."""
     ds = Level1_PRISMA(_write_fake_product(tmp_path), chunks=4)
 
-    # Bands re-ordered ascending, invalid band (cw == 0) dropped
-    assert list(ds['bands'].values) == ['400', '500', '1400', '1500']
+    # Scientific index labels, bands sorted by ascending cwav; the invalid
+    # band (cw == 0) is dropped
+    assert list(ds['bands'].values) == ['B001', 'B002', 'B003', 'B004']
     assert list(ds['cwav'].values) == [400.0, 500.0, 1400.0, 1500.0]
 
     ltoa = ds['Ltoa'].compute()
     # Scaling applied (raw / ScaleFactor)
-    assert np.allclose(ltoa.sel(bands='500').values, 123.45)
-    assert np.allclose(ltoa.sel(bands='1400').values, 2.0)
+    assert np.allclose(ltoa.sel(bands='B002').values, 123.45)
+    assert np.allclose(ltoa.sel(bands='B003').values, 2.0)
     # Invalid raw pixel masked to NaN (and not scaled to 655.35)
-    band = ltoa.sel(bands='400').values
+    band = ltoa.sel(bands='B001').values
     assert np.isnan(band[3, 4])
     assert np.allclose(band[~np.isnan(band)], 1.0)
 

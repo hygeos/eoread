@@ -294,9 +294,11 @@ def test_l1b_bands_cwav(l1, l1_dir):
     finally:
         tree.close()
 
+    # v2 keeps the stored-channel names but turns the sub-band-code parens into
+    # an underscore (the canonical schema rejects other punctuation).
     got = list(l1.coords[str(names.bands)].values)
-    assert got == labels
-    assert len(got) == 11 and got[0] == 'VN01(S06)' and got[-1] == 'VN11(S10)'
+    assert got == [c.replace('(', '_').replace(')', '') for c in labels]
+    assert len(got) == 11 and got[0] == 'VN01_S06' and got[-1] == 'VN11_S10'
 
     cwav = l1[str(names.cwav)].values
     assert cwav.dtype == np.float32

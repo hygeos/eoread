@@ -194,7 +194,7 @@ def test_l1c_subset(level1_ecostress, chunks):
 
 def test_l1c_plot(request, level1_ecostress):
     ds = Level1C_ECOSTRESS(level1_ecostress)
-    generic.plot(request, ds, '4', poi={'x': 1000, 'y': 3000})
+    generic.plot(request, ds, 'B4', poi={'x': 1000, 'y': 3000})
 
 
 def test_l1c_time(level1_ecostress, chunks):
@@ -382,7 +382,7 @@ def test_l2_sanity(l2):
     assert (~np.isnan(lst)).any()
     assert 280. <= np.nanmin(lst) and np.nanmax(lst) <= 340., \
         f'LST outside [280, 340] K: [{np.nanmin(lst)}, {np.nanmax(lst)}]'
-    emis = w['emis'].sel({str(names.bands): '1'}).values
+    emis = w['emis'].sel({str(names.bands): 'B1'}).values
     assert (~np.isnan(emis)).any()
     assert 0. <= np.nanmin(emis) and np.nanmax(emis) <= 1., \
         f'emissivity outside [0, 1]: [{np.nanmin(emis)}, {np.nanmax(emis)}]'

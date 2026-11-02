@@ -159,9 +159,12 @@ def _l2c_path(l1: Path) -> Path | None:
 class Level1_PRISMA(Reader):
     """PRISMA Level-1 STD product (ASI, PRS_L1_STD).
 
-    TOA radiance in both spectral ranges (VNIR + SWIR), band labels are the
-    int-truncated central wavelengths as stored in the product (v1
-    convention); ``cwav``/``fwhm`` carry the actual values. The per-pixel
+    TOA radiance in both spectral ranges (VNIR + SWIR). Band labels are
+    scientific indices (``B001``...) and the bands are sorted by ascending
+    central wavelength; the two groups overlap (VNIR up to ~977 nm, SWIR from
+    ~943 nm), so the stable sort interleaves them at the boundary (the
+    per-band ``bgroup`` coordinate keeps track of the origin). ``cwav``/
+    ``fwhm`` carry the actual values. The per-pixel
     geometric angles (sza, vza, raa) come from the mandatory sibling Level2C
     companion, auto-discovered by name: the L1 product only carries global
     sun angles.
@@ -219,7 +222,7 @@ class Level1_PRISMA(Reader):
 
             if self.verbose:
                 log.debug('Read radiance cubes')
-            ltoa_list, sat_list, bnames, cwls, fwhms, bgroups = [], [], [], [], [], []
+            ltoa_list, sat_list, cwls, fwhms, bgroups = [], [], [], [], []
             for key in ('vnir', 'swir'):
                 Key = key.upper()
                 # As stored in the product: descending wavelength, 0 = invalid band
@@ -240,7 +243,6 @@ class Level1_PRISMA(Reader):
                 assert idx.size, f'no valid {Key} band listed by the product'
                 cwls.append(cw[idx].astype('float32'))
                 fwhms.append(fwhm_arr[idx].astype('float32'))
-                bnames += [str(int(c)) for c in cw[idx]]
                 bgroups += [f'bands_{key}'] * idx.size
 
                 # Radiance cube (rows, bands, columns) -> scale and mask invalid
@@ -292,16 +294,22 @@ class Level1_PRISMA(Reader):
         finally:
             h2.close()
 
-        # Spectral coordinates: band labels are the int-truncated central
-        # wavelengths (v1 convention); cwav/fwhm carry the actual values.
-        ds = ds.assign_coords({bands: np.array(bnames)})
+        # Spectral coordinates: scientific index labels; bands sorted by
+        # ascending central wavelength. The VNIR/SWIR groups overlap in
+        # wavelength, so the stable merge-sort interleaves them at the
+        # boundary (the per-band bgroup coordinate keeps track of origin).
+        cw = np.concatenate(cwls)
+        order = np.argsort(cw, kind='stable')
+        ds = ds.isel({bands: order})
+        ds = ds.assign_coords(
+            {bands: [f'B{i + 1:03d}' for i in range(cw.size)]})
         ds[str(names.cwav)] = xr.DataArray(
-            np.concatenate(cwls), dims=(bands,),
+            cw[order], dims=(bands,),
             attrs={'units': 'nm', 'desc': 'Central wavelength'})
         ds['fwhm'] = xr.DataArray(
-            np.concatenate(fwhms), dims=(bands,),
+            np.concatenate(fwhms)[order], dims=(bands,),
             attrs={'units': 'nm', 'description': 'Full width at half maximum'})
-        ds = ds.assign_coords({str(names.bgroup): (bands, np.array(bgroups))})
+        ds = ds.assign_coords({str(names.bgroup): (bands, np.array(bgroups)[order])})
 
         # Per-band chunking before the orientation flip: dask-backed variables
         # handle the negative-step isel transparently.

@@ -159,7 +159,7 @@ def test_l1b_subset(l1_dir):
 
 
 def test_l1b_plot(request, l1):
-    generic.plot(request, l1, '892')
+    generic.plot(request, l1, 'B001')
 
 
 # --------------------------------------------------------------------------
@@ -167,7 +167,7 @@ def test_l1b_plot(request, l1):
 # --------------------------------------------------------------------------
 
 def test_l1b_bands_cwav(l1, l1_dir):
-    """Band table: dedup + lexicographic label sort, recomputed from the product."""
+    """Band table: legacy dedup + ascending cwav sort, recomputed from the product."""
     # Same engine as the reader: keep the process on h5py's libhdf5 only.
     tree = xr.open_datatree(l1_dir, engine='h5netcdf')
     try:
@@ -180,19 +180,20 @@ def test_l1b_bands_cwav(l1, l1_dir):
     finally:
         tree.close()
 
-    labels = wls.astype(int).astype(str)
+    # Legacy band selection: duplicates on the integer-truncated wavelength
+    # are dropped, first occurrence kept (291 raw bands down to 289).
+    trunc = wls.astype(int).astype(str)
     seen = set()
-    kept = [i for i, w in enumerate(labels) if w not in seen and not seen.add(w)]
-    order = sorted(kept, key=lambda i: labels[i])
-    seq = [labels[i] for i in order]
+    kept = [i for i, w in enumerate(trunc) if w not in seen and not seen.add(w)]
+    order = sorted(kept, key=lambda i: wls[i])
 
     got = list(l1.coords[str(names.bands)].values)
     assert len(got) == 289
-    assert got == seq
-    # The v1 sort key is the string label, not the wavelength: four-digit
-    # SWIR labels come first and the sequence is lexicographically sorted.
-    assert got == sorted(got)
-    assert got[0] == '1038' and got[-1] == '939'
+    # Scientific index labels; ascending central wavelength (the legacy
+    # reader sorted by its string labels instead, which put the four-digit
+    # SWIR bands first).
+    assert got == [f'B{i + 1:03d}' for i in range(289)]
+    assert (np.diff(wls[order]) >= 0).all()
 
     cwav = l1[str(names.cwav)].values
     assert cwav.dtype == np.float32

@@ -73,8 +73,8 @@ class Level1B_HICO(Reader):
 
     Reads the TOA radiance cube (``Lt``, CF-decoded at open) and the
     per-pixel navigation group, renamed onto the canonical names. Band
-    labels are the nominal central wavelengths (as strings); the actual
-    central wavelengths are stored in ``cwav``.
+    labels are scientific indices (``B001``..., one per band in wavelength
+    order); the actual central wavelengths are stored in ``cwav``.
 
     No usable per-pixel quality flags exist in this product generation:
     ``scan_quality_flags`` is entirely fill (255), and QC is applied by the
@@ -157,9 +157,10 @@ class Level1B_HICO(Reader):
         # the flip is decided per file, as for ECOSTRESS).
         ds = self._orient(ds)
 
-        # Spectral coordinates: nominal band labels, actual central
-        # wavelengths, single group.
-        ds = ds.assign_coords({bands: [str(b) for b in HICO_BANDS]})
+        # Spectral coordinates: scientific index labels (B001...), actual
+        # central wavelengths, single group.
+        ds = ds.assign_coords(
+            {bands: [f'B{i + 1:03d}' for i in range(len(HICO_BANDS))]})
         ds[str(names.cwav)] = (bands, wavelengths,
                                {'units': 'nm', 'desc': 'Central wavelength'})
         ds = ds.assign_coords({str(names.bgroup): (bands, ['bands'] * len(HICO_BANDS))})

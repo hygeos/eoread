@@ -91,7 +91,7 @@ def test_orientation(ds):
 
 
 def test_bands(ds):
-    assert list(ds[str(names.bands)].values) == [str(i) for i in range(120)]
+    assert list(ds[str(names.bands)].values) == [f'B{i + 1:03d}' for i in range(120)]
     assert set(ds[str(names.bgroup)].values) == {'bands_vnir'}
     cwav = ds[str(names.cwav)].values
     assert cwav.shape == (120,)
@@ -112,7 +112,7 @@ def test_subset(ds):
 def test_plot(request, ds):
     rows, cols = str(names.rows), str(names.columns)
     sub = ds.isel({rows: slice(300, 700), cols: slice(200, 600)})
-    generic.plot(request, sub, '50', poi={rows: 200, cols: 200})
+    generic.plot(request, sub, 'B051', poi={rows: 200, cols: 200})
 
 
 def test_v1_compat(ds):

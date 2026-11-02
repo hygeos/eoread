@@ -5,8 +5,8 @@ v2 conformance tests for the MODIS L1B reader (Phase 4).
 
 Sample (see tests/README.md):
 - MODIS_L1_AQUA: Aqua MYD021KM HDF4 scene, 2030 x 1354 pixels at ~1 km
-  registration, 38 file-native bands ('1.0' ... '36.0', with the high-gain TDI
-  pairs '13.5'/'14.5'), latitude 44.9-67.2 N.
+  registration, 38 bands (B1 ... B36 plus the high-gain TDI pairs
+  B13HG/B14HG), latitude 44.9-67.2 N.
 
 The v1 reader has been removed; these tests pin the v2 contract: schema
 conformance, canonical south-up orientation, lazy loading and flag decoding.
@@ -28,7 +28,7 @@ from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.reader import ProductError, UnsupportedProductType
-from eoread.readers.modis import Level1B_MODIS
+from eoread.readers.modis import Level1B_MODIS, _CWVL
 
 
 @pytest.fixture(autouse=True)
@@ -93,8 +93,8 @@ def test_l1_subset(level1_modisa_myd, chunks):
 
 def test_l1_plot(request, level1_modisa_myd):
     ds = Level1B_MODIS(level1_modisa_myd)
-    # Band labels are the file-native float values as strings (as in v1).
-    generic.plot(request, ds, '1.0', poi={'x': 1000, 'y': 1000})
+    # Band labels are scientific names (B1..., B13HG/B14HG for the high-gain TDI pairs).
+    generic.plot(request, ds, 'B1', poi={'x': 1000, 'y': 1000})
 
 
 def test_l1_time(chunks, level1_modisa_myd):
@@ -105,14 +105,19 @@ def test_l1_time(chunks, level1_modisa_myd):
 def test_l1_bands(l1):
     # File block order: 250M [1, 2], 500M [3-7], 1KM_RefSB [8-19 with the
     # high-gain TDI pairs 13.5/14.5, plus 26], 1KM_Emissive [20-25, 27-36].
-    expected = ([f'{b}.0' for b in (1, 2, 3, 4, 5, 6, 7)]
-                + [f'{b}.0' for b in (8, 9, 10, 11, 12, 13)] + ['13.5']
-                + ['14.0', '14.5'] + [f'{b}.0' for b in (15, 16, 17, 18, 19)]
-                + ['26.0']
-                + [f'{b}.0' for b in (20, 21, 22, 23, 24, 25)]
-                + [f'{b}.0' for b in (27, 28, 29, 30, 31, 32, 33, 34, 35, 36)])
-    assert list(l1.coords[str(names.bands)]) == expected
-    # Band groups: the file-native block names, contiguous per block.
+    file_order = ([f'{b}.0' for b in (1, 2, 3, 4, 5, 6, 7)]
+                  + [f'{b}.0' for b in (8, 9, 10, 11, 12, 13)] + ['13.5']
+                  + ['14.0', '14.5'] + [f'{b}.0' for b in (15, 16, 17, 18, 19)]
+                  + ['26.0']
+                  + [f'{b}.0' for b in (20, 21, 22, 23, 24, 25)]
+                  + [f'{b}.0' for b in (27, 28, 29, 30, 31, 32, 33, 34, 35, 36)])
+    # Public labels are B<N> (B13HG/B14HG for the TDI pairs); bands are
+    # sorted by ascending central wavelength, stable within ties.
+    pub = {'13.5': 'B13HG', '14.5': 'B14HG'}
+    labels = [pub.get(b, f'B{int(float(b))}') for b in file_order]
+    order = np.argsort(np.array([_CWVL[b] for b in file_order]), kind='stable')
+    assert list(l1.coords[str(names.bands)]) == [labels[i] for i in order]
+    # Band groups: the file-native block names, permuted with the bands.
     bgroup = list(l1.coords[str(names.bgroup)].values)
     assert set(bgroup) == {'bands_250M', 'bands_500M',
                            'bands_1KM_RefSB', 'bands_1KM_Emissive'}
@@ -125,9 +130,9 @@ def test_l1_bands(l1):
 def test_l1_cwav(l1):
     cw = l1[str(names.cwav)]
     assert cw.attrs.get('unit') == 'nm'
-    assert float(cw.sel({str(names.bands): '11.0'})) == pytest.approx(530.1)
-    assert float(cw.sel({str(names.bands): '13.5'})) == pytest.approx(666.0)
-    assert float(cw.sel({str(names.bands): '32.0'})) == pytest.approx(12042.3)
+    assert float(cw.sel({str(names.bands): 'B11'})) == pytest.approx(530.1)
+    assert float(cw.sel({str(names.bands): 'B13HG'})) == pytest.approx(666.0)
+    assert float(cw.sel({str(names.bands): 'B32'})) == pytest.approx(12042.3)
 
 
 def test_l1_attrs(l1):
@@ -165,11 +170,11 @@ def test_l1_rtoa_lazy(l1):
     rows, cols = str(names.rows), str(names.columns)
     win = {rows: slice(1000, 1020), cols: slice(900, 920)}
     # Band labels are strings; select each band by scalar label.
-    r4 = l1[str(names.rtoa)].sel({str(names.bands): '4.0', **win}).values
-    r32 = l1[str(names.rtoa)].sel({str(names.bands): '32.0', **win}).values
+    r4 = l1[str(names.rtoa)].sel({str(names.bands): 'B4', **win}).values
+    r32 = l1[str(names.rtoa)].sel({str(names.bands): 'B32', **win}).values
     assert np.any(np.isfinite(r4))     # band 4 (green) is reflective
     assert not np.any(np.isfinite(r32))  # band 32 is emissive
-    ltoa = l1[str(names.ltoa)].sel({str(names.bands): '32.0', **win}).values
+    ltoa = l1[str(names.ltoa)].sel({str(names.bands): 'B32', **win}).values
     # Physics check on the fixed formula scale * (raw - offset): band 32
     # brightness temperature is ~270 K over this scene, so Ltoa > 0.
     assert np.nanmedian(ltoa) > 0

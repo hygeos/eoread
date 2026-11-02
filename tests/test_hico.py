@@ -31,7 +31,7 @@ from .conftest import get_sample
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.reader import UnsupportedProductType
-from eoread.readers.hico import HICO_BANDS, Level1_HICO
+from eoread.readers.hico import HICO_BANDS, Level1B_HICO
 
 # The suite is a single process and must stay on one libhdf5 copy: opening
 # the HICO file through netCDF4 here would poison the h5netcdf dimension-scale
@@ -139,7 +139,7 @@ def test_l1_subset(hico_dir):
 def test_l1_bands(hico):
     # 128 bands, identified by their nominal central wavelengths (as strings)
     assert len(hico.bands) == len(HICO_BANDS) == 128
-    assert list(hico.bands.values) == [str(b) for b in HICO_BANDS]
+    assert list(hico.bands.values) == [f'B{i + 1:03d}' for i in range(len(HICO_BANDS))]
 
     # Central wavelengths from the product, in nm
     cwav = hico['cwav'].values

@@ -23,10 +23,15 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   gradient pocket).
 - ECOSTRESS: identity + schema_version strip (all payloads kept their v1
   names). Documented deviation, NOT a break: v2 is south-up where legacy was
-  north-up — v2 row i carries legacy row ny-1-i (pinned by test_l1c_v1_compat).
-  The plain-HDF5 L1B/L2 family has no legacy reference at all.
+  north-up — v2 row i carries legacy row ny-1-i (pinned by test_l1c_v1_compat);
+  band labels are scientific names (``B1``...) where legacy used the bare
+  numeric suffixes (coordinate values — this transform never touches
+  coordinates). The plain-HDF5 L1B/L2 family has no legacy reference at all.
 - OLCI: identity + schema_version strip — no documented clean break.
-- MODIS: clean break (see ``CLEAN_BREAKS``) — radiance formula fix.
+- MODIS: clean break (see ``CLEAN_BREAKS``) — radiance formula fix. Band
+  labels are scientific names (``B1``...``B36``, TDI pairs ``B13HG``/
+  ``B14HG``) sorted by ascending cwav where legacy used the file-native float
+  strings in file block order (coordinate values; moot given the clean break).
 - OLI: clean break (see ``CLEAN_BREAKS``) — Rtoa double solar correction,
   single bands grid, unsigned azimuths.
 - MERIS: identity + schema_version strip (all payloads kept their v1 names;
@@ -37,7 +42,10 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   comes from the SPH COLUMN_SPACING field instead of legacy's hardcoded 300 m;
   ``shortname`` and ``crs`` attributes were added; azimuth angles keep the
   product's absolute [0, 360) convention (registry declares [0, 180] — a
-  documented registry inconsistency, see the OLCI/MSI entries below).
+  documented registry inconsistency, see the OLCI/MSI entries below); band
+  labels are the official band numbers ``B1``..``B15`` where legacy used the
+  bare integers as strings (coordinate values — this transform never touches
+  coordinates).
 - VENUS: identity + schema_version strip (all payloads kept their v1 names;
   L1C payload values are bit-identical to legacy). Documented deviations, NOT
   breaks: south-up flip (v2 row i carries legacy row ny-1-i); new canonical
@@ -58,8 +66,11 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   keeps legacy's hardcoded 1200 m (no data-driven spacing in the product);
   azimuth angles keep the product's signed relative [-180, 180] convention
   (registry declares [0, 180] — a documented registry inconsistency, see the
-  OLCI/MSI entries above). No orientation change: the product is natively
-  south-up and legacy kept it that way.
+  OLCI/MSI entries above); band labels are scientific indices (``B001``...)
+  with bands sorted by ascending cwav where legacy sorted by its string
+  labels, which put the four-digit SWIR bands first (coordinate values — this
+  transform never touches coordinates). No orientation change: the product is
+  natively south-up and legacy kept it that way.
 - SGLI: identity + schema_version strip (all payloads kept their v1 names;
   ``water``/``quality_flag`` are bit-identical to legacy at mirrored rows).
   Documented deviations, NOT breaks: the output is south-up where legacy
@@ -75,6 +86,10 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   QA_flag bit 0 where legacy used the raw value (the file's bit description
   says 1 = "Integrity", so the legacy test flagged the sound ~86% of the
   sample scene);
+  band labels keep the product's stored-channel names with the sub-band-code
+  parens turned into an underscore (``VN01_S06`` where v1 used ``VN01(S06)`` —
+  the canonical schema rejects other punctuation; coordinate values, so this
+  transform does not rename them back);
   ``add_ancillary_data`` dropped (instrument telemetry with no consumer);
   ``shortname``/``crs`` attributes were added; ``datetime`` is normalized to
   ISO from the product's non-ISO ``Scene_center_time`` (same instant).
@@ -118,12 +133,25 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   No usable v1 reference exists either: the legacy function leaves the payload
   uint16, keeps the north-up orientation and raises on a bands coordinate that
   the product does not carry. Documented deviations: south-up flip; ``Ltoa``
-  float32 (integer radiance is preserved exactly by the cast); 0-based string
-  band labels + ``cwav`` from the file's wavelength table; ``datetime``
-  normalized to ISO from ``date_aquired``; sensor/platform taken from the
-  modern ``instrument_id``/``sat_id`` fields when present (the legacy values
+  float32 (integer radiance is preserved exactly by the cast); scientific
+  index band labels (``B001``..., 1-based) where legacy emitted 0-based string
+  indices + ``cwav`` from the file's wavelength table; ``datetime`` normalized
+  to ISO from ``date_aquired``; sensor/platform taken from the modern
+  ``instrument_id``/``sat_id`` fields when present (the legacy values
   otherwise). Both geolocation layouts are read: the old ``navigation`` group
   and the current hypso-package ``geometry`` group.
+- HICO: identity + schema_version strip (payload kept its v1 name ``Ltoa``;
+  no HICO renames or clean breaks). Documented deviation, NOT a break: band
+  labels are scientific indices (``B001``...) where legacy used the
+  integer-truncated wavelength strings (coordinate values — this transform
+  never touches coordinates).
+- PRISMA: identity + schema_version strip (payload kept its v1 name ``Ltoa``;
+  no PRISMA renames or clean breaks). Documented deviation, NOT a break: band
+  labels are scientific indices (``B001``...) and bands are sorted by
+  ascending cwav (stable merge of the VNIR/SWIR tables, which overlap in
+  wavelength) where legacy kept the per-group truncated-wavelength strings in
+  contiguous group blocks (coordinate values — this transform never touches
+  coordinates).
 """
 
 from core.geo.naming import names
