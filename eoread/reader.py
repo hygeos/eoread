@@ -152,10 +152,11 @@ class Reader(metaclass=_ReaderMeta):
         """Resolve one of the reader's sample products to an existing path.
 
         With no argument, the IDs in `sample_products` are tried in order and
-        the first one whose environment variable points to an existing path is
-        returned.  Passing an explicit `product` ID selects it directly.
+        the first resolvable one is returned; passing an explicit `product` ID
+        selects it directly.  A missing local path falls back to the sample's
+        optional SAND download spec (see `eoread.samples`) when registered.
 
-        Sample metadata (environment variable, description) lives in
+        Sample metadata (paths, descriptions, download specs) lives in
         `eoread.samples`; readers only declare which IDs they support.
         """
         if product is not None:
