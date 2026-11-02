@@ -47,6 +47,10 @@ sand = { git = "git+https://github.com/hygeos/SAND.git" }
 # without any sample product available.
 gate = "python3 scripts/import_smoke.py && pytest tests/ --collect-only -q"
 tests = "pytest tests/"
+# v1 vs v2 time/RAM benchmark (see scripts/benchmark/README.md).
+# Extra args are forwarded, e.g.: pixi run bench --rounds 1 --samples PACE_L1B
+bench = "python3 scripts/benchmark/benchmark.py full"
+bench-dry = "python3 scripts/benchmark/benchmark.py full --dry-run"
 docs-build = "quartodoc build --config docs/_quarto.yml"
 docs-render = { cmd = "quarto render docs/", depends-on = ["docs-build"] }
 docs-preview = { cmd = "quarto preview docs/", depends-on = ["docs-build"] }
