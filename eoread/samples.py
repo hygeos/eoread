@@ -19,6 +19,9 @@ from pathlib import Path
 #: Shared sample archive (developer machines).
 _CEPH = Path('/mnt/ceph/samples')
 
+#: Repository root — bundled products are declared relative to it.
+_REPO = Path(__file__).resolve().parent.parent
+
 @dataclass(frozen=True)
 class Sample:
     """A sample product available for one (sensor, level, product type).
@@ -35,8 +38,14 @@ class Sample:
     description: str = ''
 
     def resolve(self) -> Path:
-        """Return the sample path, or raise ``FileNotFoundError``."""
+        """Return the sample path, or raise ``FileNotFoundError``.
+
+        Relative paths are anchored to the repository root (bundled products
+        under ``data/sample_products/``); absolute paths are used as-is.
+        """
         path = Path(self.path).expanduser()
+        if not path.is_absolute():
+            path = _REPO / path
         if not path.exists():
             raise FileNotFoundError(
                 f'{self.description or "sample"}: sample path does not exist: {path}')
@@ -55,9 +64,14 @@ _samples: dict[str, Sample] = {
         'Sentinel-2 MSI L2A'),
 
     # Sentinel-3 OLCI
+    # The Ceph copy of the 2016 EFR granule is not traversable (missing
+    # execute bit, owner francois); the bundled 2025 granule below is used.
     'OLCI_L1_EFR': Sample(
-        _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_1_EFR____20160720T093226_20160720T093526_20241003T153523_0179_006_307_1980_MAR_R_NT_004.SEN3',
+        'data/sample_products/SENTINEL-3-OLCI-FR/S3A_OL_1_EFR____20250101T091103_20250101T091403_20250102T113753_0180_121_050_2700_MAR_O_NT_004.SEN3',
         'Sentinel-3 OLCI L1 EFR'),
+    'OLCI_L1_ERR': Sample(
+        _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_1_ERR____20230314T234741_20230315T003137_20230316T043356_2636_096_287______MAR_O_NT_002.SEN3',
+        'Sentinel-3 OLCI L1 ERR (reduced resolution)'),
     'OLCI_L2_WFR': Sample(
         _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_2_WFR____20250930T063451_20250930T063751_20251001T125533_0180_131_077_2520_MAR_O_NT_003.SEN3',
         'Sentinel-3 OLCI L2 WFR'),
@@ -115,6 +129,19 @@ _samples: dict[str, Sample] = {
     'SGLI_L1B': Sample(
         _CEPH / 'SGLI' / 'GC1SG1_201912050159F05712_1BSG_VNRDQ_1007.h5',
         'GCOM-C SGLI L1B'),
+
+    # ISS HICO (OB.DAAC L1B_ISS tiles)
+    'HICO_L1B': Sample(
+        _CEPH / 'HICO' / 'H2014069115230.L1B_ISS.nc',
+        'ISS HICO L1B hyperspectral radiance (Ligurian Sea)'),
+
+    # PRISMA (ASI)
+    # The per-pixel geometric angles live in a sibling Level2C companion,
+    # which the archive does not hold for this granule; tests synthesize one.
+    'PRISMA_L1': Sample(
+        _CEPH / 'PRISMA' / 'PRS_L1_STD_OFFL_20210721102700_20210721102705_0001.he5',
+        'PRISMA L1 STD hyperspectral (VNIR+SWIR, 30 m); requires a sibling '
+        'Level2C companion for the per-pixel angles'),
 
     # DIMAP strips (staged under downloads/eoread)
     'GEOSAT_DE1': Sample(
