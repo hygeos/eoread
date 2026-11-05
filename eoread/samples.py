@@ -223,10 +223,27 @@ _samples: dict[str, Sample] = {
         'ECOSTRESS L2 LSTE (v002)'),
 
     # MERIS
+    # The N1 sample is not downloadable (deliberately): the raw N1 Level-1
+    # collections live on ESA, for which SAND has no provider. See the
+    # REFACTORING.md decision log.
     'MERIS_L1': Sample(
         _CEPH / 'MERIS' /
         'MER_RR__1PRACR20080701_014028_000026402070_00003_33123_0000.N1',
         'MERIS L1'),
+    # NASA-repackaged NetCDF SAFE (`.SEN3`) products, read by
+    # Level1_MERIS_SAFE. Local Ceph copies only: NASA hosts exactly this
+    # repackaging (LAADS collections EN1_MDSI_MER_RR__1P / _FRS_1P v4, 2020
+    # reprocessing) but those collections carry zero granules indexed in CMR,
+    # so no SAND download is possible; the downloadable OB.DAAC MERIS_L1_RR /
+    # _FRS products are a different (single-file ZIP) format.
+    'MERIS_L1_SAFE_RRG': Sample(
+        _CEPH / 'MERIS' /
+        'ENV_ME_1_RRG____20071102T084033_20071102T092429_________________2636_063_050______DSI_R_NT____.SEN3',
+        'MERIS L1 SAFE reduced resolution'),
+    'MERIS_L1_SAFE_FRG': Sample(
+        _CEPH / 'MERIS' /
+        'ENV_ME_1_FRG____20020905T103553_20020905T104153_________________0360_009_137______DSI_R_NT____.SEN3',
+        'MERIS L1 SAFE full resolution'),
 
     # VENµS (downloadable: cnes)
     # The downloadable granule is the BOMBETOK tile (Madagascar, EPSG:32738),

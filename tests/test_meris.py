@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-v2 conformance tests for the MERIS reader (L1, N1 products).
+v2 conformance tests for the MERIS readers (L1).
+
+Two product families are covered:
+
+- N1 products (epr) read by `Level1_MERIS`;
+- NASA-repackaged NetCDF SAFE (`.SEN3`) products read by
+  `Level1_MERIS_SAFE` (see its docstring in eoread/readers/meris.py). The
+  SAFE section pins the xarray engine to 'h5netcdf' for the whole test
+  process (dual-libhdf5, see tests/test_olci.py).
 
 Real-data policy (tests/README.md): each test reads its sample path from the
 sample registry via get_sample(); missing sample means a clean skip.
@@ -18,6 +26,7 @@ Documented deviations from the v1 implementation (see REFACTORING.md):
 """
 
 import gc
+import os
 import re
 import subprocess
 import sys
@@ -27,14 +36,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 from core.geo.naming import names
+from core.table import read_xml
 
 from . import generic
 from .conftest import get_sample
 
 from eoread.compat import v1
 from eoread.flags import FlagsInit, GenericFlags
-from eoread.reader import UnsupportedProductType
-from eoread.readers.meris import Level1_MERIS, _AUXDATA_DIR, _read_date
+from eoread.reader import ProductError, UnsupportedProductType
+from eoread.readers.meris import (Level1_MERIS, Level1_MERIS_SAFE,
+                                  _AUXDATA_DIR, _read_date)
 
 # Fixed check window: north-up raster rows x columns, well inside the
 # 15009 x 1121 scene.
@@ -281,3 +292,295 @@ def test_variant_detection():
 def test_missing_path():
     with pytest.raises(AssertionError):
         Level1_MERIS(Path('/nonexistent/meris_product'))
+
+
+# ===========================================================================
+# Level1_MERIS_SAFE (NASA-repackaged NetCDF SAFE / .SEN3 products)
+# ===========================================================================
+
+_ENGINE = 'h5netcdf'
+
+
+def _readable(path):
+    """Skip cleanly if the staged sample cannot be traversed/read.
+
+    A .SEN3 granule is a directory tree: a missing execute bit at any level
+    surfaces as PermissionError on the first open instead of a useful test
+    failure.
+    """
+    if not os.access(path, os.R_OK | os.X_OK):
+        pytest.skip(f'sample not readable (check permissions): {path}')
+    return path
+
+
+def _safe_band_descriptions(path):
+    """The manifest `bandDescriptions` mapping (independent of reader parsing)."""
+    manifest = read_xml(Path(path) / 'xfdumanifest.xml')
+    info = next(o for o in manifest['metadataSection']['metadataObject']
+                if o['attributes']['ID'] == 'merisProductInformation')
+    return info['metadataWrap']['xmlData']['merisProductInformation'] \
+        ['bandDescriptions']
+
+
+@pytest.fixture(scope='session')
+def safe_rr_dir():
+    return _readable(get_sample(Level1_MERIS_SAFE, 'MERIS_L1_SAFE_RRG'))
+
+
+@pytest.fixture(scope='session')
+def safe_fr_dir():
+    return _readable(get_sample(Level1_MERIS_SAFE, 'MERIS_L1_SAFE_FRG'))
+
+
+@pytest.fixture
+def safe_rr(safe_rr_dir):
+    return Level1_MERIS_SAFE(safe_rr_dir, chunks=500, engine=_ENGINE)
+
+
+@pytest.fixture
+def safe_fr(safe_fr_dir):
+    return Level1_MERIS_SAFE(safe_fr_dir, chunks=500, engine=_ENGINE)
+
+
+# --------------------------------------------------------------------------
+# Conformance
+# --------------------------------------------------------------------------
+
+def test_safe_instantiation(safe_rr_dir, chunks):
+    Level1_MERIS_SAFE(safe_rr_dir, chunks=chunks, engine=_ENGINE)
+
+
+def test_safe_main(safe_rr):
+    generic.Test.main(safe_rr, angle_data=True)
+
+
+def test_safe_conformance(safe_rr):
+    generic.Test.v2_conformance(safe_rr, primary='Ltoa')
+
+
+def test_safe_latlon(safe_rr):
+    """NaN-aware orientation check.
+
+    The SAFE geolocation is NaN outside the swath (fully invalid edge rows,
+    partially filled first/last rows), so a raw first/last pixel comparison
+    would compare fill values; use the first/last *valid* pixel instead.
+    Latitude is not asserted monotonic along-track: this granule's ground
+    track turns near the South Pole (ENVISAT inclination ~98.5 deg).
+    """
+    rows, cols = str(names.rows), str(names.columns)
+    ny, nx = safe_rr.sizes[rows], safe_rr.sizes[cols]
+
+    lat = safe_rr[str(names.lat)].isel({cols: nx // 2}).values
+    valid = np.isfinite(lat)
+    assert valid.sum() >= 2
+    assert lat[valid][0] < lat[valid][-1], 'latitude must be south-up'
+    assert -90. <= lat[valid].min() and lat[valid].max() <= 90.
+
+    lon = safe_rr[str(names.lon)].isel({rows: ny // 2}).values
+    vlon = np.isfinite(lon)
+    assert vlon.sum() >= 2
+    assert lon[vlon][0] < lon[vlon][-1], 'longitude must be west-to-east'
+
+    # The orientation flips re-index the grid to a plain arange.
+    assert np.array_equal(safe_rr[rows].values, np.arange(ny))
+    assert np.array_equal(safe_rr[cols].values, np.arange(nx))
+
+
+def _safe_check_angles(ds, expect_neg_saa):
+    """Signed-azimuth range check on a decimated sample (never the full grid).
+
+    Deliberately not `generic.Test.angles`: that checks against the naming
+    registry minv/maxv, which declare [0, 180] for every azimuth, while the
+    SAFE products store SAA/VAA as signed degrees in [-180, 180] — a
+    documented registry inconsistency (REFACTORING.md).
+    """
+    ranges = {str(names.sza): (0., 90.), str(names.vza): (0., 90.),
+              str(names.saa): (-180., 180.), str(names.vaa): (-180., 180.)}
+    got = {}
+    for name, (lo, hi) in ranges.items():
+        v = ds[name].isel(y=slice(None, None, 50), x=slice(None, None, 25)).values
+        assert np.isfinite(v).all(), f'{name}: NaNs on the full grid'
+        assert v.min() >= lo - 1e-3 and v.max() <= hi + 1e-3, \
+            f'{name} out of range [{lo}, {hi}]: got [{v.min()}, {v.max()}]'
+        got[name] = v
+    saa, vaa = got[str(names.saa)], got[str(names.vaa)]
+    assert (vaa < 0).any(), 'expected negative viewing azimuths'
+    if expect_neg_saa:
+        assert (saa < 0).any() and (saa > 0).any(), \
+            'sun azimuth expected to span both hemispheres'
+    else:
+        assert (saa > 0).all(), 'sun azimuth stays positive on this sample'
+
+
+def test_safe_angles_rr(safe_rr):
+    # The RRG sample's sun azimuth spans the full signed range.
+    _safe_check_angles(safe_rr, expect_neg_saa=True)
+
+
+def test_safe_angles_fr(safe_fr):
+    # The FRG sample's sun azimuth stays in [127 deg, 167 deg]: no negative SAA.
+    _safe_check_angles(safe_fr, expect_neg_saa=False)
+
+
+# --------------------------------------------------------------------------
+# Flags
+# --------------------------------------------------------------------------
+
+def test_safe_lazy_load(safe_rr):
+    generic.Test.lazy_load(safe_rr)
+
+
+def test_safe_flagreader(safe_rr):
+    generic.Test.flagreader(safe_rr)
+
+
+def test_safe_flag_values(safe_rr):
+    """L1_INVALID/LAND must reproduce getflag() on a 100x100 slice."""
+    sub = safe_rr.isel(y=slice(500, 600), x=slice(300, 400))
+    flags = FlagsInit({GenericFlags.L1_INVALID: 4, GenericFlags.LAND: 2},
+                      'uint8', safe_rr.attrs['_flag_reader']).map_blocks(sub)
+    f = flags['flags'].compute()
+    inv = Level1_MERIS_SAFE.getflag(sub, GenericFlags.L1_INVALID).values
+    land = Level1_MERIS_SAFE.getflag(sub, GenericFlags.LAND).values
+    assert np.array_equal((f & 4).astype(bool), inv)
+    assert np.array_equal((f & 2).astype(bool), land)
+
+
+# --------------------------------------------------------------------------
+# I/O behaviour
+# --------------------------------------------------------------------------
+
+def test_safe_subset(safe_rr_dir):
+    ds = Level1_MERIS_SAFE(safe_rr_dir, metadata_template=[], engine=_ENGINE)
+    generic.Test.subset(ds)
+
+
+def test_safe_plot(request, safe_rr):
+    generic.plot(request, safe_rr, 'B4')
+
+
+# --------------------------------------------------------------------------
+# Bands / spectral tables
+# --------------------------------------------------------------------------
+
+def test_safe_bands_cwav(safe_rr, safe_rr_dir):
+    nb = 15
+    assert list(safe_rr.coords[str(names.bands)].values) == \
+        [f'B{i + 1}' for i in range(nb)]
+    assert list(safe_rr.coords[str(names.bgroup)].values) == ['bands_vnir'] * nb
+
+    # Central wavelengths from the manifest (independent of reader parsing).
+    desc = _safe_band_descriptions(safe_rr_dir)
+    want = np.array([float(desc[k]['centralWavelength'])
+                     for k in desc if k != 'attributes'])
+    cwav = safe_rr[str(names.cwav)].values
+    assert cwav.dtype == np.float64
+    assert np.array_equal(cwav, want)
+    assert (np.diff(cwav) > 0).all()
+
+    # Per-pixel wavelength table: the mean over valid detectors of each band
+    # must sit within the band, i.e. close to its central wavelength.
+    for i in range(nb):
+        tab = safe_rr['lambda0'].isel(bands=i).values
+        m = float(tab[tab > 0].mean())
+        assert abs(m - cwav[i]) < 20., (i, m, cwav[i])
+
+
+def test_safe_F0_wav(safe_rr):
+    """Ground-truth check of the per-pixel table gather, incl. NaN masking."""
+    ny = safe_rr.sizes[str(names.rows)]
+    nx = safe_rr.sizes[str(names.columns)]
+    r = [ny // 2 - 5, ny // 2, ny // 2 + 5]
+    c = [nx // 3, nx // 2, 2 * nx // 3]
+
+    det = safe_rr['detector_index'].isel(y=r, x=c).values
+    assert det.dtype == np.int16
+    valid = det >= 0
+
+    for var, table_name in ((str(names.F0), 'solar_flux'), (str(names.wav), 'lambda0')):
+        tab = safe_rr[table_name].values  # raw -1 fills kept
+        want = np.take(tab, np.clip(det, 0, None).astype('intp'), axis=1)
+        want = np.where(valid[None, :, :], want, np.nan)
+        got = safe_rr[var].isel(y=r, x=c).values
+        assert got.dtype == np.float32, var
+        assert np.array_equal(got, want, equal_nan=True), var
+
+    # The sample carries invalid pixels (detector_index < 0): F0/wav must be
+    # NaN there.
+    det_full = safe_rr['detector_index'].values
+    invalid = np.argwhere(det_full < 0)
+    assert invalid.size > 0, 'expected at least one invalid pixel in the sample'
+    r0, c0 = (int(v) for v in invalid[0])
+    for var in (str(names.F0), str(names.wav)):
+        assert np.isnan(safe_rr[var].isel(y=r0, x=c0).values).all(), var
+
+
+# --------------------------------------------------------------------------
+# Attributes / variants / guards
+# --------------------------------------------------------------------------
+
+def test_safe_attrs(safe_rr, safe_rr_dir):
+    a = safe_rr.attrs
+    assert a[str(names.sensor)] == 'MERIS'
+    assert a[str(names.platform)] == 'ENVISAT'
+    assert a[str(names.crs)] == 'EPSG:4326'
+
+    path = Path(safe_rr_dir)
+    assert a[str(names.product_name)] == path.name
+    assert a[str(names.shortname)] == 'ME_1_RRG___'
+    assert a[str(names.input_directory)] == str(path.parent)
+
+    # Data-driven resolution (manifest acSpatialSampling), int-ified.
+    assert a[str(names.resolution)] == 1040
+
+    # datetime = midpoint of the manifest acquisition period.
+    manifest = read_xml(path / 'xfdumanifest.xml')
+    objs = {o['attributes']['ID']: o
+            for o in manifest['metadataSection']['metadataObject']}
+    acq = objs['acquisitionPeriod']['metadataWrap']['xmlData']['acquisitionPeriod']
+    start = datetime.fromisoformat(acq['startTime'])
+    stop = datetime.fromisoformat(acq['stopTime'])
+    assert a[str(names.datetime)] == (start + (stop - start) / 2.).isoformat()
+
+    assert a['user_guide'].startswith('https://archive.org/')
+    assert a['_flag_reader'] == 'eoread.readers.meris.Level1_MERIS_SAFE'
+    assert a['_srf_getter'] == 'eotools.srf.get_SRF_meris'
+    assert a['_srf_getter_arg'] == ''
+
+
+def test_safe_fr(safe_fr):
+    """The FRG sample is detected, sized and resolved as full resolution."""
+    a = safe_fr.attrs
+    assert a[str(names.shortname)] == 'ME_1_FRG___'
+    assert a[str(names.resolution)] == 260
+    assert safe_fr.sizes[str(names.rows)] == 8193
+    assert safe_fr.sizes[str(names.columns)] == 4481
+    assert safe_fr.sizes['detectors'] == 3700
+
+
+def test_safe_v1_compat(safe_rr):
+    old = v1(safe_rr)
+    # identity + schema_version strip (no documented break — this product
+    # family has no legacy reader at all)
+    assert 'Ltoa' in old and str(names.F0) in old and str(names.wav) in old
+    assert 'schema_version' not in old.attrs
+    assert 'schema_version' in safe_rr.attrs
+
+
+def test_safe_variant_detection():
+    """RR/FR are detected from the manifest productType (loud raise otherwise)."""
+    probe = object.__new__(Level1_MERIS_SAFE)  # detect_variant only needs VARIANTS
+    assert probe.detect_variant({'productType': 'ME_1_RRG___'}) == 'RR'
+    assert probe.detect_variant({'productType': 'ME_1_FRG___'}) == 'FR'
+    with pytest.raises(UnsupportedProductType):
+        probe.detect_variant({'productType': 'ME_2_LRR____'})
+
+
+def test_safe_missing_path():
+    with pytest.raises(ProductError):
+        Level1_MERIS_SAFE(Path('/nonexistent/meris_safe_product'), engine=_ENGINE)
+
+
+def test_not_a_meris_safe_product(tmp_path):
+    with pytest.raises(ProductError):
+        Level1_MERIS_SAFE(tmp_path, engine=_ENGINE)
