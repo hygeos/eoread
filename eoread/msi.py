@@ -404,8 +404,12 @@ class FlagsReader_MSI(FlagsReaderBase):
         return [str(names.vza)]  # Use viewing zenith angle as reference
     
     def dims_like(self) -> str:
-        """Returns a variable name with the same shape as the output."""
-        return str(names.vza)
+        """Returns a variable name with the same shape as the output.
+
+        The solar zenith angle is used, as it is always 2D (the viewing zenith
+        angle has a bands dimension with angle_band='all').
+        """
+        return str(names.sza)
     
     def getflag(self, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
         """
@@ -430,11 +434,13 @@ class FlagsReader_MSI(FlagsReaderBase):
         """
         if flag_name == GenericFlags.L1_INVALID:
             # L1_INVALID is True where vza is NaN (invalid data)
-            return xr.DataArray(
-                np.isnan(ds[str(names.vza)]),
-                dims=ds[str(names.vza)].dims,
-                coords=ds[str(names.vza)].coords
-            )
+            # With per-band viewing geometry (angle_band='all'), a pixel is
+            # invalid if vza is NaN in any band.
+            vza = ds[str(names.vza)]
+            invalid = xr.DataArray(np.isnan(vza), dims=vza.dims, coords=vza.coords)
+            if str(names.bands) in invalid.dims:
+                invalid = invalid.any(dim=str(names.bands))
+            return invalid
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
     

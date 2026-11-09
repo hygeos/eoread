@@ -8,7 +8,8 @@ import eoread.eo as eo
 from core.geo.naming import names
 
 from . import generic
-from eoread.msi import get_sample, Level1_MSI, Level2_MSI
+from eoread.msi import get_sample, Level1_MSI, Level2_MSI, FlagsReader_MSI
+from eoread.flags import FlagsInit, GenericFlags
 
 
 @pytest.fixture(scope="session")
@@ -95,6 +96,26 @@ def test_angle_all_bands(l1_angle_all, l1_angle_band2):
         l1_angle_band2[str(names.vza)],
         equal_nan=True,
     )
+
+def test_angle_all_flags(l1_angle_all, l1_angle_default):
+    """With per-band geometry, L1_INVALID stays 2D: invalid if vza is NaN in any band."""
+    rows, cols = str(names.rows), str(names.columns)
+    rd = FlagsReader_MSI()
+    f_all = rd.getflag(l1_angle_all, GenericFlags.L1_INVALID).compute()
+    f_def = rd.getflag(l1_angle_default, GenericFlags.L1_INVALID).compute()
+    assert f_all.dims == f_def.dims == (rows, cols)
+    # pixels invalid in band 0 are also invalid with all bands
+    assert bool((f_all | ~f_def).all())
+
+    # FlagsInit creates a 2D flags variable
+    sub = l1_angle_all.isel({rows: slice(0, 200), cols: slice(0, 200)})
+    flags = FlagsInit(
+        flags={GenericFlags.L1_INVALID: 4},
+        dtype='uint16',
+        flag_reader=sub.attrs['_flag_reader'],
+    ).map_blocks(sub)['flags']
+    assert flags.dims == (rows, cols)
+
 
 def test_angle_invalid(level1_msi):
     with pytest.raises(ValueError):
