@@ -10,6 +10,9 @@ from typing import Literal, Union
 
 import numpy as np
 import xarray as xr
+import dask
+import dask.array as dask_array
+import rasterio
 
 from core.interpolate import interp, Linear
 from core.tools import merge, drop_unused_dims, only
@@ -177,7 +180,8 @@ def Level1_MSI(
     # msi_read_geometry
     if verbose: log.debug('Read geometric angles')
     tileangles = xmlgranule['Geometric_Info']['Tile_Angles']
-    ds = _Internal.read_geometry(ds, tileangles, resolution, chunks, band_ids, per_band)
+    ds = _Internal.read_geometry(ds, tileangles, resolution, chunks, band_ids, per_band,
+                                 granule_dir=granule_dir, band_names=metadata['name'])
     
     # msi read quality mask
     if read_mask:
@@ -698,12 +702,20 @@ class _Internal:
             resolution: str,
             chunks: dict,
             band_ids: Union[list, None] = None,
-            per_band: bool = False
+            per_band: bool = False,
+            granule_dir: Union[Path, None] = None,
+            band_names: Union[list, None] = None,
         ) -> xr.Dataset:
         """Read and interpolate geometric angles from tie points to full resolution.
 
         band_ids: list of bandIds to use for the viewing angles. If None, defaults to [0].
         per_band: if True, produces 3D (bands, ...) viewing angles for every band in band_ids.
+        granule_dir, band_names: if provided, and the raster detector footprints
+            (QI_DATA/MSK_DETFOO_Bxx.jp2, baseline >= 4) are available, the viewing
+            angles are computed per detector and assembled with the footprints
+            (see `_Internal.detector_view_angles`). Otherwise, the per-detector
+            grids are merged into a single tie-point grid before interpolation,
+            which makes the detector boundaries snap to the 5 km tie-point grid.
         """
         
         if band_ids is None:
@@ -717,10 +729,15 @@ class _Internal:
 
         # read view angles (for each band)
         vza, vaa = {}, {}
+        det_grids = {}  # {bandid: {detectorid: (zenith, azimuth)}} tie-point grids
         tie_shape = sza.shape
         for e in tileangles.get('Viewing_Incidence_Angles_Grids'):
 
             bandid = int(e['attributes']['bandId'])
+            detid = int(e['attributes']['detectorId'])
+            det_grids.setdefault(bandid, {})[detid] = tuple(
+                _Internal.read_xml_block(e[name], dims).values
+                for name in ('Zenith', 'Azimuth'))
             for name, angle in [('Zenith', vza), ('Azimuth', vaa)]: 
                 
                 # Reading view angles
@@ -796,7 +813,171 @@ class _Internal:
                 tie_columns=Linear(x),
             ).drop_vars([d['y'], d['x']], errors='ignore')
 
+        # Detector-aware viewing angles, using the raster detector footprints
+        if granule_dir is not None and band_names is not None:
+            step = (float(tileangles['Sun_Angles_Grid']['Zenith']['ROW_STEP']['values']),
+                    float(tileangles['Sun_Angles_Grid']['Zenith']['COL_STEP']['values']))
+            target_res = resolution if resolution else 60
+            target_chunks = (chunks[str(names.rows)], chunks[str(names.columns)])
+            out_shape = (ds.sizes[d['y']], ds.sizes[d['x']])
+            vza_bands, vaa_bands = [], []
+            for i, b in enumerate(band_ids):
+                res = _Internal.detector_view_angles(
+                    granule_dir, band_names[b], det_grids[b],
+                    np.asarray(vza)[i] if per_band else np.asarray(vza),
+                    np.asarray(vaa)[i] if per_band else np.asarray(vaa),
+                    step, target_res, out_shape, target_chunks)
+                if res is None:
+                    # No raster footprint: keep the merged-grid interpolation
+                    vz, va = ds[str(names.vza)], ds[str(names.vaa)]
+                    if per_band:
+                        vz, va = vz.isel(bands=i), va.isel(bands=i)
+                    res = (vz.transpose(d['y'], d['x']).data,
+                           va.transpose(d['y'], d['x']).data)
+                vza_bands.append(res[0])
+                vaa_bands.append(res[1])
+            for name, arrs in [(names.vza, vza_bands), (names.vaa, vaa_bands)]:
+                if per_band:
+                    da = xr.DataArray(dask_array.stack(arrs), dims=('bands', d['y'], d['x']))
+                else:
+                    da = xr.DataArray(arrs[0], dims=(d['y'], d['x']))
+                ds[str(name)] = da.astype('float32')
+
         return ds
+
+    @staticmethod
+    def detector_view_angles(
+            granule_dir: Path,
+            band_name: str,
+            det_grids: dict,
+            vza_merged: np.ndarray,
+            vaa_merged: np.ndarray,
+            step: tuple,
+            target_res: int,
+            out_shape: tuple,
+            chunks: tuple,
+        ):
+        """Viewing angles of one band, assembled detector by detector.
+
+        The viewing angles are given in the metadata on a 5 km tie-point grid for
+        each (band, detector), and are discontinuous across detectors (in
+        particular the azimuth, between odd and even detectors). Merging the
+        detector grids before interpolating produces staircase-like detector
+        boundaries following the tie-point grid, and blends neighbouring detectors
+        within one tie-point cell.
+
+        Instead, each detector grid is first converted to the components
+        u = tan(vza)*sin(vaa), v = tan(vza)*cos(vaa) (smooth, and free of the
+        azimuth wrap and nadir singularity), extended to the whole grid by a
+        low-order polynomial fit, and bilinearly interpolated. Each pixel then
+        takes the values of the detector given by the raster footprint
+        MSK_DETFOO_<band>.jp2. Pixels outside all footprints use the merged grid.
+
+        Returns a (vza, vaa) pair of lazy dask arrays of shape `out_shape`, or None
+        if the raster footprint is not available.
+        """
+        bname_ = band_name.replace('B', 'B0') if len(band_name) == 2 else band_name
+        files = list((granule_dir/'QI_DATA').glob(f'*MSK_DETFOO_{bname_}.jp2'))
+        if len(files) != 1:
+            log.warning(f'No raster detector footprint for {band_name}, '
+                        'using merged viewing angle grids')
+            return None
+
+        # Detector index on the target grid (nearest neighbour). The file is
+        # decoded in a single task at full resolution: windowed reads re-decode
+        # the jp2 for each window, and the jp2 overviews do not preserve the
+        # detector indices.
+        def read_footprint(path):
+            with rasterio.open(path) as src:
+                full = src.read(1)
+                native_res = (abs(src.res[1]), abs(src.res[0]))  # (rows, columns)
+            idx = [np.minimum(((np.arange(n) + 0.5)*target_res/native_res[k]).astype(int),
+                              full.shape[k] - 1)
+                   for k, n in enumerate(out_shape)]
+            return np.ascontiguousarray(full[idx[0], :][:, idx[1]])
+        det = dask_array.from_delayed(
+            dask.delayed(read_footprint)(files[0]), shape=out_shape, dtype='uint8'
+        ).rechunk(chunks)
+
+        # Filled per-detector (u, v) tie-point grids
+        uv = {detid: _Internal.fill_grid_poly(_Internal.angles_to_uv(z, a))
+              for detid, (z, a) in det_grids.items()}
+        uv = {k: v for k, v in uv.items() if v is not None}
+        uv_merged = _Internal.angles_to_uv(vza_merged, vaa_merged)
+
+        # Fractional tie-point indices of the pixel centers
+        frac = [(np.arange(n) + 0.5)*target_res/s for n, s in zip(out_shape, step)]
+
+        def block(det_blk, block_info=None):
+            (r0, r1), (c0, c1) = block_info[0]['array-location']
+            fr, fc = frac[0][r0:r1], frac[1][c0:c1]
+            detids = [d for d in np.unique(det_blk) if d in uv]
+            todo = ~np.isin(det_blk, detids)
+            # Initialize with the merged grid where needed (no-data or unknown
+            # detector), then fill in the pixels of each detector
+            if todo.any():
+                u, v = _Internal.bilinear_block(uv_merged, fr, fc)
+            else:
+                u = np.empty(det_blk.shape, dtype='float32')
+                v = np.empty(det_blk.shape, dtype='float32')
+            for detid in detids:
+                m = det_blk == detid
+                ud, vd = _Internal.bilinear_block(uv[detid], fr, fc)
+                np.copyto(u, ud, where=m)
+                np.copyto(v, vd, where=m)
+            out = np.empty((2,) + det_blk.shape, dtype='float32')
+            out[0] = np.degrees(np.arctan(np.hypot(u, v)))
+            out[1] = np.degrees(np.arctan2(u, v)) % 360
+            return out
+
+        res = dask_array.map_blocks(
+            block, det, new_axis=0, chunks=((2,),) + det.chunks, dtype='float32')
+        return res[0], res[1]
+
+    @staticmethod
+    def angles_to_uv(zenith: np.ndarray, azimuth: np.ndarray) -> np.ndarray:
+        """Convert (zenith, azimuth) in degrees to the (2, ...) array of components
+        tan(zenith)*sin(azimuth), tan(zenith)*cos(azimuth)."""
+        t = np.tan(np.radians(zenith))
+        a = np.radians(azimuth)
+        return np.stack([t*np.sin(a), t*np.cos(a)])
+
+    @staticmethod
+    def fill_grid_poly(uv: np.ndarray):
+        """Fill the NaNs of (2, nr, nc) tie-point grids with a 2D polynomial fit
+        of the valid points (degree 2, or lower if under-constrained).
+        Returns None if there is no valid point."""
+        valid = np.isfinite(uv).all(axis=0)
+        if not valid.any():
+            return None
+        if valid.all():
+            return uv
+        nr, nc = valid.shape
+        R, C = np.meshgrid(np.linspace(-1, 1, nr), np.linspace(-1, 1, nc), indexing='ij')
+        for deg in (2, 1, 0):
+            terms = [R**i * C**j for i in range(deg+1) for j in range(deg+1-i)]
+            A = np.stack([t[valid] for t in terms], axis=1)
+            if A.shape[0] < 2*A.shape[1] and deg > 0:
+                continue
+            coef, _, rank, _ = np.linalg.lstsq(A, uv[:, valid].T, rcond=None)
+            if rank == A.shape[1]:
+                break
+        filled = uv.copy()
+        for k in range(2):
+            filled[k][~valid] = sum(c*t[~valid] for c, t in zip(coef[:, k], terms))
+        return filled
+
+    @staticmethod
+    def bilinear_block(grids: np.ndarray, fr: np.ndarray, fc: np.ndarray) -> np.ndarray:
+        """Separable bilinear interpolation (float32) of (k, nr, nc) grids on the
+        block of fractional row indices fr and column indices fc (1D), extrapolating
+        linearly beyond the grid. Returns an array of shape (k, len(fr), len(fc))."""
+        j = np.clip(fc.astype(int), 0, grids.shape[2]-2)
+        wc = (fc - j).astype('float32')
+        cols = (grids[:, :, j]*(1 - wc) + grids[:, :, j+1]*wc).astype('float32')
+        i = np.clip(fr.astype(int), 0, grids.shape[1]-2)
+        wr = (fr - i).astype('float32')[:, None]
+        return cols[:, i]*(1 - wr) + cols[:, i+1]*wr
     
     @staticmethod
     def update_spatial_coords(ds: xr.Dataset) -> xr.Dataset:
