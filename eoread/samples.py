@@ -45,10 +45,16 @@ class Download:
     product_id : str
         Exact product identifier as indexed by the provider (the same value
         passed to ``sand download`` on the command line).
+    api_collection : str, optional
+        Provider collection identifier (concept ID) to query directly.  When
+        set, SAND skips its naming-pattern based collection resolution —
+        required for product IDs that match no known naming pattern (e.g.
+        NASA MODIS/MERIS granules).
     """
 
     provider: str
     product_id: str
+    api_collection: str | None = None
 
 
 @dataclass(frozen=True)
@@ -149,7 +155,8 @@ def _download_sample(sample: Sample) -> Path:
     try:
         cache = _cache_dir()
         cache.mkdir(parents=True, exist_ok=True)
-        target = downloader.download_file(spec.product_id, cache)
+        target = downloader.download_file(
+            spec.product_id, cache, api_collection=spec.api_collection)
     except Exception as exc:  # noqa: BLE001 — any provider failure means "no sample"
         raise FileNotFoundError(
             f'{label}: SAND download of {spec.product_id} failed: {exc}') from None
@@ -175,26 +182,40 @@ _samples: dict[str, Sample] = {
         'Sentinel-2 MSI L2A',
         download=Download('cdse', 'S2B_MSIL2A_20250930T102739_N0511_R108_T31TFJ_20250930T142814.SAFE')),
 
-    # Sentinel-3 OLCI
+    # Sentinel-3 OLCI (downloadable: eumdac)
     # The Ceph copy of the 2016 EFR granule is not traversable (missing
     # execute bit, owner francois); the bundled 2025 granule below is used.
+    # The L1 ERR download is a different (recent) granule: EumDAC's OLCI RR
+    # archive only retains recent data, and the older archive collection
+    # (EO:EUM:DAT:0578) is not accessible with the current credentials;
+    # tests must stay granule-agnostic.
     'OLCI_L1_EFR': Sample(
         _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_1_EFR____20250101T091103_20250101T091403_20250102T113753_0180_121_050_2700_MAR_O_NT_004.SEN3',
-        'Sentinel-3 OLCI L1 EFR'),
+        'Sentinel-3 OLCI L1 EFR',
+        download=Download('eumdac', 'S3A_OL_1_EFR____20250101T091103_20250101T091403_20250102T113753_0180_121_050_2700_MAR_O_NT_004.SEN3')),
     'OLCI_L1_ERR': Sample(
         _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_1_ERR____20230314T234741_20230315T003137_20230316T043356_2636_096_287______MAR_O_NT_002.SEN3',
-        'Sentinel-3 OLCI L1 ERR (reduced resolution)'),
+        'Sentinel-3 OLCI L1 ERR (reduced resolution)',
+        download=Download('eumdac', 'S3A_OL_1_ERR____20261101T081301_20261101T085718_20261102T103825_2657_145_349______MAR_O_NT_004.SEN3')),
     'OLCI_L2_WFR': Sample(
         _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_2_WFR____20250930T063451_20250930T063751_20251001T125533_0180_131_077_2520_MAR_O_NT_003.SEN3',
-        'Sentinel-3 OLCI L2 WFR'),
+        'Sentinel-3 OLCI L2 WFR',
+        download=Download('eumdac', 'S3A_OL_2_WFR____20250930T063451_20250930T063751_20251001T125533_0180_131_077_2520_MAR_O_NT_003.SEN3')),
     'OLCI_L2_WRR': Sample(
         _CEPH / 'SENTINEL-3-OLCI' / 'S3A_OL_2_WRR____20250929T233650_20250930T002104_20251001T022537_2654_131_073______MAR_O_NT_003.SEN3',
-        'Sentinel-3 OLCI L2 WRR'),
+        'Sentinel-3 OLCI L2 WRR',
+        download=Download('eumdac', 'S3A_OL_2_WRR____20250929T233650_20250930T002104_20251001T022537_2654_131_073______MAR_O_NT_003.SEN3')),
 
-    # MODIS
+    # MODIS (downloadable: nasa)
+    # The V006 granule on Ceph was superseded in CMR by the V061 reprocessing
+    # of the same orbit (the older LAADS collection no longer exists); tests
+    # must stay granule-agnostic.  The product ID matches no SAND naming
+    # pattern, so the LAADS collection is given explicitly.
     'MODIS_L1_AQUA': Sample(
         _CEPH / 'MODIS_AQUA' / 'MYD021KM.A2018238.1740.006.2018239145651.hdf',
-        'Aqua MODIS L1B'),
+        'Aqua MODIS L1B',
+        download=Download('nasa', 'MYD021KM.A2018238.1740.061.2018239150109.hdf',
+                          api_collection='C1379758607-LAADS')),
 
     # Landsat OLI
     'OLI_L1TP_L8': Sample(
@@ -246,10 +267,10 @@ _samples: dict[str, Sample] = {
         'MERIS L1 SAFE full resolution'),
 
     # VENµS (downloadable: cnes)
-    # The downloadable granule is the BOMBETOK tile (Madagascar, EPSG:32738),
+    # FIXME : The downloadable granule is the BOMBETOK tile (Madagascar, EPSG:32738),
     # not the Ceph VILAINE tile (France, EPSG:32630); tests must derive the
     # expected CRS from the product itself, never pin a zone.
-    # NOTE: known CNES STAC API issue — identifier "contains" is fuzzy token
+    # note: known CNES STAC API issue — identifier "contains" is fuzzy token
     # search, so the exact-ID query matches ~49 granules and SAND's
     # uniqueness check fails; these downloads degrade to a clean skip until
     # fixed upstream (the IDs above are correct).
@@ -263,6 +284,13 @@ _samples: dict[str, Sample] = {
         download=Download('cnes', 'VENUS-XS_20240718-055823-000_L2A_BOMBETOK_D')),
 
     # PACE OCI
+    # FIXME : Not downloadable (known issue):
+    # CMR's producer_granule_id carries the .nc suffix
+    # (PACE_OCI....L1B.V3.nc) but SAND strips it before the granule query
+    # (drop_extension), so download_file finds no product. The exact Ceph
+    # granule exists in C3392966952-OB_CLOUD; once SAND is fixed, register a
+    # Download with api_collection='C3392966952-OB_CLOUD'. See the
+    # REFACTORING.md decision log.
     'PACE_L1B': Sample(
         _CEPH / 'PACE_OCI' / 'PACE_OCI.20250430T130447.L1B.V3.nc',
         'PACE OCI L1B'),

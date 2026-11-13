@@ -94,8 +94,8 @@ class _StubDownloader:
         self.skip_create = skip_create
         self.calls = []
 
-    def download_file(self, product_id, directory):
-        self.calls.append((product_id, Path(directory)))
+    def download_file(self, product_id, directory, api_collection=None):
+        self.calls.append((product_id, Path(directory), api_collection))
         if self.error is not None:
             raise self.error
         target = Path(directory) / product_id
@@ -122,7 +122,10 @@ def test_download_registry_opt_in_list():
     downloadable = {name for name, s in samples_module._samples.items()
                     if s.download is not None}
     assert downloadable == {'MSI_L1C', 'MSI_L2A', 'ECOSTRESS_L1C',
-                            'VENUS_L1C', 'VENUS_L2A'}
+                            'VENUS_L1C', 'VENUS_L2A',
+                            'OLCI_L1_EFR', 'OLCI_L1_ERR',
+                            'OLCI_L2_WFR', 'OLCI_L2_WRR',
+                            'MODIS_L1_AQUA'}
     for name in downloadable:
         spec = samples_module._samples[name].download
         assert spec.provider in samples_module._PROVIDERS
@@ -159,8 +162,22 @@ def test_download_success_uses_cache_dir(monkeypatch, tmp_path):
     monkeypatch.setattr(samples_module, '_make_downloader', lambda p: stub)
 
     assert _missing_sample().resolve() == cache / 'PID'
-    # the stub was asked to fetch PID into the cache root
-    assert stub.calls == [('PID', cache)]
+    # the stub was asked to fetch PID into the cache root, with no explicit
+    # collection (pattern-based resolution)
+    assert stub.calls == [('PID', cache, None)]
+
+
+def test_download_api_collection_passthrough(monkeypatch, tmp_path):
+    # An explicit api_collection must reach the provider downloader.
+    cache = tmp_path / 'cache'
+    monkeypatch.setenv('EOREAD_SAMPLES_DIR', str(cache))
+    stub = _StubDownloader()
+    monkeypatch.setattr(samples_module, '_make_downloader', lambda p: stub)
+
+    sample = Sample(Path('/nonexistent/sample'), 'test product',
+                    download=Download('nasa', 'PID', api_collection='C123-PROV'))
+    assert sample.resolve() == cache / 'PID'
+    assert stub.calls == [('PID', cache, 'C123-PROV')]
 
 
 def test_download_missing_target_is_loud(monkeypatch, tmp_path):

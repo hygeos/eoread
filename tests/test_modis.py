@@ -17,6 +17,7 @@ there is no v1 mapping (pinned by test_l1_v1_clean_break).
 """
 
 import gc
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -135,13 +136,14 @@ def test_l1_cwav(l1):
     assert float(cw.sel({str(names.bands): 'B32'})) == pytest.approx(12042.3)
 
 
-def test_l1_attrs(l1):
+def test_l1_attrs(l1, level1_modisa_myd):
     assert l1.attrs[str(names.resolution)] == 1000
     assert l1.attrs[str(names.sensor)] == 'MODIS'
     assert l1.attrs[str(names.platform)] == 'Aqua'
     assert l1.attrs[str(names.shortname)] == 'MYD021KM'
-    assert l1.attrs[str(names.product_name)] \
-        == 'MYD021KM.A2018238.1740.006.2018239145651.hdf'
+    # Granule-agnostic: the product name is that of the resolved sample
+    # (the Ceph V006 granule or the downloaded V061 reprocessing).
+    assert l1.attrs[str(names.product_name)] == Path(level1_modisa_myd).name
     assert l1.attrs[str(names.crs)] == 'EPSG:4326'
     # Acquisition start from the granule name (DOY 238 of 2018), not the
     # production datetime.
