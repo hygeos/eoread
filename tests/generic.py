@@ -190,12 +190,17 @@ class Test:
     def latlon(ds, flat_proj: bool = True):
         assert str(names.lat) in ds and str(names.lon) in ds
         
-        # Check that latlon vary in the right way
-        col = ds[str(names.lat)].isel({names.columns: 0}).values
+        # Check that latlon vary in the right way.  The orientation is
+        # sampled at the grid center rather than the edges: readers define
+        # the canonical flip from a two-pixel check at the center, and a long
+        # polar swath can be twisted — its across-track longitude runs
+        # westward at one end while running eastward through the middle —
+        # where no single flip orients every row the same way.
+        col = ds[str(names.lat)].isel({names.columns: ds.sizes[str(names.columns)] // 2}).values
         if col[0] > col[-1]:
             raise ValueError('Latitude is oriented to the south. Please flip it')
 
-        row = ds[str(names.lon)].isel({names.rows: 0}).values
+        row = ds[str(names.lon)].isel({names.rows: ds.sizes[str(names.rows)] // 2}).values
         if row[0] > row[-1]:
             raise ValueError('Longitude is oriented to the west. Please flip it')
         
