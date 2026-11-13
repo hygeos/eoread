@@ -190,9 +190,16 @@ class _OlciBase(Reader):
         ds = self._instrument_data(ds, dirname, labels, nc)
 
         # 6. Per-pixel spectral quantities (wavelength, solar flux) -------------
-        ds[str(names.wav)] = self._per_pixel(ds['lambda0'], ds['detector_index'])
+        # detector_index is int16 with -1 = invalid (kept raw from the file's
+        # _FillValue); clip invalids to 0 for the gather and mask them back to
+        # NaN, so F0/wav are NaN where no detector is assigned rather than
+        # silently wrapping to the last detector under negative indexing.
+        det = ds['detector_index']
+        valid = det >= 0
+        idx = det.where(valid, 0).astype('int32')
+        ds[str(names.wav)] = self._per_pixel(ds['lambda0'], idx).where(valid)
         ds[str(names.wav)].attrs.update(ds['lambda0'].attrs)
-        ds[str(names.F0)] = self._per_pixel(ds['solar_flux'], ds['detector_index'])
+        ds[str(names.F0)] = self._per_pixel(ds['solar_flux'], idx).where(valid)
         ds[str(names.F0)].attrs.update(ds['solar_flux'].attrs)
 
         # 7. Level-specific layers ----------------------------------------------
@@ -383,7 +390,11 @@ class _OlciBase(Reader):
 
     @staticmethod
     def _per_pixel(table: xr.DataArray, detector_index: xr.DataArray) -> xr.DataArray:
-        """Gather the per-detector value of a (bands, detectors) table for each pixel."""
+        """Gather the per-detector value of a (bands, detectors) table per pixel.
+
+        The caller clips invalid detector indices (``detector_index < 0``) to 0
+        before gathering and masks those pixels back to NaN on the result.
+        """
         return xr.apply_ufunc(
             lambda t, di: t[:, 0, 0, di],
             table,
