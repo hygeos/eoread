@@ -84,6 +84,7 @@ quartodoc:
         - readers.meris
         - readers.modis
         - readers.msi
+        - readers.nasa
         - readers.olci
         - readers.oli
         - readers.pace

@@ -4198,6 +4198,7 @@ packages:
   - pyepr
   - core @ git+https://github.com/hygeos/core.git ; extra == 'git'
   - sand @ git+https://github.com/hygeos/SAND.git ; extra == 'samples'
+  - cdsapi ; extra == 'era5'
   requires_python: '>=3.10,<3.14'
 - pypi: git+https://github.com/hygeos/SAND.git#75a97d7b51a83430a82417898a70a284b10d7197
   name: sand

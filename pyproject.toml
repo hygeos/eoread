@@ -29,6 +29,10 @@ samples = [
     # optional: enables Reader.get_sample() downloads (lazy import in samples.py)
     "sand @ git+https://github.com/hygeos/SAND.git",
 ]
+era5 = [
+    # optional: ERA5 provider client (lazy import in ancillary/era5.py)
+    "cdsapi",
+]
 
 [build-system]
 requires = ["poetry-core"]
