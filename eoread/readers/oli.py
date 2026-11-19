@@ -18,10 +18,10 @@ REFACTORING.md decision log):
   'rows_pan'/'columns_pan' dims, with no resampling at all
   (`resolution=None`). Passing `resolution=15` or `30` instead puts every
   band on a single uniform grid and resamples the others onto it lazily.
-- `Rtoa` is the declared primary payload: REFLECTANCE_MULT * DN +
-  REFLECTANCE_ADD, as defined by USGS C2. The legacy reader additionally
-  divided by cos(solar zenith angle), double-applying the solar correction
-  that the published reflectance factors already include.
+- `Rtoa` is the declared primary payload: (REFLECTANCE_MULT * DN +
+  REFLECTANCE_ADD) / cos(solar zenith angle), as defined by USGS C2 (the
+  reflectance factors give the TOA planetary reflectance without correction
+  for the solar angle), as legacy.
 - `Ltoa` (W.m-2.sr-1.um-1) and `BT` (K, B10/B11 only) are declared extra
   payloads with unit attributes; in legacy they were plain variables without
   units.
@@ -219,7 +219,8 @@ class _OliBase(Reader):
         # Radiometry ----------------------------------------------------------
         # One lazy DN read per band, shared by the Ltoa/Rtoa/BT graphs. USGS
         # C2 calibration factors from the MTL; the reflectance factors (B1-B9)
-        # already fold in the solar geometry, so no cos(sza) division. In the
+        # do not include the solar geometry: Rtoa is divided by cos(sza) once
+        # the angles are read (USGS C2). In the
         # native layout (resolution=None) each band stays on its own grid and
         # is not resampled; B8 becomes the separate `Panchromatic` variable.
         ltoa_parts, rtoa_parts, bt_parts = [], [], []
@@ -307,7 +308,10 @@ class _OliBase(Reader):
         # resampled onto the target grid only in uniform-grid mode (smooth
         # fields, linear is fine). USGS stores the azimuths signed (negative
         # east of the meridian); the canonical schema keeps the unsigned [0, 180]
-        # angle, so fold them on the native grid before resampling.
+        # angle range [0, 180], but folding (abs) would change the relative
+        # azimuth (sun and view azimuths of opposite signs): they are kept in
+        # [0, 360) instead, as for MERIS/HICO/PACE, on the native grid before
+        # resampling.
         for tag, name, unsigned in (('SZA', str(names.sza), False),
                                     ('SAA', str(names.saa), True),
                                     ('VZA', str(names.vza), False),
@@ -317,12 +321,18 @@ class _OliBase(Reader):
             arr = arr.assign_coords({rows: np.arange(arr.sizes[rows]), cols: np.arange(arr.sizes[cols])})
             arr = (arr / 100.0).astype('float32')
             if unsigned:
-                arr = np.abs(arr)
+                arr = arr % 360
             if self.resolution is not None:
                 arr = spatial_resample(arr, shape, self.chunks).transpose(rows, cols)
                 if arr.dtype != np.float32:
                     arr = arr.astype('float32')
             ds[name] = arr
+
+        # TOA reflectance corrected for the solar zenith angle (USGS C2)
+        if str(names.rtoa) in ds:
+            ds[str(names.rtoa)] = (
+                ds[str(names.rtoa)] / np.cos(np.radians(ds[str(names.sza)]))
+            ).astype('float32')
 
         # QA_PIXEL kept raw uint16 on the pixel grid (decoded on demand by
         # the reader's getflag); nearest-neighbour resampling in uniform-grid
@@ -403,13 +413,15 @@ class _OliBase(Reader):
 
     @classmethod
     def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        """`QA_PIXEL` is kept raw; L1_INVALID = any USGS C2 quality bit set.
+        """`QA_PIXEL` is kept raw; L1_INVALID = fill bit (bit 0), as legacy.
 
-        Bit 0 is reserved; fill | shadow | snow/ice | water | cloud (medium
-        confidence) | cloud (high confidence). QA_RADSAT is not read in v2.
+        USGS C2 QA_PIXEL bits: 0 fill, 1 dilated cloud, 2 cirrus, 3 cloud,
+        4 cloud shadow, 5 snow, 6 clear, 7 water, 8-15 confidences. The
+        cloud/snow/clear bits are classifications, not invalid data (bit 6 is
+        set on all the clear pixels). QA_RADSAT is not read in v2.
         """
         if flag_name == GenericFlags.L1_INVALID:
-            return (ds['QA_PIXEL'] & 0b1111110) != 0
+            return (ds['QA_PIXEL'] & 1) != 0
         raise ValueError(f'Unsupported OLI flag: {flag_name!r}')
 
 

@@ -31,6 +31,7 @@ import re
 import subprocess
 import sys
 from datetime import datetime
+from eoread.tools import sun_earth_distance
 from pathlib import Path
 
 import numpy as np
@@ -153,9 +154,9 @@ def test_l1_flagreader(l1):
 
 def test_l1_flag_values(l1):
     """
-    L1_INVALID must reproduce `l1_flags != 0`, and LAND the LAND_OCEAN bit
-    (16) of l1_flags, on 100x100 slices (over water, and over a coast with
-    about 50% land)
+    L1_INVALID must reproduce the COSMETIC, SUSPECT or INVALID bits (1, 8,
+    128) of l1_flags, and LAND the LAND_OCEAN bit (16), on 100x100 slices
+    (over water, and over a coast with about 50% land)
     """
     for sl in [{'y': slice(500, 600), 'x': slice(300, 400)},
                {'y': slice(5400, 5500), 'x': slice(1000, 1100)}]:
@@ -164,7 +165,7 @@ def test_l1_flag_values(l1):
                           l1.attrs['_flag_reader']).map_blocks(sub)
         f = flags['flags'].compute()
         l1_flags = sub['l1_flags'].compute().values
-        assert np.array_equal((f & 4).astype(bool), l1_flags != 0)
+        assert np.array_equal((f & 4).astype(bool), (l1_flags & (1 | 8 | 128)) != 0)
         assert np.array_equal((f & 2).astype(bool), (l1_flags & 16) != 0)
 
 
@@ -242,6 +243,10 @@ def test_l1_F0_wav(l1):
         # Leading detector column dropped (same convention as the reader)
         table = np.loadtxt(_AUXDATA_DIR / f'{table_name}_rr.txt',
                            delimiter='\t', skiprows=1, dtype=dtype)[:, 1:]
+        if var == str(names.F0):
+            # solar flux at the acquisition date (sun-earth distance)
+            d = datetime.fromisoformat(l1.attrs[str(names.datetime)])
+            table = (table/sun_earth_distance(d)**2).astype(dtype)
         det = l1['detector_index'].isel(y=j, x=c).compute().values
         valid = det >= 0
         want = table[np.clip(det, 0, None)].transpose(2, 0, 1)

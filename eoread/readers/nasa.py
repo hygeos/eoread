@@ -79,7 +79,12 @@ class Level1_NASA(Reader):
         sbp = xr.open_dataset(
             filepath, group='/sensor_band_parameters', chunks={},
             engine='netcdf4')
-        nref = int(sbp['number_of_reflective_bands'].values)
+        # number_of_reflective_bands is a dimension in the l2gen L1C files (a
+        # scalar variable in some other versions)
+        if 'number_of_reflective_bands' in sbp.sizes:
+            nref = sbp.sizes['number_of_reflective_bands']
+        else:
+            nref = int(sbp['number_of_reflective_bands'].values)
         wav_table = np.asarray(sbp['wavelength'].values, dtype='f8')
         root.close()
         sbp.close()
@@ -316,7 +321,8 @@ class Level1_NASA(Reader):
         flags = ds['l2_flags']
         meanings = flags.attrs.get('flag_meanings')
         masks = flags.attrs.get('flag_masks')
-        if not isinstance(meanings, str) or not isinstance(masks, (str, list, tuple)):
+        # (flag_masks is read as a numpy array from the netcdf files)
+        if not isinstance(meanings, str) or not isinstance(masks, (str, list, tuple, np.ndarray)):
             raise ProductError(
                 f'{cls.sensor} {cls.level}: l2_flags carries no '
                 f'flag_meanings/flag_masks attributes')

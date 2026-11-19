@@ -626,3 +626,11 @@ def parse_hdf4_metadata(text: str) -> dict:
 
     tree, _ = parse_block(0)
     return tree
+
+def sun_earth_distance(t) -> float:
+    """
+    Sun-earth distance in AU for datetime `t` (two-term Keplerian expansion
+    of Earth's orbit, with the day of year counted from 0)
+    """
+    M = 2*np.pi*(0.9856002831*(t.timetuple().tm_yday - 1) - 3.4532858)/360.
+    return 1.00014 - 0.01671*np.cos(M) - 0.00014*np.cos(2*M)

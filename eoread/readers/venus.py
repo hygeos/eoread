@@ -447,21 +447,25 @@ class Level1C_VENUS(_VENUSBase):
 
     @classmethod
     def flag_requires(cls) -> list[str]:
-        return ['CLA_ALL', 'CLD_XS']
+        return ['USI_XS', 'CLD_XS', str(names.rtoa)]
 
     @classmethod
     def flag_dims_like(cls) -> str:
-        return 'CLA_ALL'
+        return 'USI_XS'
 
     @classmethod
     def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        """VENµS L1C flags (legacy semantics kept verbatim)."""
+        """
+        VENµS L1C flags:
+        - L1_INVALID: outside of the useful image (USI_XS == 0), or aberrant
+          pixel in any band (Rtoa is NaN). CLA_ALL (cloud altitude) is not
+          used: it is undefined on all the cloud-free pixels.
+        - CLOUD: CLD_XS != 0
+        """
         if flag_name == GenericFlags.L1_INVALID:
-            cla = ds['CLA_ALL']
-            return xr.DataArray(cla.isnull(), dims=cla.dims, coords=cla.coords)
+            return (ds['USI_XS'] == 0) | ds[str(names.rtoa)].isnull().any(str(names.bands))
         if flag_name == GenericFlags.CLOUD:
-            cld = ds['CLD_XS']
-            return xr.DataArray(cld, dims=cld.dims, coords=cld.coords)
+            return ds['CLD_XS'] != 0
         raise ValueError(f'Unsupported VENUS L1C flag: {flag_name!r}')
 
 

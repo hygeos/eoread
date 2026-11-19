@@ -253,7 +253,8 @@ def test_l1_flag_values(l1):
                       l1.attrs['_flag_reader']).map_blocks(sub)
     f = flags['flags'].compute()
     assert np.array_equal((f & 1).astype(bool), (sub['CLD_XS'] != 0).compute().values)
-    assert np.array_equal((f & 4).astype(bool), sub['CLA_ALL'].isnull().compute().values)
+    invalid = (sub['USI_XS'] == 0) | sub['Rtoa'].isnull().any('bands')
+    assert np.array_equal((f & 4).astype(bool), invalid.compute().values)
 
 
 def test_l1_subset(l1_dir):

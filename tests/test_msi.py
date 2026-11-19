@@ -125,7 +125,7 @@ def _assert_native_layout(ds, family, exact_meta=True):
 def _native_parity(reader_cls, path):
     """Native band values must be bit-identical to a uniform read at the same resolution."""
     ds = reader_cls(path, resolution=None)
-    family = 'Ltoa' if reader_cls is Level1C_MSI else 'Rtoa'
+    family = 'Rtoa'
     for res in (10, 20, 60):
         bdim = f'bands_{res}m'
         if bdim not in ds:
@@ -156,7 +156,7 @@ def test_l1_main(l1):
 
 
 def test_l1_conformance(l1):
-    generic.Test.v2_conformance(l1, primary='Ltoa')
+    generic.Test.v2_conformance(l1, primary='Rtoa')
 
 
 def test_l1_latlon(l1):
@@ -181,7 +181,7 @@ def test_l1_lazy_bands_r10(level1_msi):
     """
     ds = Level1C_MSI(level1_msi, resolution=10)
     ny, nx = ds.sizes[str(names.rows)], ds.sizes[str(names.columns)]
-    for value in ds[str(names.ltoa)].data.__dask_graph__().values():
+    for value in ds[str(names.rtoa)].data.__dask_graph__().values():
         if isinstance(value, np.ndarray):
             assert value.size < ny * nx, \
                 'full-resolution band array materialized at construction time'
@@ -241,7 +241,7 @@ def test_l1_time(level1_msi, chunks):
 def test_l1_v1_compat(level1_msi):
     ds = Level1C_MSI(level1_msi, resolution=60)
     old = v1(ds)
-    assert 'Ltoa' not in old and 'Rtoa' in old
+    assert 'Rtoa' in old
     assert 'schema_version' not in old.attrs
 
 
@@ -249,8 +249,8 @@ def test_l1_resolution_none(level1_msi):
     """Native layout (resolution=None): per-resolution stacks on their own grids."""
     ds = Level1C_MSI(level1_msi, resolution=None)
     # No uniform-layout payload; the finest stack is the declared primary.
-    assert 'Ltoa' not in ds and 'Ltoa_10m' in ds
-    _assert_native_layout(ds, 'Ltoa')
+    assert 'Rtoa' not in ds and 'Rtoa_10m' in ds
+    _assert_native_layout(ds, 'Rtoa')
 
 
 def test_l1_native_parity(level1_msi):
@@ -259,10 +259,10 @@ def test_l1_native_parity(level1_msi):
 
 
 def test_l1_native_v1_compat(level1_msi):
-    """Native stacks get the same Ltoa->Rtoa rename as the uniform payload."""
+    """Native stacks keep their Rtoa names (no rename)."""
     ds = Level1C_MSI(level1_msi, resolution=None)
     old = v1(ds)
-    assert 'Ltoa_10m' not in old and 'Rtoa_10m' in old
+    assert 'Rtoa_10m' in old
     assert 'schema_version' not in old.attrs
 
 

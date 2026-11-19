@@ -12,8 +12,8 @@ REFACTORING.md decision log):
 
 - The output is south-up: row 0 is the southern edge of the tile (canonical
   orientation). Legacy outputs were north-up.
-- L1C payload is `Ltoa` (TOA radiance) carrying a `unit` attribute; legacy
-  misnamed it `Rtoa` without unit (`eoread.compat.v1` renames it back).
+- L1C payload is `Rtoa`: the L1C product provides the TOA reflectance (digital
+  counts divided by QUANTIFICATION_VALUE), dimensionless, as legacy.
 - L2A keeps band B8 (legacy dropped it) and, like legacy, reads each band from
   the product's own pre-downsampled file at the requested resolution when one
   exists; bands without a file at that resolution fall back to the finest
@@ -22,7 +22,7 @@ REFACTORING.md decision log):
 - B10 is absent from baseline-5 products; missing bands are skipped with a log
   message, never dropped by name.
 - `resolution=None` keeps every band on its own native grid (no resampling):
-  the payloads are the stacks `Ltoa_10m` / `Ltoa_20m` / `Ltoa_60m` (`Rtoa_*m`
+  the payloads are the stacks `Rtoa_10m` / `Rtoa_20m` / `Rtoa_60m` (`Rtoa_*m`
   for L2A), each on its own `(bands_{res}m, y_{res}m, x_{res}m)` grid with a
   per-group `cwav_{res}m` table; lat/lon and the tie-point angles live on the
   canonical `y`/`x` reference grid at 60 m. The finest (10 m) stack is the
@@ -374,13 +374,13 @@ class _MSIBase(Reader):
     def _native_payloads(self, groups: dict, bands: list, cwvl: list) -> xr.Dataset:
         """Assemble the native per-resolution payload stacks (north-up).
 
-        Each group becomes one payload variable `{Ltoa,Rtoa}_{res}m` on its own
+        Each group becomes one payload variable `Rtoa_{res}m` on its own
         (bands_{res}m, y_{res}m, x_{res}m) grid with scientific band labels
         sorted by ascending central wavelength and a per-group `cwav_{res}m`
         table. Pixel-index coordinates are assigned after the south-up flip in
         read(). The dims are relabeled from (y, x) at assignment time.
         """
-        pv = type(self).payload_var  # 'Ltoa' / 'Rtoa'; the instance attr is the 10 m primary
+        pv = type(self).payload_var  # 'Rtoa'; the instance attr is the 10 m primary
         rows, cols = str(names.rows), str(names.columns)
         ds = xr.Dataset()
         for res in RESOLUTIONS:
@@ -457,15 +457,15 @@ class _MSIBase(Reader):
 
 
 class Level1C_MSI(_MSIBase):
-    """Sentinel-2 MSI Level-1C: top-of-atmosphere radiance (payload `Ltoa`)."""
+    """Sentinel-2 MSI Level-1C: top-of-atmosphere reflectance (payload `Rtoa`)."""
 
     level = 'L1C'
-    payload_var = str(names.ltoa)
+    payload_var = str(names.rtoa)
     sample_products = ('MSI_L1C',)
     xml_root = 'MTD_MSIL1C.xml'
     # Native payload dtype: the JP2 decodes to float32 and the calibration
     # arithmetic keeps it there (NEP 50 scalar ops); legacy emitted float32.
-    # Do not upcast — a float64 Ltoa doubles the full-compute peak RSS.
+    # Do not upcast — a float64 Rtoa doubles the full-compute peak RSS.
     payload_dtype = 'float32'
 
     def _quantification(self, product_image: dict) -> float:

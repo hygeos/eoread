@@ -53,7 +53,7 @@ from core.tools import getflag
 from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
 from eoread.transforms.angles import tiepoint_angles
-from eoread.tools import filter_metadata, spatial_resample
+from eoread.tools import filter_metadata, spatial_resample, sun_earth_distance
 
 #: User guide for the MERIS L1 product (legacy attribute kept).
 USER_GUIDE = 'https://archive.org/details/manualzilla-id-5933919/page/n13/mode/2up'
@@ -205,11 +205,19 @@ class Level1_MERIS(Reader):
         first = prod.get_band(radiance_names[0])
         if first.unit is not None:
             ds[str(names.ltoa)].attrs['unit'] = first.unit
+            ds[str(names.ltoa)].attrs['units'] = first.unit  # (used by the unit conversions)
         ds[str(names.ltoa)].attrs['description'] = str(first.description)
 
         # 3. Canonical geometry / angle names
         ds = ds.rename({'view_zenith': str(names.vza), 'view_azimuth': str(names.vaa),
                         'sun_zenith': str(names.sza), 'sun_azimuth': str(names.saa)})
+
+        # 3b. Embedded meteo data with standard names and units (as the SAFE
+        #     reader and legacy; the raw tie fields are kept)
+        ds['horizontal_wind'] = np.sqrt(ds['zonal_wind']**2 + ds['merid_wind']**2)
+        ds['horizontal_wind'].attrs.update(units='m/s', description='Wind speed')
+        ds['sea_level_pressure'] = ds['atm_press'].assign_attrs(units='hPa')
+        ds['total_column_ozone'] = ds['ozone'].assign_attrs(units='Dobson')
 
         # 4. Per-pixel solar spectral flux and central wavelength, gathered
         #    lazily from the per-detector characterization tables (always
@@ -223,6 +231,13 @@ class Level1_MERIS(Reader):
             # The TSV carries a leading detector column; the data is per band.
             table = np.loadtxt(_AUXDATA_DIR / f'{table_name}_{variant}.txt',
                                delimiter='\t', skiprows=1, dtype=dtype)[:, 1:]
+            if var == str(names.F0):
+                # solar flux at the acquisition date: corrected for the
+                # sun-earth distance (as legacy and the SAFE solar_flux)
+                dstart = _read_date(metadata['SENSING_START'])
+                dstop = _read_date(metadata['SENSING_STOP'])
+                table = (table/sun_earth_distance(dstart + (dstop - dstart)//2)**2
+                         ).astype(dtype)
             assert table.shape[1] == nb_bands, \
                 f'{table_name}_{variant} table has {table.shape[1]} bands, expected {nb_bands}'
             # `t=table` binds the per-iteration table: a bare closure would
@@ -235,7 +250,10 @@ class Level1_MERIS(Reader):
                                      chunks=(det_da.chunks[0], det_da.chunks[1], (nb_bands,)))
             ds[var] = xr.DataArray(gathered.transpose(2, 0, 1),
                                    dims=(bands, rows, cols)).where(valid).chunk({bands: 1})
-            ds[var].attrs['unit'] = 'mW/(m^2*sr*nm)' if var == str(names.F0) else 'nm'
+            # solar flux in mW/(m^2*nm), as the per-detector table (no sr)
+            unit = 'mW/(m^2*nm)' if var == str(names.F0) else 'nm'
+            ds[var].attrs['unit'] = unit
+            ds[var].attrs['units'] = unit  # (used by the unit conversions)
 
         # 5. Canonical orientation: row 0 = southern edge (single vertical flip)
         ds = ds.isel({rows: slice(None, None, -1)})
@@ -288,20 +306,21 @@ class Level1_MERIS(Reader):
     def flag_dims_like(cls) -> str:
         return 'l1_flags'
 
-    # Bit of the LAND_OCEAN flag in l1_flags (set over land), as resolved by
-    # epr from the product data dictionary
+    # Bits of l1_flags, as resolved by epr from the product data dictionary:
+    # COSMETIC 1, DUPLICATED 2, GLINT_RISK 4, SUSPECT 8, LAND_OCEAN 16,
+    # BRIGHT 32, COASTLINE 64, INVALID 128
+    L1_FLAGS_INVALID = 1 | 8 | 128   # COSMETIC, SUSPECT or INVALID
     L1_FLAGS_LAND_OCEAN = 16
 
     @classmethod
     def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
         """
-        Nonzero ``l1_flags`` marks an invalid pixel; LAND is the LAND_OCEAN bit
-        of ``l1_flags``.
+        L1_INVALID: COSMETIC, SUSPECT or INVALID bit of ``l1_flags`` (as
+        legacy; the other bits, e.g. DUPLICATED, BRIGHT or LAND_OCEAN, do not
+        make a pixel invalid). LAND: LAND_OCEAN bit of ``l1_flags``.
         """
         if flag_name == GenericFlags.L1_INVALID:
-            # Canonical bool contract; raiseflag's `condition != 0` keeps the
-            # output identical to the legacy raw-value return.
-            return (ds['l1_flags'] != 0)
+            return (ds['l1_flags'] & cls.L1_FLAGS_INVALID) != 0
         if flag_name == GenericFlags.LAND:
             return (ds['l1_flags'] & cls.L1_FLAGS_LAND_OCEAN) != 0
         raise ValueError(f'Unsupported MERIS flag: {flag_name!r}')

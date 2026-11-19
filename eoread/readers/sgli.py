@@ -210,8 +210,10 @@ class Level1B_SGLI(Reader):
             # No cast: counts * float32 attrs stay float32, and mus is
             # float32 (angles cast above), so reflectance lands in float32,
             # as in legacy.
-            part = (((lt & np.uint16(lt.attrs['Mask']))
-                     * lt.attrs['Slope_reflectance']
+            # DN Mask (16383): missing value, Mask - 1 (16382): saturation
+            # value; both are set to NaN (as legacy)
+            dn = lt & np.uint16(lt.attrs['Mask'])
+            part = (((dn * lt.attrs['Slope_reflectance']).where(dn < lt.attrs['Mask'] - 1)
                      + lt.attrs['Offset_reflectance']) / mus)
             part.attrs = {}
             parts.append(part)

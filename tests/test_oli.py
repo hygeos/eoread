@@ -10,9 +10,9 @@ Samples (see tests/README.md):
 
 The v1 reader has been removed; these tests pin the v2 contract: schema
 conformance, canonical south-up orientation, lazy loading and flag decoding.
-OLI has a documented clean break in eoread.compat (CLEAN_BREAKS): the v2 Rtoa
-drops the v1 /cos(sza) double correction, so no v1 compatibility mapping
-exists.
+OLI has a documented clean break in eoread.compat (CLEAN_BREAKS): the
+azimuth angles are in [0, 360) instead of the v1 signed values, so no v1
+compatibility mapping exists.
 """
 
 import gc
@@ -95,7 +95,11 @@ def test_l8_latlon(l8):
 
 
 def test_l8_angles(l8):
-    generic.Test.angles(l8)
+    # Presence only (as MSI): the azimuths span [0, 360), beyond the registry
+    # range check (maxv=180)
+    for v in (str(names.sza), str(names.saa), str(names.vza), str(names.vaa)):
+        assert v in l8
+    assert float(l8[str(names.saa)].max()) <= 360
 
 
 def test_l8_lazy_load(l8):
@@ -200,7 +204,7 @@ def test_l8_orientation(l8):
 
 
 def test_l8_rtoa_bt(level1_l8):
-    """Pin the USGS C2 calibration (no /cos(sza) division) on small windows."""
+    """Pin the USGS C2 calibration (divided by cos(sza)) on small windows."""
     ds = Level1_OLI(level1_l8, resolution=30)
     rows, cols = str(names.rows), str(names.columns)
 

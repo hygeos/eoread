@@ -14,9 +14,9 @@ in `CLEAN_BREAKS` with an explanation.
 
 Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
 
-- MSI: rename ``Ltoa`` → ``Rtoa`` (v1 misnamed TOA radiance) + schema_version
-  strip; the native-layout stacks (resolution=None, L1C only) are renamed the
-  same way (``Ltoa_10m``/``Ltoa_20m``/``Ltoa_60m`` → ``Rtoa_*m``). Documented
+- MSI: identity + schema_version strip (the L1C payload is the TOA
+  reflectance ``Rtoa``, as in v1, including the native-layout stacks
+  ``Rtoa_10m``/``Rtoa_20m``/``Rtoa_60m``). Documented
   deviations, NOT breaks: the L2A band labels are corrected where legacy's blind
   pops mislabeled B11 as 'B10' (coordinate values — this transform never touches
   coordinates); lat/lon stored float32 per the naming registry; tie-point angles
@@ -38,8 +38,8 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   labels are scientific names (``B1``...``B36``, TDI pairs ``B13HG``/
   ``B14HG``) sorted by ascending cwav where legacy used the file-native float
   strings in file block order (coordinate values; moot given the clean break).
-- OLI: clean break (see ``CLEAN_BREAKS``) — Rtoa double solar correction,
-  single bands grid, unsigned azimuths.
+- OLI: clean break (see ``CLEAN_BREAKS``) — azimuths in [0, 360) instead of
+  the signed file values (same geometry).
 - MERIS: identity + schema_version strip (all payloads kept their v1 names;
   Ltoa and every full-grid field are bit-identical to legacy at mirrored rows).
   Documented deviations, NOT breaks: south-up flip (v2 row i carries legacy
@@ -166,12 +166,7 @@ from core.geo.naming import names
 #: Per-sensor v2→v1 renames, applied when ds.attrs['sensor'] matches.
 #: Only entries whose name actually changed between v1 and v2.
 _V1_RENAMES = {
-    # MSI L1C: the payload is TOA radiance; v1 misnamed it Rtoa (see REFACTORING.md §5).
-    # The native-layout stacks (resolution=None) are renamed the same way.
-    'MSI': {str(names.ltoa): str(names.rtoa),
-            f'{str(names.ltoa)}_10m': f'{str(names.rtoa)}_10m',
-            f'{str(names.ltoa)}_20m': f'{str(names.rtoa)}_20m',
-            f'{str(names.ltoa)}_60m': f'{str(names.rtoa)}_60m'},
+    # MSI L1C: the payload is the TOA reflectance, Rtoa as in v1 (no rename).
 }
 
 # MSI L2A band labels: the legacy reader built its band lists with blind pops
@@ -187,17 +182,12 @@ CLEAN_BREAKS = {
     'MODIS': ('v2 Ltoa differs from the legacy values (the radiance formula is '
               'scale * (raw - offset) per PUG M1054E; the legacy reader used '
               'scale * raw + offset)'),
-    # OLI L1TP: v2's Rtoa drops the legacy /cos(sza) division — the USGS C2
-    # reflectance factors already fold in the solar geometry, so dividing
-    # again was a double correction (REFACTORING.md decision log). The default
-    # layout now matches legacy (10 bands at 30 m + separate Panchromatic at
-    # 15 m), but the azimuth angles are folded to the unsigned [0, 180]
-    # canonical range instead of the signed file values. v1() cannot reproduce
-    # the legacy values.
-    'OLI': ('v2 Rtoa differs from the legacy values (the /cos(sza) division is '
-            'removed: the USGS C2 reflectance factors already include the solar '
-            'correction), and the azimuth angles are unsigned [0, 180] instead '
-            'of the signed file values'),
+    # OLI L1TP: Rtoa is divided by cos(sza) as in legacy (the USGS C2
+    # reflectance factors give the TOA reflectance without correction for the
+    # solar angle). The azimuth angles are in [0, 360) instead of the signed
+    # file values (same geometry).
+    'OLI': ('the azimuth angles are in [0, 360) instead of the signed file '
+            'values'),
 }
 
 
