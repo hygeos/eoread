@@ -157,6 +157,17 @@ def Level1_MERIS_ENVISAT(
     ).chunk(chunks)
     ds['l1_invalid'].attrs.update(description='Invalid pixel (COSMETIC, SUSPECT or INVALID flag set)')
 
+    # Land flag: LAND_OCEAN bit (set over land)
+    if verbose: log.debug('load l1_land')
+    raster = epr.create_bitmask_raster(prod.get_scene_width(), prod.get_scene_height())
+    with lock:
+        prod.read_bitmask_raster('l1_flags.LAND_OCEAN', 0, 0, raster)
+    ds['l1_land'] = xr.DataArray(
+        raster.data.astype(bool),
+        dims=(str(names.rows), str(names.columns)),
+    ).chunk(chunks)
+    ds['l1_land'].attrs.update(description='Land pixel (LAND_OCEAN flag set)')
+
     # Rename several variables and compile radiance rasters
     if verbose: log.debug('concatenate ltoa rasters')
     ds = _Internal.rename_variables(ds)
@@ -285,8 +296,8 @@ class FlagsReader_MERIS(FlagsReaderBase):
     
     def requires(self) -> list[str]:
         """Variables required for flag determination."""
-        return ['l1_invalid']
-    
+        return ['l1_invalid', 'l1_land']
+
     def dims_like(self) -> str:
         """Returns a variable name with the same shape as the output."""
         return 'l1_invalid'
@@ -298,12 +309,14 @@ class FlagsReader_MERIS(FlagsReaderBase):
         Parameters
         ----------
         ds : xr.Dataset
-            MERIS dataset containing the l1_invalid variable.
+            MERIS dataset containing the l1_invalid and l1_land variables.
         flag_name : GenericFlags
-            Standard flag identifier (currently only L1_INVALID supported).
+            Standard flag identifier (L1_INVALID or LAND).
         """
         if flag_name == GenericFlags.L1_INVALID:
             return ds['l1_invalid']
+        elif flag_name == GenericFlags.LAND:
+            return ds['l1_land']
         else:
             raise ValueError(f"Unsupported flag: {flag_name}")
 
