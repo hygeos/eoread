@@ -152,12 +152,20 @@ def test_l1_flagreader(l1):
 
 
 def test_l1_flag_values(l1):
-    """L1_INVALID must reproduce `l1_flags != 0` on a 100x100 slice."""
-    sub = l1.isel(y=slice(500, 600), x=slice(300, 400))
-    flags = FlagsInit({GenericFlags.L1_INVALID: 4}, 'uint8',
-                      l1.attrs['_flag_reader']).map_blocks(sub)
-    f = flags['flags'].compute()
-    assert np.array_equal((f & 4).astype(bool), (sub['l1_flags'] != 0).compute().values)
+    """
+    L1_INVALID must reproduce `l1_flags != 0`, and LAND the LAND_OCEAN bit
+    (16) of l1_flags, on 100x100 slices (over water, and over a coast with
+    about 50% land)
+    """
+    for sl in [{'y': slice(500, 600), 'x': slice(300, 400)},
+               {'y': slice(5400, 5500), 'x': slice(1000, 1100)}]:
+        sub = l1.isel(sl)
+        flags = FlagsInit({GenericFlags.L1_INVALID: 4, GenericFlags.LAND: 2}, 'uint8',
+                          l1.attrs['_flag_reader']).map_blocks(sub)
+        f = flags['flags'].compute()
+        l1_flags = sub['l1_flags'].compute().values
+        assert np.array_equal((f & 4).astype(bool), l1_flags != 0)
+        assert np.array_equal((f & 2).astype(bool), (l1_flags & 16) != 0)
 
 
 def test_l1_subset(l1_dir):

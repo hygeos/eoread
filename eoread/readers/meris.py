@@ -288,13 +288,22 @@ class Level1_MERIS(Reader):
     def flag_dims_like(cls) -> str:
         return 'l1_flags'
 
+    # Bit of the LAND_OCEAN flag in l1_flags (set over land), as resolved by
+    # epr from the product data dictionary
+    L1_FLAGS_LAND_OCEAN = 16
+
     @classmethod
     def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        """Nonzero ``l1_flags`` marks an invalid pixel."""
+        """
+        Nonzero ``l1_flags`` marks an invalid pixel; LAND is the LAND_OCEAN bit
+        of ``l1_flags``.
+        """
         if flag_name == GenericFlags.L1_INVALID:
             # Canonical bool contract; raiseflag's `condition != 0` keeps the
             # output identical to the legacy raw-value return.
             return (ds['l1_flags'] != 0)
+        if flag_name == GenericFlags.LAND:
+            return (ds['l1_flags'] & cls.L1_FLAGS_LAND_OCEAN) != 0
         raise ValueError(f'Unsupported MERIS flag: {flag_name!r}')
 
 
