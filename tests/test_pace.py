@@ -126,6 +126,16 @@ def test_l1b_angles(l1):
             f'{var} out of range [{lo}, {hi}], got [{v.min()}, {v.max()}]'
 
 
+def test_l1b_altitude(l1):
+    """Terrain height of the product, provided as altitude (m)."""
+    alt = l1['altitude']
+    assert alt.dims == (str(names.rows), str(names.columns))
+    assert alt.attrs['units'] == 'm'
+    values = alt.values
+    assert np.isfinite(values).mean() > 0.9
+    assert -500 < np.nanmin(values) and np.nanmax(values) < 9000
+
+
 def test_l1b_lazy_load(l1):
     generic.Test.lazy_load(l1)
 

@@ -29,6 +29,8 @@ REFACTORING.md decision log):
   compute time (latent bug fixed; identical result for the {0, 1} encoding).
 - The ``shortname`` ('PACE_OCI') and ``crs`` ('EPSG:4326') attributes are now
   set (legacy did not).
+- The terrain height of the product (``geolocation_data/height``) is provided
+  as ``altitude`` (m), as legacy.
 - ``resolution`` keeps legacy's hardcoded 1200 m: the product carries no
   data-driven spacing field (measured along-track spacing on the sample is
   ~1.1 km; the cross-track spacing varies up to ~6 km near the poles).
@@ -108,6 +110,10 @@ class Level1B_PACE_OCI(Reader):
             'solar_zenith': str(names.sza),
             'watermask': 'water',
         })
+        # Terrain height of the product (geolocation_data/height), as altitude
+        if 'height' in ds:
+            ds = ds.rename_vars({'height': 'altitude'})
+            ds['altitude'].attrs.update(units='m')
 
         # TOA reflectance: the blue + red + SWIR cubes concatenated along bands.
         ds[str(names.rtoa)] = xr.concat(
