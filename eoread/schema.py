@@ -62,7 +62,7 @@ class SchemaError(ValueError):
 PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST', str(names.rho_w),
             'rho_surface', 'rho_flat')
 
-#: 2D geometry/angle variables: (registry name, mandatory)
+#: Geometry/angle variables, 2D unless listed in PER_BAND_VARS: (registry name, mandatory)
 GEOMETRY_VARS = (
     (names.lat, True),
     (names.lon, True),
@@ -71,6 +71,10 @@ GEOMETRY_VARS = (
     (names.vza, False),
     (names.vaa, False),
 )
+
+#: Geometry variables that may also be given per band, with dims
+#: (bands, y, x): the viewing angles (e.g. MSI with angle_band='all')
+PER_BAND_VARS = (str(names.vza), str(names.vaa))
 
 #: Variables that must never appear in a v2 dataset: flags are decoded on
 #: demand from the `_flag_reader` attribute (see eoread.flags)
@@ -133,8 +137,12 @@ def validate(ds: xr.Dataset, primary=None, required_vars=()) -> None:
                 errors.append(f'missing required variable {name!s}')
             continue
         var = ds[str(name)]
-        if tuple(var.dims) != grid_dims:
-            errors.append(f'{name}: dims are {tuple(var.dims)}, expected {grid_dims}')
+        allowed = [grid_dims]
+        if str(name) in PER_BAND_VARS:
+            allowed.append((str(names.bands),) + grid_dims)
+        if tuple(var.dims) not in allowed:
+            errors.append(f'{name}: dims are {tuple(var.dims)}, expected '
+                          + ' or '.join(map(str, allowed)))
         # The registry dtype is the expected precision; float64 is also
         # accepted: readers whose legacy v1 output was double (PLEIADES, PNEO,
         # SGLI) keep float64 end to end for v1 compatibility (REFACTORING.md).

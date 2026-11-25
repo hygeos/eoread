@@ -17,6 +17,8 @@ import pytest
 
 from hygeos_core.geo.naming import names
 
+from eoread.flags import GenericFlags
+
 from . import generic
 from .conftest import get_sample
 
@@ -256,6 +258,90 @@ def test_l1_resolution_none(level1_msi):
 def test_l1_native_parity(level1_msi):
     """Native bands must be bit-identical to a uniform read at the same resolution."""
     _native_parity(Level1C_MSI, level1_msi)
+
+
+@pytest.fixture(scope='module')
+def l1_angle_all(level1_msi):
+    return Level1C_MSI(level1_msi, resolution=60, angle_band='all')
+
+
+@pytest.fixture(scope='module')
+def l1_angle_b3(level1_msi):
+    return Level1C_MSI(level1_msi, resolution=60, angle_band='B3')
+
+
+_ROI = {'y': slice(500, 700), 'x': slice(500, 700)}
+
+
+def test_l1_angle_default(level1_msi):
+    """Default (angle_band=None): viewing geometry of B1, 2D, as bandId 0."""
+    ds = Level1C_MSI(level1_msi, resolution=60)
+    ds0 = Level1C_MSI(level1_msi, resolution=60, angle_band=0)
+    for v in (names.sza, names.saa, names.vza, names.vaa):
+        assert ds[str(v)].dims == (str(names.rows), str(names.columns))
+    for v in (names.vza, names.vaa):
+        assert np.array_equal(ds[str(v)].isel(_ROI), ds0[str(v)].isel(_ROI), equal_nan=True)
+
+
+def test_l1_angle_single_band(level1_msi, l1_angle_b3):
+    """A single band, by name or by bandId: same 2D viewing geometry."""
+    ds_id = Level1C_MSI(level1_msi, resolution=60, angle_band=2)
+    ds_def = Level1C_MSI(level1_msi, resolution=60)
+    for v in (names.vza, names.vaa):
+        assert l1_angle_b3[str(v)].dims == (str(names.rows), str(names.columns))
+        a = l1_angle_b3[str(v)].isel(_ROI).values
+        assert np.array_equal(a, ds_id[str(v)].isel(_ROI).values, equal_nan=True)
+        # differs from the default band (B1)
+        assert not np.array_equal(a, ds_def[str(v)].isel(_ROI).values, equal_nan=True)
+
+
+def test_l1_angle_all(l1_angle_all, l1_angle_b3):
+    """angle_band='all': (bands, y, x) viewing angles, 2D solar angles."""
+    ds = l1_angle_all
+    bands, rows, cols = str(names.bands), str(names.rows), str(names.columns)
+    for v in (names.vza, names.vaa):
+        assert ds[str(v)].dims == (bands, rows, cols)
+        assert ds[str(v)].dtype == np.float32
+        # each band matches the single-band read
+        assert np.array_equal(ds[str(v)].sel({bands: 'B3'}).isel(_ROI).values,
+                              l1_angle_b3[str(v)].isel(_ROI).values, equal_nan=True)
+    for v in (names.sza, names.saa):
+        assert ds[str(v)].dims == (rows, cols)
+    vza = ds[str(names.vza)].isel(_ROI).values
+    assert np.isfinite(vza).any()
+    # the viewing geometry differs between bands
+    assert not np.array_equal(vza[0], vza[1], equal_nan=True)
+
+
+def test_l1_angle_all_conformance(l1_angle_all):
+    generic.Test.v2_conformance(l1_angle_all, primary='Rtoa')
+
+
+def test_l1_angle_all_flags(l1_angle_all, level1_msi):
+    """With per-band geometry, L1_INVALID stays 2D: invalid where vza is NaN in any band."""
+    rows, cols = str(names.rows), str(names.columns)
+    ds_def = Level1C_MSI(level1_msi, resolution=60)
+    f_all = Level1C_MSI.getflag(l1_angle_all, GenericFlags.L1_INVALID).compute()
+    f_def = Level1C_MSI.getflag(ds_def, GenericFlags.L1_INVALID).compute()
+    assert f_all.dims == f_def.dims == (rows, cols)
+    # pixels invalid in band B1 are also invalid with all bands
+    assert bool((f_all | ~f_def).all())
+    generic.Test.flagreader(l1_angle_all.isel({rows: slice(0, 200), cols: slice(0, 200)}))
+
+
+def test_l1_angle_invalid(level1_msi):
+    for angle_band in (99, 'B99', 1.5, True):
+        with pytest.raises(ValueError):
+            Level1C_MSI(level1_msi, resolution=60, angle_band=angle_band)
+    with pytest.raises(ValueError):
+        Level1C_MSI(level1_msi, resolution=None, angle_band='all')
+
+
+def test_l2_angle_all(level2_msi):
+    """L2A: one viewing geometry per band actually read (no B10)."""
+    ds = Level2A_MSI(level2_msi, resolution=60, angle_band='all')
+    assert ds[str(names.vza)].dims == (str(names.bands), str(names.rows), str(names.columns))
+    assert 'B10' not in ds[str(names.bands)].values
 
 
 def test_l1_native_v1_compat(level1_msi):

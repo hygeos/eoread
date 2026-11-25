@@ -3,6 +3,7 @@
 Tie-point angle transforms shared by v2 readers.
 """
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -19,7 +20,9 @@ def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, nam
     For each angle `name`, expects a variable `str(name) + '_tie'` with dims
     `tie_dims` and 1D coordinate arrays of the same names holding the pixel
     positions of the tie points. Adds the full-grid variable `str(name)`
-    (float32, dims (y, x)).
+    (float32, dims (y, x)). A tie-point variable with a leading dimension
+    (e.g. bands, for per-band viewing angles) is interpolated slice by slice,
+    giving a full-grid variable with dims (<leading dim>, y, x).
 
     The interpolation is blockwise-lazy: each output chunk is interpolated from
     a small window of the tie-point grid (the target grid spans exactly the
@@ -56,8 +59,17 @@ def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, nam
     out = {}
     for name in angles:
         tie = ds[f'{name}_tie']
-        arr = _blockwise_interp(tie.data, (t_rows, t_cols), (y_pos, x_pos),
-                                (c_rows, c_cols), 'linear')
-        var = xr.DataArray(arr, dims=(str(names.rows), str(names.columns)), attrs=tie.attrs)
+        lead = [d for d in tie.dims if d not in tie_dims]
+        assert len(lead) <= 1, f'{name}_tie: unexpected dims {tie.dims}'
+        tie = tie.transpose(*lead, *tie_dims)
+        def interp(data):
+            return _blockwise_interp(data, (t_rows, t_cols), (y_pos, x_pos),
+                                     (c_rows, c_cols), 'linear')
+        if lead:
+            arr = da.stack([interp(tie.data[i]) for i in range(tie.shape[0])])
+        else:
+            arr = interp(tie.data)
+        var = xr.DataArray(arr, dims=(*lead, str(names.rows), str(names.columns)),
+                           attrs=tie.attrs)
         out[str(name)] = var.astype('float32')
     return ds.assign(out)

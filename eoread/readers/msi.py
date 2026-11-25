@@ -28,6 +28,10 @@ REFACTORING.md decision log):
   canonical `y`/`x` reference grid at 60 m. The finest (10 m) stack is the
   declared primary payload, and the `resolution` attribute carries that
   reference resolution.
+- `angle_band` selects the band whose viewing geometry (vza, vaa) is provided:
+  band B1 by default (as legacy v1), any band by name or bandId, or every band
+  with `angle_band='all'`, giving per-band viewing angles with dims
+  (bands, y, x) (uniform layout only). The solar angles are always 2D.
 """
 
 import warnings
@@ -100,12 +104,13 @@ def _discover_granule(safe: Path) -> Path:
 
 
 def _viewing_angles(grids: list, shape: tuple):
-    """Merge the per-(band, detector) viewing grids and return the band-0 pair.
+    """Merge the per-(band, detector) viewing grids.
 
     The detectors of a given band cover disjoint sub-regions of the tie-point
-    grid (NaN elsewhere); merging by NaN-fill reconstructs the full grid. The
-    merged band-0 grid is the representative viewing angle for all bands, as
-    in the legacy reader.
+    grid (NaN elsewhere); merging by NaN-fill reconstructs the full grid.
+
+    Returns two dicts {bandId: 2D tie-point grid}, for the viewing zenith and
+    azimuth angles.
     """
     vza, vaa = {}, {}
     for g in grids:
@@ -119,8 +124,8 @@ def _viewing_angles(grids: list, shape: tuple):
             else:
                 valid = ~np.isnan(data)
                 store[bandid][valid] = data[valid]
-    assert 0 in vza and 0 in vaa, 'viewing angle grids do not include bandId 0'
-    return vza[0].reshape(shape), vaa[0].reshape(shape)
+    return ({b: v.reshape(shape) for b, v in vza.items()},
+            {b: v.reshape(shape) for b, v in vaa.items()})
 
 
 class _MSIBase(Reader):
@@ -137,11 +142,30 @@ class _MSIBase(Reader):
     xml_root = None
     payload_dtype = None
 
-    def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=10):
+    def __init__(self, path, chunks=None, metadata_template=None, verbose=False, resolution=10,
+                 angle_band=None):
+        """
+        resolution: 10, 20 or 60 (m) for a uniform grid, or None for the native
+            multi-resolution layout (see the module docstring)
+        angle_band: band used for the viewing geometry (vza, vaa)
+            - None (default): first band (B1), as 2D fields
+            - int bandId (0-12) or physical band name (e.g. 'B2', 'B8A'): that
+              band, as 2D fields
+            - 'all': every band, as (bands, y, x) fields (not available with
+              resolution=None)
+            The solar angles (sza, saa) are 2D in all cases.
+        """
         if resolution is not None and resolution not in RESOLUTIONS:
             raise ValueError(
                 f'MSI: unsupported resolution {resolution!r}, expected one of (*{RESOLUTIONS}, None)')
+        if not (angle_band is None or angle_band == 'all'
+                or isinstance(angle_band, (int, str)) and not isinstance(angle_band, bool)):
+            raise ValueError(f'MSI: invalid angle_band {angle_band!r}')
+        if angle_band == 'all' and resolution is None:
+            raise ValueError(
+                "MSI: angle_band='all' requires a uniform grid (resolution 10, 20 or 60)")
         self.resolution = resolution
+        self.angle_band = angle_band
         # Native layout (resolution=None): the canonical y/x grid carries the
         # geometry at the reference resolution, and the finest (10 m) stack is
         # the declared primary payload.
@@ -175,6 +199,7 @@ class _MSIBase(Reader):
         # Band table, in metadata order; sensor-native labels kept verbatim
         specs = product_image['Spectral_Information_List']['Spectral_Information']
         bands = [s['attributes']['physicalBand'] for s in specs]
+        band_ids = [int(s['attributes']['bandId']) for s in specs]
         cwvl = [_val(s['Wavelength']['CENTRAL']) for s in specs]
         band_res = [int(_val(s['RESOLUTION'])) for s in specs]
 
@@ -214,7 +239,13 @@ class _MSIBase(Reader):
         grids = tile_angles.get('Viewing_Incidence_Angles_Grids')
         if isinstance(grids, dict):
             grids = [grids]
-        ds = self._read_angles(ds, tile_angles['Sun_Angles_Grid'], grids or [], (ny, nx))
+        if self.angle_band == 'all':
+            # one viewing geometry per band of the payload
+            angle_ids = [band_ids[i] for i in kept]
+        else:
+            angle_ids = [self._angle_band_id(bands, band_ids)]
+        ds = self._read_angles(ds, tile_angles['Sun_Angles_Grid'], grids or [], (ny, nx),
+                               angle_ids, per_band=(self.angle_band == 'all'))
 
         # 4. Canonical orientation: row 0 = southern edge (single vertical flip).
         # Every grid flips in one joint isel — assigning a pre-flipped variable
@@ -398,22 +429,50 @@ class _MSIBase(Reader):
             ds = ds.assign_coords({bdim: [bands[kept[k]] for k in sel]})
         return ds
 
-    def _read_angles(self, ds: xr.Dataset, sun: dict, grids: list, shape: tuple) -> xr.Dataset:
-        """Read the sun and viewing tie-point grids and interpolate them to (y, x)."""
+    def _angle_band_id(self, bands: list, band_ids: list) -> int:
+        """bandId of the single band used for the viewing geometry."""
+        if self.angle_band is None:
+            return band_ids[0]
+        if isinstance(self.angle_band, str):
+            if self.angle_band not in bands:
+                raise ValueError(f'MSI: angle_band {self.angle_band!r} not in bands {bands}')
+            return band_ids[bands.index(self.angle_band)]
+        if self.angle_band not in band_ids:
+            raise ValueError(f'MSI: angle_band {self.angle_band!r} not in bandIds {band_ids}')
+        return self.angle_band
+
+    def _read_angles(self, ds: xr.Dataset, sun: dict, grids: list, shape: tuple,
+                     angle_ids: list, per_band: bool = False) -> xr.Dataset:
+        """Read the sun and viewing tie-point grids and interpolate them to (y, x).
+
+        angle_ids: bandIds of the viewing grids to use; with `per_band`, one per
+        band of the payload, stacked along the bands dimension; otherwise a
+        single one, giving 2D viewing angles.
+        """
         ny, nx = shape
+        tie_dims = ('tie_rows', 'tie_columns')
         tie_vars = {
-            str(names.sza): _grid(sun['Zenith']),
-            str(names.saa): _grid(sun['Azimuth']),
+            str(names.sza): (tie_dims, _grid(sun['Zenith'])),
+            str(names.saa): (tie_dims, _grid(sun['Azimuth'])),
         }
-        vza_tie, vaa_tie = _viewing_angles(grids, tie_vars[str(names.sza)].shape)
-        tie_vars[str(names.vza)] = vza_tie
-        tie_vars[str(names.vaa)] = vaa_tie
+        vza, vaa = _viewing_angles(grids, tie_vars[str(names.sza)][1].shape)
+        missing = [b for b in angle_ids if b not in vza or b not in vaa]
+        if missing:
+            raise ProductError(f'MSI {self.level}: no viewing angle grid for bandId(s) '
+                               f'{missing} (available: {sorted(vza)})')
+        if per_band:
+            vdims = (str(names.bands), *tie_dims)
+            tie_vars[str(names.vza)] = (vdims, np.stack([vza[b] for b in angle_ids]))
+            tie_vars[str(names.vaa)] = (vdims, np.stack([vaa[b] for b in angle_ids]))
+        else:
+            tie_vars[str(names.vza)] = (tie_dims, vza[angle_ids[0]])
+            tie_vars[str(names.vaa)] = (tie_dims, vaa[angle_ids[0]])
 
         # Tie-point pixel positions in reference-grid space: the metadata gives
         # an explicit grid step (m); fall back to spanning the tile when absent.
         step_r = _val(sun['Zenith'].get('ROW_STEP'))
         step_c = _val(sun['Zenith'].get('COL_STEP'))
-        nr, nc = tie_vars[str(names.sza)].shape
+        nr, nc = tie_vars[str(names.sza)][1].shape
         if step_r is not None and step_c is not None:
             tie_rows = np.arange(nr) * (float(step_r) / self._geom_res)
             tie_cols = np.arange(nc) * (float(step_c) / self._geom_res)
@@ -421,8 +480,8 @@ class _MSIBase(Reader):
             tie_rows = np.linspace(0, ny - 1, nr)
             tie_cols = np.linspace(0, nx - 1, nc)
 
-        for name, data in tie_vars.items():
-            ds[name + '_tie'] = (('tie_rows', 'tie_columns'), data)
+        for name, (dims, data) in tie_vars.items():
+            ds[name + '_tie'] = (dims, data)
         ds = ds.assign_coords(tie_rows=tie_rows, tie_columns=tie_cols)
         return tiepoint_angles(ds, chunks=self.chunks)
 
@@ -445,14 +504,22 @@ class _MSIBase(Reader):
 
     @classmethod
     def flag_dims_like(cls) -> str:
-        return str(names.vza)
+        # sza is always 2D (vza has a bands dimension with angle_band='all')
+        return str(names.sza)
 
     @classmethod
     def getflag(cls, ds: xr.Dataset, flag_name: GenericFlags) -> xr.DataArray:
-        """No quality mask is read in v2; L1_INVALID = NaN viewing zenith angle."""
+        """No quality mask is read in v2; L1_INVALID = NaN viewing zenith angle.
+
+        With per-band viewing angles (angle_band='all'), a pixel is invalid
+        where vza is NaN in any band.
+        """
         if flag_name == GenericFlags.L1_INVALID:
             vza = ds[str(names.vza)]
-            return xr.DataArray(np.isnan(vza), dims=vza.dims, coords=vza.coords)
+            invalid = xr.DataArray(np.isnan(vza), dims=vza.dims, coords=vza.coords)
+            if str(names.bands) in invalid.dims:
+                invalid = invalid.any(str(names.bands))
+            return invalid
         raise ValueError(f'Unsupported MSI flag: {flag_name!r}')
 
 

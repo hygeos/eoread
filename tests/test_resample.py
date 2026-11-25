@@ -239,3 +239,20 @@ def test_tiepoint_angles_lazy():
 
     ref = _sync_angles_reference(ds.copy(), angles, chunks={'y': 64, 'x': 128})
     _assert_bitexact(got['sza'].values, ref['sza'].values)
+
+
+def test_tiepoint_angles_leading_dim():
+    """A tie variable with a leading (bands) dim is interpolated slice by slice."""
+    ny, nx, nr, nc = 250, 350, 9, 13
+    ds = _angles_ds(ny, nx, nr, nc, 'regular')
+    stacked = np.stack([ds['vaa_tie'].values, ds['sza_tie'].values])
+    ds3 = ds.assign(vaa_tie=(('bands', 'tie_rows', 'tie_columns'), stacked))
+    chunks = {'y': 64, 'x': 128}
+
+    got = tiepoint_angles(ds3, angles=(names.vaa,), chunks=chunks)['vaa']
+    ref = tiepoint_angles(ds.copy(), angles=(names.sza, names.vaa), chunks=chunks)
+
+    assert tuple(got.dims) == ('bands', str(names.rows), str(names.columns))
+    assert got.dtype == np.float32
+    _assert_bitexact(got.isel(bands=0).values, ref['vaa'].values)
+    _assert_bitexact(got.isel(bands=1).values, ref['sza'].values)
