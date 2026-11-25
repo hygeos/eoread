@@ -5,12 +5,12 @@ from dask.base import tokenize
 from dask.highlevelgraph import HighLevelGraph
 import numpy as np
 
-from core.interpolate import Linear, Nearest
-from core.import_utils import import_module
-from core.uncompress import uncompress
-from core.geo.naming import names
-from core.tools import only
-from core import env
+from hygeos_core.interpolate import Linear, Nearest
+from hygeos_core.import_utils import import_module
+from hygeos_core.files.uncompress import uncompress
+from hygeos_core.geo.naming import names
+from hygeos_core.tools import only
+from hygeos_core import env
 
 from typing import Union, Literal
 from xarray import DataArray, Dataset, open_dataarray
@@ -121,7 +121,7 @@ def filter_metadata(metadata: dict, template: list) -> dict:
 
 
 def xml_value(node):
-    """Unwrap a ``core.table.read_xml`` leaf.
+    """Unwrap a ``hygeos_core.table.read_xml`` leaf.
 
     A leaf element without attributes is parsed as a plain typed value; an
     element carrying attributes comes back as ``{'attributes': ..., 'values':
@@ -229,7 +229,7 @@ def _interp_block(win: np.ndarray, i0a, w0a, i0b, w0b, i1a, w1a, i1b, w1b) -> np
 
     `win` is the 2D numpy source window; per-axis index/weight arrays are 1D and
     shifted to window-local coordinates (i*_b/w*_b are None for nearest
-    neighbour). The expression mirrors core.interpolate.interp_var term by term,
+    neighbour). The expression mirrors hygeos_core.interpolate.interp_var term by term,
     so results are bit-for-bit identical to a full-grid interpolation.
     """
     if w0a is None:  # nearest neighbour: single index, unit weight
@@ -248,12 +248,12 @@ def _blockwise_interp(src, src_coords: tuple, targets: tuple, chunks: tuple,
 
     Returns a dask array of shape (len(targets[0]), len(targets[1])) whose
     element [j, i] is `src` interpolated at position targets[0][j] along axis 0
-    and targets[1][i] along axis 1, using the same core.interpolate indexers as
+    and targets[1][i] along axis 1, using the same hygeos_core.interpolate indexers as
     interp. The work is split into one dask task per output block; each task
     only touches the source window its target positions fall in (the target grid
     spans exactly the source range, so no extrapolation happens).
 
-    Results are bit-for-bit identical to a full-grid core.interpolate.interp
+    Results are bit-for-bit identical to a full-grid hygeos_core.interpolate.interp
     evaluation (same indexers, same per-point arithmetic), including the NaN*0
     propagation of zero-weight neighbour terms.
 

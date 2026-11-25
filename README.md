@@ -85,7 +85,7 @@ sub = ds.sel(lat=slice(45.5, 46.0), lon=slice(3.0, 3.5))
 The `core` package provides helpers for geographic subsetting:
 
 ```python
-from core.tools import sub_rect, sub_pt
+from hygeos_core.tools import sub_rect, sub_pt
 
 # based on a range of lat/lon
 sub = sub_rect(ds, lat_min, lon_min, lat_max, lon_max)
@@ -139,7 +139,7 @@ ds = Level1C_MSI('product.SAFE',
 
 Writing to NetCDF is supported by the `xarray.Dataset.to_netcdf` method.
 
-A helper function is provided by `core.files.to_netcdf`, which provides
+A helper function is provided by `hygeos_core.files.to_netcdf`, which provides
 features like automatic file naming, temporary files and compression.
 
 ## Chunking

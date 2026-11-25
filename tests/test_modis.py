@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 from . import generic
 from .conftest import get_sample

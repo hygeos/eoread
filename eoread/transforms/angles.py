@@ -6,7 +6,7 @@ Tie-point angle transforms shared by v2 readers.
 import numpy as np
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 from eoread.tools import _blockwise_interp
 
@@ -25,7 +25,7 @@ def tiepoint_angles(ds: xr.Dataset, angles=(names.sza, names.saa, names.vza, nam
     a small window of the tie-point grid (the target grid spans exactly the
     tie-point range), so no full-grid data is materialized at construction.
     Results are bit-for-bit identical to a full-grid
-    `core.interpolate.interp` evaluation.
+    `hygeos_core.interpolate.interp` evaluation.
 
     Parameters
     ----------

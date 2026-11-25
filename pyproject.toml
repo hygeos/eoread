@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 git = [
-    "core @ git+https://github.com/hygeos/core.git",
+    "hygeos-core @ git+https://github.com/hygeos/hygeos-core.git",
 ]
 samples = [
     # optional: enables Reader.get_sample() downloads (lazy import in samples.py)

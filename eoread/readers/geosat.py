@@ -32,9 +32,9 @@ import xarray as xr
 from scipy.interpolate import RectBivariateSpline
 from xarray import open_dataarray
 
-from core import log
-from core.geo.naming import names
-from core.table import read_xml
+from hygeos_core import log
+from hygeos_core.geo.naming import names
+from hygeos_core.table import read_xml
 
 from eoread.reader import Reader
 from eoread.tools import (filter_metadata, install_exit_cleanup, _num, xml_value)
@@ -70,9 +70,9 @@ def read_geosat_srf(
     # Local imports: keep this module importable without the static-data and
     # network stack (the smoke gate imports every reader module).
     import pandas as pd
-    from core import env
-    from core.files import mdir
-    from core.network.download import download_url
+    from hygeos_core import env
+    from hygeos_core.files import mdir
+    from hygeos_core.network.download import download_url
 
     if file_path is None:
         url = ('https://github.com/hygeos/eoread/releases/download/root/'

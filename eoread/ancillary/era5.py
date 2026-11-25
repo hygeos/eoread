@@ -7,9 +7,9 @@
 import argparse
 import warnings
 
-from core import env
-from core.tools import wrap
-from core.files.fileutils import filegen, mdir
+from hygeos_core import env
+from hygeos_core.tools import wrap
+from hygeos_core.files.fileutils import filegen, mdir
 from pathlib import Path
 from datetime import datetime, timedelta
 

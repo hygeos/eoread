@@ -2,7 +2,7 @@
 """
 Unit tests for the lazy blockwise resampling in eoread.tools / eoread.transforms.
 
-The pre-lazy implementations (eager compute + full-grid core.interpolate.interp)
+The pre-lazy implementations (eager compute + full-grid hygeos_core.interpolate.interp)
 are embedded verbatim below as bit-exact references: the lazy rewrite must
 reproduce them exactly (values, dims, dtype), while reading no pixel data at
 construction time and only local source windows at compute time.
@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 from eoread.tools import spatial_resample
 from eoread.transforms.angles import tiepoint_angles
@@ -26,7 +26,7 @@ from eoread.transforms.angles import tiepoint_angles
 
 def _sync_upsample_reference(array, output_shape, chunks, method='linear'):
     """Old over-sampling branch of spatial_resample (eager), kept verbatim."""
-    from core.interpolate import interp, Linear, Nearest
+    from hygeos_core.interpolate import interp, Linear, Nearest
     from dask.array import meshgrid, linspace
 
     array = array.squeeze()
@@ -46,7 +46,7 @@ def _sync_upsample_reference(array, output_shape, chunks, method='linear'):
 
 def _sync_angles_reference(ds, angles, tie_dims=('tie_rows', 'tie_columns'), chunks=None):
     """Old tiepoint_angles loop (eager), kept verbatim."""
-    from core.interpolate import interp, Linear
+    from hygeos_core.interpolate import interp, Linear
     ny = ds.sizes[str(names.rows)]
     nx = ds.sizes[str(names.columns)]
     tie_r, tie_c = tie_dims

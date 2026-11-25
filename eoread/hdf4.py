@@ -19,7 +19,7 @@ from dask import base
 from dask.array import Array, array
 from dask.highlevelgraph import HighLevelGraph
 
-from core import tools
+from hygeos_core import tools
 
 
 def clean_attrs(A):

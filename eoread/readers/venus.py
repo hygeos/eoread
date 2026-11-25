@@ -39,9 +39,9 @@ import numpy as np
 import xarray as xr
 from xarray import open_dataarray
 
-from core import log
-from core.geo.naming import names
-from core.table import read_xml
+from hygeos_core import log
+from hygeos_core.geo.naming import names
+from hygeos_core.table import read_xml
 
 from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType
@@ -85,10 +85,10 @@ def get_SRF(
     """
     # Local imports keep this module importable in environments without the
     # static-data/network stack (the smoke gate imports every reader module).
-    from core import env
-    from core.files import mdir
-    from core.network.download import download_url
-    from core.table import read_csv
+    from hygeos_core import env
+    from hygeos_core.files import mdir
+    from hygeos_core.network.download import download_url
+    from hygeos_core.table import read_csv
 
     if dir_data is None:
         dir_data = mdir(env.getdir('DIR_STATIC') / 'venus')

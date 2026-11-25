@@ -3,9 +3,9 @@ from enum import Enum
 
 import numpy as np
 import xarray as xr
-from core import tools
-from core.import_utils import import_module
-from core.process.blockwise import BlockProcessor, Var
+from hygeos_core import tools
+from hygeos_core.import_utils import import_module
+from hygeos_core.process.blockwise import BlockProcessor, Var
 
 
 class GenericFlags(Enum):

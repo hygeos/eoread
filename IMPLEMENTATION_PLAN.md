@@ -15,7 +15,7 @@ Companion to `REFACTORING.md` (agreed design). This plan incorporates every deci
 
 ## Canonical schema (locked)
 
-- **Registry**: `core.geo.naming.names` is the single source of truth; `eoread/schema.py::validate(ds)` checks presence/dims/dtype/ranges from it, and a payload `unit` is only reported when the product metadata states one. New names are proposed upstream in `core` before a port needs them.
+- **Registry**: `hygeos_core.geo.naming.names` is the single source of truth; `eoread/schema.py::validate(ds)` checks presence/dims/dtype/ranges from it, and a payload `unit` is only reported when the product metadata states one. New names are proposed upstream in `core` before a port needs them.
 - **Dims**: `y`, `x` (pixel indices), `bands` (sensor-native string labels: `B01…`, `b01…`). One grid per dataset.
 - **Multi-resolution**: single grid; `resolution` param chooses target (default = finest); native per-res output is an opt-in mode. Coarse bands upsample lazily via dask — no data lost.
 - **Payload**: exactly one *primary* payload var from `{Ltoa, Rtoa, BT}`, declared per class; extra declared payload vars allowed where the product natively carries them (MODIS: `Rtoa` alongside primary `Ltoa`). Radiance products emit `Ltoa` (fixes MSI L1C misnomer); reflectance keeps `Rtoa`.

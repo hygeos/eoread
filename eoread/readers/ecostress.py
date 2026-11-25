@@ -43,9 +43,9 @@ from re import findall
 import numpy as np
 import xarray as xr
 
-from core import log
-from core.geo.naming import names
-from core.tools import merge
+from hygeos_core import log
+from hygeos_core.geo.naming import names
+from hygeos_core.tools import merge
 
 from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType

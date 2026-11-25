@@ -50,10 +50,10 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from core import log
-from core.geo.naming import names
-from core.table import read_xml
-from core.tools import getflag
+from hygeos_core import log
+from hygeos_core.geo.naming import names
+from hygeos_core.table import read_xml
+from hygeos_core.tools import getflag
 
 from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader, UnsupportedProductType

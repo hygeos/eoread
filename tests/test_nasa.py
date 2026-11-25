@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 from . import generic
 from eoread.ancillary import nasa as anc_nasa

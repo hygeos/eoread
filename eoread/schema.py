@@ -4,7 +4,7 @@ Validation of the canonical output schema.
 
 Every v2 reader must emit a dataset conforming to the locked canonical schema
 (see REFACTORING.md, §5). Canonical variable names and dtypes come from
-`core.geo.naming.names`, the single source of truth; this module only *checks*
+`hygeos_core.geo.naming.names`, the single source of truth; this module only *checks*
 and never rewrites data.
 
 Band rules checked here (see REFACTORING.md, §10): band labels are scientific
@@ -27,7 +27,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 
 #: Version stamped on datasets by `Reader.finalize()`
@@ -58,7 +58,7 @@ class SchemaError(ValueError):
 
 #: The payload variables; exactly one is the declared primary per reader class.
 #: 'LST' is a single-layer (y, x) product field (ECOSTRESS LSTE) that carries
-#: no bands dimension; `lst` to be proposed upstream in core.geo.naming.names.
+#: no bands dimension; `lst` to be proposed upstream in hygeos_core.geo.naming.names.
 PAYLOADS = (str(names.ltoa), str(names.rtoa), str(names.bt), 'LST', str(names.rho_w),
             'rho_surface', 'rho_flat')
 

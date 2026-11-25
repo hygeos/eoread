@@ -13,7 +13,7 @@ import numpy as np
 from pyproj import Proj
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 
 def latlon_utm(crs: str, ulx: float, uly: float, xdim: float, ydim: float,

@@ -40,8 +40,8 @@ from pathlib import Path
 
 import numpy as np
 import xarray as xr
-from core.geo.naming import names
-from core import log
+from hygeos_core.geo.naming import names
+from hygeos_core import log
 
 from eoread.flags import GenericFlags
 from eoread.reader import Reader

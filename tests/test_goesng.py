@@ -19,7 +19,7 @@ import numpy as np
 import pysolar.solar as pysol
 import pytest
 import xarray as xr
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 from dateutil.parser import parse
 
 from . import generic

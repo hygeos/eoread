@@ -10,7 +10,7 @@ lazily (coarsen), coarse bands are upsampled — no data is lost
 
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 from eoread.tools import spatial_resample
 
 

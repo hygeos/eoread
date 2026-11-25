@@ -44,8 +44,8 @@ import pysolar.solar as pysol
 import xarray as xr
 from dateutil.parser import parse
 
-from core import log
-from core.geo.naming import names
+from hygeos_core import log
+from hygeos_core.geo.naming import names
 
 from eoread.flags import GenericFlags
 from eoread.reader import ProductError, Reader

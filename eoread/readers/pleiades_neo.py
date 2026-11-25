@@ -29,7 +29,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 from eoread.readers.pleiades import _DimapBase
 from eoread.tools import _num

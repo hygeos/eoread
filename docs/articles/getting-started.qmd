@@ -64,7 +64,7 @@ from eoread.readers.prisma import Level1_PRISMA
 
 ## Dataset Variables
 
-All readers emit the canonical variable names from the `core.geo.naming` registry, on the canonical spatial dimensions `y` (rows) and `x` (columns):
+All readers emit the canonical variable names from the `hygeos_core.geo.naming` registry, on the canonical spatial dimensions `y` (rows) and `x` (columns):
 
 | Variable | Description |
 |----------|-------------|
@@ -123,7 +123,7 @@ sub = ds.sel(lat=slice(45.5, 46.0), lon=slice(3.0, 3.5))
 You can also use helper functions from the `core` package for geographic subsetting:
 
 ```python
-from core.tools import sub_rect, sub_pt
+from hygeos_core.tools import sub_rect, sub_pt
 
 # Subset by bounding box (lat/lon in degrees)
 sub = sub_rect(ds, lat_min=45.0, lon_min=3.0, lat_max=46.0, lon_max=4.0)
@@ -191,7 +191,7 @@ ltoa_values = ds.Ltoa.compute()
 ds.to_netcdf("output.nc")
 ```
 
-The `core.files.to_netcdf` helper adds automatic file naming, temporary files
+The `hygeos_core.files.to_netcdf` helper adds automatic file naming, temporary files
 and compression.
 
 ## Sample Products

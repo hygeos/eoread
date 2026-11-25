@@ -47,7 +47,7 @@ def _import_nasa_anc():
 
 
 def test_resource_gmao_fp():
-    from core.dates import round_date
+    from hygeos_core.dates import round_date
     anc = _import_nasa_anc()
 
     dt = datetime(2020, 1, 2, 15, 37, 22)
@@ -66,7 +66,7 @@ def test_resource_gmao_fp():
 
 
 def test_resource_gmao_merra2():
-    from core.dates import round_date
+    from hygeos_core.dates import round_date
     anc = _import_nasa_anc()
 
     dt = datetime(2020, 1, 2, 15, 37, 22)

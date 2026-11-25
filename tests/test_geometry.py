@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from pyproj import Proj
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 from eoread.transforms.geometry import latlon_utm
 
 CRS = 'EPSG:32631'

@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.import_utils import import_module
+from hygeos_core.import_utils import import_module
 
 
 #: Shared sample archive (developer machines).

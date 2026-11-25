@@ -24,8 +24,8 @@ import numpy as np
 import pytest
 from xarray import open_dataarray
 
-from core.geo.naming import names
-from core.table import read_xml
+from hygeos_core.geo.naming import names
+from hygeos_core.table import read_xml
 
 from . import generic
 from .conftest import get_sample

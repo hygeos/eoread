@@ -20,13 +20,13 @@ from datetime import datetime
 from pathlib import Path
 import xarray as xr
 import numpy as np
-from core.dates import round_date
-from core.files.uncompress import uncompress_decorator
-from core.geo.naming import names
-from core.network.download import download_url
+from hygeos_core.dates import round_date
+from hygeos_core.files.uncompress import uncompress_decorator
+from hygeos_core.geo.naming import names
+from hygeos_core.network.download import download_url
 from dateutil.parser import parse
 
-from core import env
+from hygeos_core import env
 warnings.warn("This module will be deprecated. Please use SAND instead.")
 
 

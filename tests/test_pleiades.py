@@ -23,8 +23,8 @@ import numpy as np
 import pytest
 import rioxarray
 import xarray as xr
-from core.geo.naming import names
-from core.table import read_xml
+from hygeos_core.geo.naming import names
+from hygeos_core.table import read_xml
 
 from . import generic
 from .conftest import get_sample

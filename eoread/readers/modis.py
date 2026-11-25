@@ -40,8 +40,8 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from core import log
-from core.geo.naming import names
+from hygeos_core import log
+from hygeos_core.geo.naming import names
 
 from eoread.flags import GenericFlags
 from eoread.hdf4 import load_hdf4

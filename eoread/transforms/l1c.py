@@ -18,8 +18,8 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 from typing import Literal
-from core.files.fileutils import filegen
-from core.env import getdir
+from hygeos_core.files.fileutils import filegen
+from hygeos_core.env import getdir
 
 
 def makeL1C(

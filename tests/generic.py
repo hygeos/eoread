@@ -10,23 +10,23 @@ from tempfile import TemporaryDirectory
 
 from .conftest import savefig
 from matplotlib import pyplot as plt
-from core.tests.graphics import xrimshow, downsample
+from hygeos_core.tests.graphics import xrimshow, downsample
 from eoread.flags import FlagsInit, GenericFlags
 from eoread.schema import validate
 from datetime import datetime
 from pathlib import Path
 from dask import config
-from core.interpolate import align_lists
+from hygeos_core.interpolate import align_lists
 
 import pytest
 import numpy as np
 import xarray as xr
 
-from core import log
-from core.tools import drop_unused_dims
-from core.files import to_netcdf
-from core.monitor import Chrono
-from core.geo.naming import names
+from hygeos_core import log
+from hygeos_core.tools import drop_unused_dims
+from hygeos_core.files import to_netcdf
+from hygeos_core.monitor import Chrono
+from hygeos_core.geo.naming import names
 
 
 @pytest.fixture(params=[

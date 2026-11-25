@@ -160,7 +160,7 @@ Per-sensor status (Phase-6 final pass; rationale in REFACTORING.md §9/§10):
   coordinates).
 """
 
-from core.geo.naming import names
+from hygeos_core.geo.naming import names
 
 
 #: Per-sensor v2→v1 renames, applied when ds.attrs['sensor'] matches.
