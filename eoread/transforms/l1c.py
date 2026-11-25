@@ -40,7 +40,8 @@ def makeL1C(
     
     Supported sensors:
     - MODIS (Aqua/Terra): Files starting with 'A'
-    - VIIRS (SNPP/JPSS-1): Files starting with 'V' or 'JPSS1_VIIRS'
+    - VIIRS (SNPP/JPSS-1/JPSS-2): Files starting with 'V', 'SNPP_VIIRS',
+      'JPSS1_VIIRS' or 'JPSS2_VIIRS'
     - HAWKEYE (SeaHawk-1): Files starting with 'SEAHAWK1_HAWKEYE'
     - SeaWiFS: Files starting with 'S'
 
@@ -83,7 +84,8 @@ def makeL1C(
         return makeL1C_MODIS(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
     elif (l1a.name.startswith("V")
           or l1a.name.startswith("SNPP_VIIRS")
-          or l1a.name.startswith("JPSS1_VIIRS")):
+          or l1a.name.startswith("JPSS1_VIIRS")
+          or l1a.name.startswith("JPSS2_VIIRS")):
         # NB: must be checked before the generic "S" prefix below, since
         # SNPP files are named "SNPP_VIIRS....L1A.nc" (SeaWiFS branch).
         return makeL1C_VIIRS(l1a=l1a, dirname=dirname, method=method, **ocssw_kwargs, **kwargs)
@@ -329,17 +331,17 @@ def makeL1C_VIIRS(
     **kwargs
 ) -> Path:
     """
-    Generate Level-1C product from VIIRS (SNPP or JPSS-1) L1A data.
+    Generate Level-1C product from VIIRS (SNPP, JPSS-1 or JPSS-2) L1A data.
     
     Creates a geolocation file (GEO-M) and runs l2gen to produce polarization-
     corrected reflectances. Handles multiple VIIRS filename conventions for
-    both SNPP and JPSS-1 platforms. The GEO file is created in a temporary
+    the SNPP, JPSS-1 and JPSS-2 platforms. The GEO file is created in a temporary
     directory and automatically cleaned up.
 
     Parameters
     ----------
     l1a : Path
-        Path to VIIRS Level-1A input file (SNPP or JPSS-1).
+        Path to VIIRS Level-1A input file (SNPP, JPSS-1 or JPSS-2).
     dirname : Path, optional
         Output directory for L1C file, or None to use input directory.
     method : str

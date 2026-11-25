@@ -44,6 +44,7 @@ def dispatch(monkeypatch):
     # starts with 'S' but must dispatch to VIIRS, not SeaWiFS
     ('SNPP_VIIRS_A2000041.L1A_LAC', 'makeL1C_VIIRS'),
     ('JPSS1_VIIRS_A2024010.L1A_LAC', 'makeL1C_VIIRS'),
+    ('JPSS2_VIIRS.20240724T124200.L1A.nc', 'makeL1C_VIIRS'),
     # starts with 'S' but must dispatch to HAWKEYE, not SeaWiFS
     ('SEAHAWK1_HAWKEYE_A2000041.L1A_GAC', 'makeL1C_HAWKEYE'),
     ('S20000417053000.L1A_GAC.bz2', 'makeL1C_SeaWIFS'),
