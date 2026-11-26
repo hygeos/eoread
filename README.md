@@ -13,8 +13,31 @@ Target features:
 
 ## Installation
 
+eoread is available on [PyPI](https://pypi.org/project/eoread/) and
+[conda-forge](https://anaconda.org/conda-forge/eoread).
+
+With [pixi](https://pixi.sh):
+
 ```bash
-hyp add --hygeos eoread
+pixi add eoread
+```
+
+With conda/mamba:
+
+```bash
+conda install -c conda-forge eoread
+```
+
+With pip:
+
+```bash
+pip install eoread
+```
+
+To install the development version from GitHub:
+
+```bash
+pip install git+https://github.com/hygeos/eoread.git
 ```
 
 ## Open a product
