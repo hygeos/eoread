@@ -6,11 +6,9 @@ from dask.highlevelgraph import HighLevelGraph
 import numpy as np
 
 from hygeos_core.interpolate import Linear, Nearest
-from hygeos_core.import_utils import import_module
 from hygeos_core.files.uncompress import uncompress
 from hygeos_core.geo.naming import names
 from hygeos_core.tools import only
-from hygeos_core import env
 
 from typing import Union, Literal
 from xarray import DataArray, Dataset, open_dataarray
@@ -482,54 +480,6 @@ def open_raster(
     
     return open_dataarray(path, engine=engine).squeeze()
 
-
-def collect_sample(
-        variable: str,
-        provider: Literal[None, 'cnes'],
-        sand_collection: str|None = None,
-        level: int|None = None
-    ) -> Path:
-    
-    # Check if user has provided a path
-    variable = env.getvar(variable, default='')  
-    
-    # If not provided, try to download a sample with SAND
-    if variable == '':
-        
-        if provider is not None:
-            assert sand_collection and level, 'Provide kwargs for SAND downloader'
-        else: 
-            raise ValueError('')
-        
-        # Check SAND importation
-        try: 
-            from sand.sample_product import products
-        except ImportError:
-            raise ImportError('To use get_sample function, you need to install SAND module')
-        
-        # Collect appropriated provider
-        downloader = {
-            'cdse': 'sand.copernicus_dataspace.DownloadCDSE',
-            'cnes': 'sand.cnes.DownloadCNES',
-            'eumdac': 'sand.eumdac.DownloadEumDAC',
-            'nasa': 'sand.nasa.DownloadNASA',
-            'usgs': 'sand.usgs.DownloadUSGS',
-        }[provider]
-        
-        # Retrieve name of example product
-        prod_id = products[sand_collection][f'l{level}_product']
-        
-        # Download product with SAND
-        dl = import_module(downloader)()
-        directory = env.getdir('DIR_SAMPLES')/sand_collection
-        target = dl.download_file(prod_id, directory)
-        
-        assert target.exists()
-        return target
-        
-    else:
-        return Path(variable)
-    
 
 def crop(
         ds: Dataset, 

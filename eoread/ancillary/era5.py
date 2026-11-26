@@ -83,13 +83,13 @@ class ERA5:
                  pattern='%Y/%m/%d/era5_%Y%m%d_%H%M%S.nc',
                  time_resolution=timedelta(hours=1),
                  offline=False,
-                 variables=[
+                 variables=(
                      '10m_u_component_of_wind',
                      '10m_v_component_of_wind',
                      'surface_pressure',
                      'total_column_ozone',
                      'total_column_water_vapour',
-                 ],
+                 ),
                  verbose=False,
                  ):
         if directory is None:

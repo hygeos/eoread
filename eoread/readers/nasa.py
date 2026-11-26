@@ -272,8 +272,8 @@ class Level1_NASA(Reader):
         geolocation grid (consecutive valid pixels only); a small candidate
         loop around the grid center guards against a fully invalid row.
         """
-        rows, cols = str(names.rows), str(names.columns)
-        ny, nx = ds.sizes[rows], ds.sizes[cols]
+        rows = str(names.rows)
+        ny = ds.sizes[rows]
         lat = ds[str(names.lat)]
         lon = ds[str(names.lon)]
         for i in (ny // 2, ny // 2 - 1, ny // 2 + 1, ny // 2 - 2, ny // 2 + 2):

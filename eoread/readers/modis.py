@@ -45,7 +45,7 @@ from hygeos_core.geo.naming import names
 
 from eoread.flags import GenericFlags
 from eoread.hdf4 import load_hdf4
-from eoread.reader import ProductError, Reader, UnsupportedProductType
+from eoread.reader import ProductError, Reader
 from eoread.tools import filter_metadata, parse_hdf4_metadata
 
 
