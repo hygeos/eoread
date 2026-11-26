@@ -2,7 +2,7 @@
 name = "eoread"
 authors = [{name = "HYGEOS team"}]
 description = "Modular implementation of satellite data input/output relying on xarray."
-license = "Apache 2.0"
+license = "Apache-2.0"
 version = "2.0.0"
 requires-python = ">= 3.10, < 3.14"
 readme = "README.md"
@@ -23,17 +23,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-samples = [
-    # optional: enables Reader.get_sample() downloads (lazy import in samples.py)
-    "sand @ git+https://github.com/hygeos/SAND.git",
-]
 era5 = [
     # optional: ERA5 provider client (lazy import in ancillary/era5.py)
     "cdsapi",
 ]
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pixi.workspace]

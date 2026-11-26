@@ -214,7 +214,7 @@ is not available.
 Some samples are also registered as downloadable from their provider: when the
 local path is missing, `get_sample` fetches the product through SAND into the
 local cache (`~/.cache/eoread/samples`) and resolves it from there — install
-the `samples` extra to enable this. A failed download degrades to the same loud
+SAND (`pip install git+https://github.com/hygeos/SAND.git`) to enable this. A failed download degrades to the same loud
 error as a missing sample.
 
 ## Migrating from v1

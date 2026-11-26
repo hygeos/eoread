@@ -11,7 +11,7 @@ bundled products, absolute for the shared Ceph archive).  A missing local
 path raises a loud, actionable error — except when the sample carries a
 :class:`Download` spec: it is then fetched on demand through SAND into the
 local cache (``~/.cache/eoread/samples``, override with ``EOREAD_SAMPLES_DIR``)
-and resolved from there.  The ``sand`` package (``samples`` extra) is
+and resolved from there.  The ``sand`` package (install it from GitHub) is
 imported lazily, only when a download is actually attempted, so this module
 stays importable without it.
 
@@ -124,7 +124,7 @@ def _make_downloader(provider: str):
     """Instantiate the SAND downloader for `provider`.
 
     Raises ``FileNotFoundError`` (never ``ImportError``) when the provider is
-    unknown or the ``sand`` package (``samples`` extra) is not installed.
+    unknown or the ``sand`` package is not installed.
     """
     module_path = _PROVIDERS.get(provider)
     if module_path is None:
@@ -135,8 +135,9 @@ def _make_downloader(provider: str):
         return import_module(module_path)(verbose=False)
     except ImportError as exc:
         raise FileNotFoundError(
-            f'the "sand" package is not available ({exc}); install the '
-            f'"samples" extra to enable sample downloads') from None
+            f'the "sand" package is not available ({exc}); install it '
+            f'(pip install git+https://github.com/hygeos/SAND.git) '
+            f'to enable sample downloads') from None
 
 
 def _download_sample(sample: Sample) -> Path:

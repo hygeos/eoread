@@ -4698,7 +4698,6 @@ packages:
   - python-dateutil
   - pysolar
   - pyepr
-  - sand @ git+https://github.com/hygeos/SAND.git ; extra == 'samples'
   - cdsapi ; extra == 'era5'
   requires_python: '>=3.10,<3.14'
 - pypi: git+https://github.com/hygeos/SAND.git#561d33565019942ef6ae89afe3e5af92a1ef01e9
