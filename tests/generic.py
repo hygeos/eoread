@@ -24,7 +24,7 @@ import xarray as xr
 
 from hygeos_core import log
 from hygeos_core.tools import drop_unused_dims
-from hygeos_core.files import to_netcdf
+from hygeos_core.files.save import to_netcdf
 from hygeos_core.monitor import Chrono
 from hygeos_core.geo.naming import names
 

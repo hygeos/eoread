@@ -64,7 +64,7 @@ def read_srf_pleiades(
     # network stack (the smoke gate imports every reader module).
     import pandas as pd
     from hygeos_core import env
-    from hygeos_core.files import mdir
+    from hygeos_core.files.fileutils import mdir
     from hygeos_core.network.download import download_url
 
     if srf_file is None:

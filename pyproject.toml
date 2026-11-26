@@ -7,6 +7,7 @@ version = "2.0.0"
 requires-python = ">= 3.10, < 3.14"
 readme = "README.md"
 dependencies = [
+    "hygeos-core >=2.0.2,<3.0",
     # v2 runtime (eoread/readers + eoread/transforms):
     "xarray", "dask", "numpy",
     "rioxarray", "rasterio",        # MSI / OLI raster inputs
@@ -22,9 +23,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-git = [
-    "hygeos-core @ git+https://github.com/hygeos/hygeos-core.git",
-]
 samples = [
     # optional: enables Reader.get_sample() downloads (lazy import in samples.py)
     "sand @ git+https://github.com/hygeos/SAND.git",
@@ -43,7 +41,7 @@ channels = ["conda-forge"]
 platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
-eoread = { path = ".", editable = true, extras = ["git"]}
+eoread = { path = ".", editable = true }
 sand = { git = "git+https://github.com/hygeos/SAND.git" }
 
 [tool.pixi.tasks]
@@ -67,6 +65,11 @@ matplotlib-base = "*"
 ipykernel = "*"
 libgdal-jp2openjpeg = "*"  # Required to read compress jp2 file in MSI reader
 pyhdf = "*"
+# HDF5 stack from conda-forge, so h5py and netCDF4 share a single libhdf5
+# (PyPI wheels each bundle their own copy, which clash in-process).
+h5py = "*"
+netcdf4 = "*"
+h5netcdf = "*"
 numba = "*"
 quartodoc = "*"
 nbformat = "*"

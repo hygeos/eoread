@@ -86,7 +86,7 @@ def get_SRF(
     # Local imports keep this module importable in environments without the
     # static-data/network stack (the smoke gate imports every reader module).
     from hygeos_core import env
-    from hygeos_core.files import mdir
+    from hygeos_core.files.fileutils import mdir
     from hygeos_core.network.download import download_url
     from hygeos_core.table import read_csv
 
