@@ -1,8 +1,10 @@
 """
-Ancillary data providers (deprecated).
+Ancillary data providers.
 
-Deprecated providers for atmospheric/meteorological ancillary data. New work
-should use the dedicated packages (SAND, HARP) instead; these modules are kept
-for the legacy processing chains that still consume them and emit a
-deprecation warning at import time.
+Providers for atmospheric/meteorological ancillary data:
+- `eoread.ancillary.nasa`: NASA OBPG ancillary files (GMAO, NCEP, ozone)
+- `eoread.ancillary.era5`: ECMWF ERA5 reanalysis
+
+For a broader set of meteorological datasets, see HARP
+(https://github.com/hygeos/HARP).
 """

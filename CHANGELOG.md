@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `eoread.ancillary.nasa` and `eoread.ancillary.era5` no longer emit a
+  deprecation warning at import: these providers remain supported. (The NASA
+  module wrongly pointed to SAND, which provides no ancillary data.)
+
 ## v2.0.0 (2026-11-26)
 
 Complete rewrite of the readers around a common contract. **Breaking release.**

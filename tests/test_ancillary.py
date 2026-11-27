@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Tests for the (deprecated) ancillary data providers.
+Tests for the ancillary data providers.
 
 Covers the shared date helpers (`common.floor_dt`/`ceil_dt`), the NASA GMAO
 resource functions, `wrap_lon`, and that the ERA5 provider imports without
 the optional `cdsapi` dependency (it must stay lazy). No network access.
 """
 
-import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -40,9 +39,7 @@ def test_floor_ceil_dt():
 # ------------------------------------------------------------------- NASA GMAO
 
 def _import_nasa_anc():
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        from eoread.ancillary import nasa
+    from eoread.ancillary import nasa
     return nasa
 
 
@@ -101,9 +98,7 @@ def test_wrap_lon():
 def test_era5_imports_without_cdsapi():
     # cdsapi is an optional dependency (pyproject `era5` extra): importing the
     # provider must not require it; only download_file needs a client.
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        from eoread.ancillary import era5
+    from eoread.ancillary import era5
 
     try:
         import cdsapi  # noqa: F401

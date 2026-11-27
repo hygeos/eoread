@@ -14,7 +14,6 @@ remaining consumer in v2 (the v1 reader module has moved to
 """
 
 import subprocess
-import warnings
 
 from datetime import datetime
 from pathlib import Path
@@ -27,7 +26,6 @@ from hygeos_core.network.download import download_url
 from dateutil.parser import parse
 
 from hygeos_core import env
-warnings.warn("This module will be deprecated. Please use SAND instead.")
 
 
 def check_nasa_download(filename):

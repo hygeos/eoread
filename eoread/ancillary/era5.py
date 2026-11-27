@@ -5,7 +5,6 @@
 """ERA5 Ancillary data provider"""
 
 import argparse
-import warnings
 
 from hygeos_core import env
 from hygeos_core.tools import wrap
@@ -16,8 +15,6 @@ from datetime import datetime, timedelta
 import xarray as xr
 import numpy as np
 
-
-warnings.warn("This module will be deprecated. Please use HARP instead.")
 
 def floor_dt(dt, delta):
     """
